@@ -1,0 +1,46 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: officehub-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: officehub
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-officehub}
+      POSTGRES_DB: officehub
+    volumes:
+      - officehub_db_data:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U officehub -d officehub"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: officehub-app
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://officehub:${POSTGRES_PASSWORD:-officehub}@db:5432/officehub?schema=public
+      AUTH_SECRET: ${AUTH_SECRET}
+      NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
+      SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL:-admin@office.local}
+      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-ChangeMe!Now1234}
+      SEED_ADMIN_NAME: ${SEED_ADMIN_NAME:-Office Admin}
+      SIGNUP_POLICY: ${SIGNUP_POLICY:-closed}
+      UPLOAD_DIR: /app/uploads
+      NODE_ENV: production
+    volumes:
+      - officehub_uploads:/app/uploads
+    ports:
+      - "3000:3000"
+
+volumes:
+  officehub_db_data:
+  officehub_uploads:

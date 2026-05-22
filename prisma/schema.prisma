@@ -1,0 +1,210 @@
+// OfficeHub — Prisma schema
+// Postgres in production, drop-in swap to SQLite supported (see DEPLOY.md).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============ ENUMS ============
+
+enum Role {
+  ADMIN
+  MANAGER
+  MEMBER
+}
+
+enum ProjectStatus {
+  PLANNING
+  IN_PROGRESS
+  BLOCKED
+  ON_HOLD
+  COMPLETED
+  ARCHIVED
+}
+
+enum EnhancementStatus {
+  PROPOSED
+  APPROVED
+  IN_PROGRESS
+  DONE
+  REJECTED
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+// ============ AUTH (Auth.js v5 adapter shape) ============
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  emailVerified DateTime?
+  name          String
+  image         String?
+  passwordHash  String
+  role          Role      @default(MEMBER)
+  active        Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  accounts      Account[]
+  sessions      Session[]
+
+  ownedProjects   Project[]       @relation("ProjectOwner")
+  authoredUpdates ProjectUpdate[] @relation("UpdateAuthor")
+  authoredComments Comment[]      @relation("CommentAuthor")
+  authoredEnhancements Enhancement[] @relation("EnhancementAuthor")
+
+  @@index([email])
+  @@index([role])
+}
+
+model Account {
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([provider, providerAccountId])
+}
+
+model Session {
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String
+  expires    DateTime
+
+  @@id([identifier, token])
+}
+
+// ============ DOMAIN ============
+
+model Project {
+  id          String        @id @default(cuid())
+  title       String
+  summary     String?       // one-line elevator
+  description Json?         // BlockNote JSON document
+  status      ProjectStatus @default(PLANNING)
+  priority    Priority      @default(MEDIUM)
+  startDate   DateTime?
+  targetDate  DateTime?
+  actualEndDate DateTime?
+  ownerId     String
+  owner       User          @relation("ProjectOwner", fields: [ownerId], references: [id])
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  updates      ProjectUpdate[]
+  enhancements Enhancement[]
+  milestones   Milestone[]
+  comments     Comment[]
+  tags         Tag[]         @relation("ProjectTags")
+
+  @@index([ownerId])
+  @@index([status])
+  @@index([targetDate])
+}
+
+model ProjectUpdate {
+  id        String   @id @default(cuid())
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  authorId  String
+  author    User     @relation("UpdateAuthor", fields: [authorId], references: [id])
+  content   Json     // BlockNote JSON
+  createdAt DateTime @default(now())
+
+  @@index([projectId])
+  @@index([createdAt])
+}
+
+model Enhancement {
+  id          String            @id @default(cuid())
+  projectId   String
+  project     Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  authorId    String
+  author      User              @relation("EnhancementAuthor", fields: [authorId], references: [id])
+  title       String
+  description String?
+  status      EnhancementStatus @default(PROPOSED)
+  priority    Priority          @default(MEDIUM)
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  @@index([projectId])
+  @@index([status])
+}
+
+model Milestone {
+  id          String    @id @default(cuid())
+  projectId   String
+  project     Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  title       String
+  dueDate     DateTime?
+  completed   Boolean   @default(false)
+  completedAt DateTime?
+  orderIndex  Int       @default(0)
+  createdAt   DateTime  @default(now())
+
+  @@index([projectId])
+  @@index([dueDate])
+}
+
+model Comment {
+  id        String   @id @default(cuid())
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  authorId  String
+  author    User     @relation("CommentAuthor", fields: [authorId], references: [id])
+  content   String
+  createdAt DateTime @default(now())
+
+  @@index([projectId])
+}
+
+model Tag {
+  id       String    @id @default(cuid())
+  name     String    @unique
+  color    String    @default("#94a3b8")
+  projects Project[] @relation("ProjectTags")
+}
+
+// ============ AUDIT ============
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  action    String
+  entity    String
+  entityId  String?
+  meta      Json?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([entity, entityId])
+  @@index([createdAt])
+}
