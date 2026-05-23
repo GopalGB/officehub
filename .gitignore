@@ -63,3 +63,4 @@ prisma/dev.db-journal
 # MAX HQ agent infrastructure (not part of the app)
 .claude/
 .max/
+.gstack/

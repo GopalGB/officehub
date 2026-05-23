@@ -97,3 +97,27 @@ export const userUpdateSchema = z.object({
   active: z.boolean().optional(),
   password: z.string().min(8).max(128).optional(),
 });
+
+export const inviteCreateSchema = z.object({
+  email: z.string().email("Enter a valid email"),
+  role: RoleEnum.default("MEMBER"),
+});
+export type InviteCreateInput = z.infer<typeof inviteCreateSchema>;
+
+export const inviteAcceptSchema = z.object({
+  name: z.string().min(2, "Name is too short").max(80),
+  password: z
+    .string()
+    .min(8, "Use at least 8 characters")
+    .regex(/[A-Z]/, "Add an uppercase letter")
+    .regex(/[a-z]/, "Add a lowercase letter")
+    .regex(/[0-9]/, "Add a number"),
+});
+
+export const tagCreateSchema = z.object({
+  name: z.string().min(1).max(40),
+  color: z
+    .string()
+    .regex(/^#[0-9a-fA-F]{6}$/, "Use a hex color like #94a3b8")
+    .optional(),
+});

@@ -3,21 +3,26 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import bcrypt from "bcryptjs";
-import { auth } from "../../../auth";
+import { auth, signIn } from "../../../auth";
 import { db } from "@/lib/db";
 import {
   commentCreateSchema,
   enhancementCreateSchema,
   enhancementUpdateSchema,
+  inviteAcceptSchema,
+  inviteCreateSchema,
   milestoneCreateSchema,
   milestoneUpdateSchema,
   projectCreateSchema,
   projectStatusUpdateSchema,
   projectUpdateSchema,
+  tagCreateSchema,
   userCreateSchema,
   userUpdateSchema,
 } from "@/lib/validation";
+import { generateInviteToken, inviteExpiry, inviteUrl } from "@/lib/invitations";
 import { canDeleteProject, canEditProject, isAdmin, isManagerOrAbove } from "@/lib/rbac";
+import type { ProjectStatus } from "@prisma/client";
 
 async function requireSession() {
   const session = await auth();
@@ -287,6 +292,144 @@ export async function updateUser(userId: string, formData: FormData) {
   if (parsed.data.password) data.passwordHash = await bcrypt.hash(parsed.data.password, 12);
   await db.user.update({ where: { id: userId }, data });
   revalidatePath("/dashboard/team");
+}
+
+// ---------------- Invitations ----------------
+
+export async function createInvitation(formData: FormData): Promise<{ url: string; email: string } | { error: string }> {
+  const me = await requireSession();
+  if (!isAdmin(me.role)) return { error: "Admin only" };
+  const parsed = inviteCreateSchema.safeParse({
+    email: formData.get("email"),
+    role: formData.get("role") || "MEMBER",
+  });
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+
+  const email = parsed.data.email.toLowerCase();
+  const existingUser = await db.user.findUnique({ where: { email } });
+  if (existingUser) return { error: "A user with this email already exists" };
+
+  const pending = await db.invitation.findFirst({
+    where: { email, acceptedAt: null, expiresAt: { gt: new Date() } },
+  });
+  if (pending) {
+    return { url: inviteUrl(pending.token), email };
+  }
+
+  const token = generateInviteToken();
+  await db.invitation.create({
+    data: {
+      email,
+      role: parsed.data.role,
+      token,
+      invitedById: me.id,
+      expiresAt: inviteExpiry(),
+    },
+  });
+  revalidatePath("/dashboard/team");
+  return { url: inviteUrl(token), email };
+}
+
+export async function revokeInvitation(id: string) {
+  const me = await requireSession();
+  if (!isAdmin(me.role)) throw new Error("Forbidden");
+  await db.invitation.delete({ where: { id } });
+  revalidatePath("/dashboard/team");
+}
+
+export async function acceptInvitation(token: string, formData: FormData) {
+  const parsed = inviteAcceptSchema.safeParse({
+    name: formData.get("name"),
+    password: formData.get("password"),
+  });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  }
+  const invite = await db.invitation.findUnique({ where: { token } });
+  if (!invite) return { error: "Invitation not found" };
+  if (invite.acceptedAt) return { error: "This invitation has already been used" };
+  if (invite.expiresAt < new Date()) return { error: "This invitation has expired" };
+
+  const existing = await db.user.findUnique({ where: { email: invite.email } });
+  if (existing) return { error: "An account with this email already exists. Sign in instead." };
+
+  const passwordHash = await bcrypt.hash(parsed.data.password, 12);
+  const user = await db.user.create({
+    data: {
+      email: invite.email,
+      name: parsed.data.name,
+      passwordHash,
+      role: invite.role,
+    },
+  });
+
+  await db.invitation.update({
+    where: { id: invite.id },
+    data: { acceptedAt: new Date(), acceptedUserId: user.id },
+  });
+
+  await signIn("credentials", {
+    email: invite.email,
+    password: parsed.data.password,
+    redirectTo: "/dashboard",
+  });
+  return { ok: true };
+}
+
+// ---------------- Tags ----------------
+
+export async function createTag(formData: FormData) {
+  const me = await requireSession();
+  if (!isManagerOrAbove(me.role)) throw new Error("Forbidden");
+  const parsed = tagCreateSchema.safeParse({
+    name: formData.get("name"),
+    color: formData.get("color") || undefined,
+  });
+  if (!parsed.success) throw new Error(parsed.error.issues[0]?.message ?? "Invalid input");
+  await db.tag.upsert({
+    where: { name: parsed.data.name },
+    update: { color: parsed.data.color ?? undefined },
+    create: { name: parsed.data.name, color: parsed.data.color ?? "#94a3b8" },
+  });
+  revalidatePath("/dashboard/projects");
+}
+
+export async function setProjectTags(projectId: string, tagIds: string[]) {
+  const user = await requireSession();
+  const project = await db.project.findUnique({ where: { id: projectId } });
+  if (!project) throw new Error("Project not found");
+  if (!canEditProject({ viewerRole: user.role, viewerId: user.id, ownerId: project.ownerId })) {
+    throw new Error("Forbidden");
+  }
+  await db.project.update({
+    where: { id: projectId },
+    data: { tags: { set: tagIds.map((id) => ({ id })) } },
+  });
+  revalidatePath(`/dashboard/projects/${projectId}`);
+  revalidatePath("/dashboard/board");
+  revalidatePath("/dashboard/manager");
+}
+
+// ---------------- Inline quick edits ----------------
+
+export async function quickUpdateProjectStatus(projectId: string, status: ProjectStatus) {
+  const user = await requireSession();
+  const project = await db.project.findUnique({ where: { id: projectId } });
+  if (!project) throw new Error("Project not found");
+  if (!canEditProject({ viewerRole: user.role, viewerId: user.id, ownerId: project.ownerId })) {
+    throw new Error("Forbidden");
+  }
+  await db.project.update({
+    where: { id: projectId },
+    data: {
+      status,
+      actualEndDate: status === "COMPLETED" ? new Date() : null,
+    },
+  });
+  revalidatePath("/dashboard");
+  revalidatePath("/dashboard/manager");
+  revalidatePath("/dashboard/board");
+  revalidatePath(`/dashboard/projects/${projectId}`);
 }
 
 export async function changeOwnPassword(formData: FormData) {

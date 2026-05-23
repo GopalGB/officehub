@@ -29,8 +29,10 @@ export const authConfig = {
       const isLoggedIn = !!auth?.user;
       const path = request.nextUrl.pathname;
       const isAuthRoute = path.startsWith("/login") || path.startsWith("/signup");
+      const isInviteRoute = path.startsWith("/invite/");
       const isProtected =
         path.startsWith("/dashboard") || path.startsWith("/api/projects") || path.startsWith("/api/users");
+      if (isInviteRoute) return true;
       if (isProtected) return isLoggedIn;
       if (isAuthRoute && isLoggedIn) {
         return Response.redirect(new URL("/dashboard", request.nextUrl));

@@ -5,22 +5,65 @@ import { Button } from "@/components/ui/button";
 import { ProjectCard } from "@/components/project/ProjectCard";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ActivityFeed } from "@/components/dashboard/ActivityFeed";
+import { DueSoonWidget } from "@/components/dashboard/DueSoonWidget";
 
-export default async function DashboardPage() {
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string }>;
+}) {
   const session = await auth();
   if (!session?.user) return null;
+  const { q } = await searchParams;
 
-  const [mine, assignedRecent, counts] = await Promise.all([
+  const where: Record<string, unknown> = {
+    ownerId: session.user.id,
+    status: { not: "ARCHIVED" },
+  };
+  if (q) {
+    where.OR = [
+      { title: { contains: q, mode: "insensitive" } },
+      { summary: { contains: q, mode: "insensitive" } },
+    ];
+  }
+
+  const fourteenDays = new Date();
+  fourteenDays.setDate(fourteenDays.getDate() + 14);
+
+  const [mine, recentUpdates, recentComments, recentEnhancements, dueSoon, counts] = await Promise.all([
     db.project.findMany({
-      where: { ownerId: session.user.id, status: { not: "ARCHIVED" } },
+      where,
       include: { owner: { select: { id: true, name: true } } },
       orderBy: { updatedAt: "desc" },
       take: 24,
     }),
     db.projectUpdate.findMany({
-      where: { authorId: session.user.id },
+      where: { project: { ownerId: session.user.id } },
       orderBy: { createdAt: "desc" },
       take: 5,
+      include: { author: { select: { name: true } }, project: { select: { id: true, title: true } } },
+    }),
+    db.comment.findMany({
+      where: { project: { ownerId: session.user.id } },
+      orderBy: { createdAt: "desc" },
+      take: 5,
+      include: { author: { select: { name: true } }, project: { select: { id: true, title: true } } },
+    }),
+    db.enhancement.findMany({
+      where: { project: { ownerId: session.user.id } },
+      orderBy: { createdAt: "desc" },
+      take: 5,
+      include: { author: { select: { name: true } }, project: { select: { id: true, title: true } } },
+    }),
+    db.milestone.findMany({
+      where: {
+        project: { ownerId: session.user.id },
+        completed: false,
+        dueDate: { lte: fourteenDays },
+      },
+      orderBy: { dueDate: "asc" },
+      take: 10,
       include: { project: { select: { id: true, title: true } } },
     }),
     db.project.groupBy({
@@ -31,13 +74,48 @@ export default async function DashboardPage() {
   ]);
 
   const byStatus = Object.fromEntries(counts.map((c) => [c.status, c._count.status]));
+  const activity = [
+    ...recentUpdates.map((u) => ({
+      id: u.id,
+      kind: "update" as const,
+      projectId: u.project.id,
+      projectTitle: u.project.title,
+      authorName: u.author.name,
+      summary: extractFirstLine(u.content),
+      createdAt: u.createdAt,
+    })),
+    ...recentComments.map((c) => ({
+      id: c.id,
+      kind: "comment" as const,
+      projectId: c.project.id,
+      projectTitle: c.project.title,
+      authorName: c.author.name,
+      summary: c.content.slice(0, 120),
+      createdAt: c.createdAt,
+    })),
+    ...recentEnhancements.map((e) => ({
+      id: e.id,
+      kind: "enhancement" as const,
+      projectId: e.project.id,
+      projectTitle: e.project.title,
+      authorName: e.author.name,
+      summary: e.title,
+      createdAt: e.createdAt,
+    })),
+  ]
+    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+    .slice(0, 8);
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Welcome back, {session.user.name.split(" ")[0]}</h1>
-          <p className="text-sm text-slate-500">Your projects, statuses, and recent activity.</p>
+          <h1 className="text-2xl font-semibold tracking-tight">
+            {q ? `Search: "${q}"` : `Welcome back, ${session.user.name.split(" ")[0]}`}
+          </h1>
+          <p className="text-sm text-slate-500">
+            {q ? `Your projects matching "${q}"` : "Your projects, statuses, and recent activity."}
+          </p>
         </div>
         <Button asChild>
           <Link href="/dashboard/projects/new">New project</Link>
@@ -64,14 +142,22 @@ export default async function DashboardPage() {
       </div>
 
       <section>
-        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">Your projects</h2>
+        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">
+          {q ? "Matches" : "Your projects"}
+        </h2>
         {mine.length === 0 ? (
           <EmptyState
-            title="No projects yet"
-            description="Spin up your first project — set a title, target date, and a quick description."
+            title={q ? `No projects match "${q}"` : "No projects yet"}
+            description={
+              q
+                ? "Try a different keyword, or jump back to the full list."
+                : "Spin up your first project — set a title, target date, a quick description."
+            }
             action={
               <Button asChild>
-                <Link href="/dashboard/projects/new">Create your first project</Link>
+                <Link href={q ? "/dashboard" : "/dashboard/projects/new"}>
+                  {q ? "Back to all projects" : "Create your first project"}
+                </Link>
               </Button>
             }
           />
@@ -84,21 +170,41 @@ export default async function DashboardPage() {
         )}
       </section>
 
-      {assignedRecent.length > 0 && (
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <section>
-          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">Your recent updates</h2>
-          <ul className="divide-y divide-slate-200 rounded-md border border-slate-200 bg-white">
-            {assignedRecent.map((u) => (
-              <li key={u.id} className="flex items-center justify-between px-4 py-3 text-sm">
-                <Link href={`/dashboard/projects/${u.project.id}`} className="font-medium hover:underline">
-                  {u.project.title}
-                </Link>
-                <span className="text-xs text-slate-400">{new Date(u.createdAt).toLocaleString()}</span>
-              </li>
-            ))}
-          </ul>
+          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">
+            Due soon (next 14 days)
+          </h2>
+          <DueSoonWidget
+            items={dueSoon
+              .filter((m) => m.dueDate)
+              .map((m) => ({
+                id: m.id,
+                title: m.title,
+                dueDate: m.dueDate as Date,
+                projectId: m.project.id,
+                projectTitle: m.project.title,
+              }))}
+          />
         </section>
-      )}
+
+        <section>
+          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">
+            Recent activity
+          </h2>
+          <ActivityFeed items={activity} />
+        </section>
+      </div>
     </div>
   );
+}
+
+function extractFirstLine(content: unknown): string {
+  if (!content || typeof content !== "object") return "";
+  const blocks = content as Array<{ type?: string; content?: Array<{ text?: string }> }>;
+  for (const b of blocks) {
+    const text = b.content?.map((c) => c.text ?? "").join("") ?? "";
+    if (text.trim()) return text.slice(0, 140);
+  }
+  return "";
 }

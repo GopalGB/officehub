@@ -6,13 +6,20 @@ Built for a single team on a single Linux server. No SaaS, no per-seat licensing
 
 ## What you get
 
-- **Projects** — title, summary, rich (BlockNote) description, status, priority, start/target dates.
+- **Projects** — title, summary, rich (BlockNote) description, status, priority, start/target dates, tags.
 - **Status updates** — chronological log per project with a Notion-style block editor.
 - **Enhancements** — propose, prioritize, approve, complete, reject. Tracked per project.
 - **Milestones** — checklist with due dates per project.
 - **Comments** — light discussion thread on each project.
-- **Manager view** — single-page roll-up across every project with status / owner / overdue filters.
+- **Tags** — colored, project-spanning labels with built-in starter set (Engineering, Design, Marketing, Ops, Customer, Quick win).
+- **Manager view** — single-page roll-up across every project with status / owner / overdue / keyword filters.
+- **Board view** — drag-free Kanban with inline status changes (click the pill on a card to move it between columns).
+- **Dashboard widgets** — your status tiles + "Due soon" (next 14 days) + recent activity feed across your projects.
+- **Header search** — press `/` to focus, type to search across projects.
 - **Roles** — `ADMIN` / `MANAGER` / `MEMBER`. Members see their own work; managers see everything; admins manage users.
+- **Invitations** — admin creates a one-click invite link (14-day expiry). Invitee picks their own name + password. No password sharing.
+- **Mobile-friendly** — sidebar collapses to a drawer on small screens.
+- **Toast feedback** — every action confirms with a non-blocking toast.
 - **Self-hosted** — Postgres + Next.js, ships as one Docker image with `docker compose up`.
 
 ## Stack
@@ -23,6 +30,23 @@ Built for a single team on a single Linux server. No SaaS, no per-seat licensing
 - BlockNote 0.31 (Notion-like block editor, built on ProseMirror)
 - TailwindCSS + a small shadcn-style component layer
 - Single Dockerfile (standalone Next output) + docker-compose
+
+## How users sign up
+
+There are two flows:
+
+1. **Invitation-first (default, recommended for offices)**
+   - Admin goes to `/dashboard/team` → "Invite teammate" → enter email + role → click **Create invite link**.
+   - Admin copies the generated link and shares it (Slack, email, in person).
+   - Recipient opens the link → fills in name + password → lands signed-in on the dashboard.
+   - Links expire after 14 days. Admin can revoke any pending invite.
+
+2. **Open self-signup (only if you flip the policy)**
+   - Set `SIGNUP_POLICY=open` in `.env` and restart.
+   - Anyone who knows the URL can register from `/signup` as a `MEMBER` (admin can promote later).
+   - Use only for environments behind VPN / IP allowlist.
+
+Admins can also create users directly (with a temp password) via the same Team page if needed — but invitations are the cleaner default.
 
 ## Quick start (local dev)
 

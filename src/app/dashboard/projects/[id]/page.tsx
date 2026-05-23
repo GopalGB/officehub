@@ -11,6 +11,7 @@ import { UpdateList } from "@/components/project/UpdateList";
 import { EnhancementList } from "@/components/project/EnhancementList";
 import { MilestoneList } from "@/components/project/MilestoneList";
 import { CommentThread } from "@/components/project/CommentThread";
+import { TagPicker } from "@/components/project/TagPicker";
 import { BlockReader } from "@/components/editor/BlockReader";
 import {
   addComment,
@@ -36,27 +37,31 @@ export default async function ProjectDetailPage({
   const session = await auth();
   if (!session?.user) return null;
 
-  const project = await db.project.findUnique({
-    where: { id },
-    include: {
-      owner: { select: { id: true, name: true, email: true } },
-      updates: {
-        include: { author: { select: { id: true, name: true } } },
-        orderBy: { createdAt: "desc" },
-        take: 30,
+  const [project, allTags] = await Promise.all([
+    db.project.findUnique({
+      where: { id },
+      include: {
+        owner: { select: { id: true, name: true, email: true } },
+        tags: true,
+        updates: {
+          include: { author: { select: { id: true, name: true } } },
+          orderBy: { createdAt: "desc" },
+          take: 30,
+        },
+        enhancements: {
+          include: { author: { select: { id: true, name: true } } },
+          orderBy: { createdAt: "desc" },
+        },
+        milestones: { orderBy: [{ completed: "asc" }, { dueDate: "asc" }, { orderIndex: "asc" }] },
+        comments: {
+          include: { author: { select: { id: true, name: true } } },
+          orderBy: { createdAt: "desc" },
+          take: 50,
+        },
       },
-      enhancements: {
-        include: { author: { select: { id: true, name: true } } },
-        orderBy: { createdAt: "desc" },
-      },
-      milestones: { orderBy: [{ completed: "asc" }, { dueDate: "asc" }, { orderIndex: "asc" }] },
-      comments: {
-        include: { author: { select: { id: true, name: true } } },
-        orderBy: { createdAt: "desc" },
-        take: 50,
-      },
-    },
-  });
+    }),
+    db.tag.findMany({ orderBy: { name: "asc" } }),
+  ]);
   if (!project) notFound();
 
   const canEdit = canEditProject({
@@ -113,6 +118,20 @@ export default async function ProjectDetailPage({
           <span>Updated {timeAgo(project.updatedAt)}</span>
         </div>
       </header>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Tags</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <TagPicker
+            projectId={project.id}
+            allTags={allTags}
+            selectedIds={project.tags.map((t) => t.id)}
+            canEdit={canEdit}
+          />
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>

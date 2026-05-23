@@ -2,17 +2,31 @@ import { signOut } from "../../../auth";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { SearchBar } from "./SearchBar";
 import type { Role } from "@prisma/client";
 
-export function Header({ name, email, role }: { name: string; email: string; role: Role }) {
+export function Header({
+  name,
+  email,
+  role,
+  mobileNav,
+}: {
+  name: string;
+  email: string;
+  role: Role;
+  mobileNav?: React.ReactNode;
+}) {
   return (
-    <header className="flex h-14 items-center justify-between border-b border-slate-200 bg-white px-6">
-      <div className="flex items-center gap-3">
-        <span className="text-sm font-medium text-slate-700">{name}</span>
-        <Badge variant="muted">{role}</Badge>
+    <header className="flex h-14 items-center gap-3 border-b border-slate-200 bg-white px-4 md:px-6">
+      {mobileNav}
+      <div className="hidden flex-1 md:block">
+        <SearchBar role={role} />
       </div>
-      <div className="flex items-center gap-3">
-        <span className="hidden text-xs text-slate-500 sm:inline">{email}</span>
+      <div className="ml-auto flex items-center gap-3">
+        <Badge variant="muted" className="hidden sm:inline-flex">
+          {role}
+        </Badge>
+        <span className="hidden text-xs text-slate-500 lg:inline">{email}</span>
         <Avatar name={name} />
         <form
           action={async () => {

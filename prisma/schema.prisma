@@ -63,6 +63,7 @@ model User {
   authoredUpdates ProjectUpdate[] @relation("UpdateAuthor")
   authoredComments Comment[]      @relation("CommentAuthor")
   authoredEnhancements Enhancement[] @relation("EnhancementAuthor")
+  invitationsCreated Invitation[] @relation("InvitationsCreated")
 
   @@index([email])
   @@index([role])
@@ -73,12 +74,12 @@ model Account {
   type              String
   provider          String
   providerAccountId String
-  refresh_token     String? @db.Text
-  access_token      String? @db.Text
+  refresh_token     String?
+  access_token      String?
   expires_at        Int?
   token_type        String?
   scope             String?
-  id_token          String? @db.Text
+  id_token          String?
   session_state     String?
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -191,6 +192,25 @@ model Tag {
   name     String    @unique
   color    String    @default("#94a3b8")
   projects Project[] @relation("ProjectTags")
+}
+
+// ============ INVITATIONS ============
+
+model Invitation {
+  id              String    @id @default(cuid())
+  email           String
+  role            Role      @default(MEMBER)
+  token           String    @unique
+  invitedById     String
+  invitedBy       User      @relation("InvitationsCreated", fields: [invitedById], references: [id])
+  expiresAt       DateTime
+  acceptedAt      DateTime?
+  acceptedUserId  String?
+  createdAt       DateTime  @default(now())
+
+  @@index([email])
+  @@index([token])
+  @@index([invitedById])
 }
 
 // ============ AUDIT ============
