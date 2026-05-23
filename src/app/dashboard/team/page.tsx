@@ -7,7 +7,7 @@ import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
-import { InviteForm } from "@/components/team/InviteForm";
+import { AddTeammateTabs } from "@/components/team/AddTeammateTabs";
 import { PendingInvites } from "@/components/team/PendingInvites";
 import { updateUser } from "@/app/dashboard/actions";
 import { inviteUrl } from "@/lib/invitations";
@@ -45,14 +45,15 @@ export default async function TeamPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Invite teammate</CardTitle>
+          <CardTitle>Add teammate</CardTitle>
           <CardDescription>
-            Generates a link valid for 14 days. Share via Slack, email, or in person — no password
-            sharing needed.
+            Two ways. Pick whichever fits the moment — invite link if they&apos;ll set their own
+            password, or set the password yourself if you&apos;re onboarding in person and want
+            them in immediately.
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <InviteForm />
+          <AddTeammateTabs />
         </CardContent>
       </Card>
 

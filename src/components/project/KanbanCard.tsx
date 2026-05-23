@@ -18,7 +18,7 @@ export function KanbanCard({
     !["COMPLETED", "ARCHIVED"].includes(project.status);
 
   return (
-    <div className="group relative rounded-md border border-slate-200 bg-white p-3 shadow-sm transition hover:border-slate-400 hover:shadow-md">
+    <div className="hover-lift group relative rounded-md border border-slate-200 bg-white p-3 shadow-sm hover:border-slate-400 hover:shadow-md">
       <Link href={`/dashboard/projects/${project.id}`} className="block">
         <p className="line-clamp-2 pr-2 text-sm font-semibold text-slate-900">{project.title}</p>
         {project.summary && (

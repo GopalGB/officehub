@@ -14,7 +14,7 @@ export function TaskKanbanCard({
 }) {
   const overdue = task.dueDate && new Date(task.dueDate) < new Date() && task.status !== "DONE";
   return (
-    <div className="rounded-md border border-slate-200 bg-white p-3 shadow-sm transition hover:border-slate-400 hover:shadow-md">
+    <div className="hover-lift rounded-md border border-slate-200 bg-white p-3 shadow-sm hover:border-slate-400 hover:shadow-md">
       <p className="text-sm font-semibold text-slate-900">{task.title}</p>
       {task.project && (
         <Link

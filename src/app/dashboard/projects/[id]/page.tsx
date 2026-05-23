@@ -14,6 +14,7 @@ import { CommentThread } from "@/components/project/CommentThread";
 import { TagPicker } from "@/components/project/TagPicker";
 import { TaskQuickAdd } from "@/components/task/TaskQuickAdd";
 import { TaskTable } from "@/components/task/TaskTable";
+import { ProjectTimeline } from "@/components/project/ProjectTimeline";
 import { BlockReader } from "@/components/editor/BlockReader";
 import {
   addComment,
@@ -153,6 +154,19 @@ export default async function ProjectDetailPage({
         </CardHeader>
         <CardContent>
           <BlockReader content={(project.description as Block[] | null) ?? null} />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Timeline</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ProjectTimeline
+            project={project}
+            milestones={project.milestones}
+            updates={project.updates}
+          />
         </CardContent>
       </Card>
 

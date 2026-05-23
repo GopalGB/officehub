@@ -17,7 +17,7 @@ export function ProjectCard({
     !["COMPLETED", "ARCHIVED"].includes(project.status);
   return (
     <Link href={`/dashboard/projects/${project.id}`} className="block">
-      <Card className="h-full transition hover:border-slate-400 hover:shadow-md">
+      <Card className="hover-lift h-full hover:border-slate-400 hover:shadow-md">
         <CardHeader className="pb-3">
           <div className="flex items-start justify-between gap-2">
             <CardTitle className="text-base">{project.title}</CardTitle>
