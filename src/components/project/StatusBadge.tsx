@@ -66,3 +66,38 @@ export const ENHANCEMENT_STATUS_OPTIONS = Object.entries(ENH_LABEL).map(([value,
   value,
   label,
 }));
+
+import type { TaskStatus } from "@prisma/client";
+
+export const TASK_STATUS_LABEL: Record<TaskStatus, string> = {
+  TODO: "To Do",
+  IN_PROGRESS: "In Progress",
+  IN_REVIEW: "In Review",
+  BLOCKED: "Blocked",
+  DONE: "Done",
+};
+
+const TASK_STATUS_VARIANT: Record<TaskStatus, "muted" | "info" | "warning" | "danger" | "success"> = {
+  TODO: "muted",
+  IN_PROGRESS: "info",
+  IN_REVIEW: "warning",
+  BLOCKED: "danger",
+  DONE: "success",
+};
+
+export function TaskStatusBadge({ status }: { status: TaskStatus }) {
+  return <Badge variant={TASK_STATUS_VARIANT[status]}>{TASK_STATUS_LABEL[status]}</Badge>;
+}
+
+export const TASK_STATUS_OPTIONS = Object.entries(TASK_STATUS_LABEL).map(([value, label]) => ({
+  value,
+  label,
+}));
+
+export const TASK_STATUS_TONE: Record<TaskStatus, string> = {
+  TODO: "bg-slate-100 text-slate-700 border-slate-200",
+  IN_PROGRESS: "bg-indigo-50 text-indigo-900 border-indigo-200",
+  IN_REVIEW: "bg-amber-50 text-amber-900 border-amber-200",
+  BLOCKED: "bg-rose-50 text-rose-900 border-rose-200",
+  DONE: "bg-emerald-50 text-emerald-900 border-emerald-200",
+};

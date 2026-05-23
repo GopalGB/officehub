@@ -121,3 +121,37 @@ export const tagCreateSchema = z.object({
     .regex(/^#[0-9a-fA-F]{6}$/, "Use a hex color like #94a3b8")
     .optional(),
 });
+
+export const TaskStatusEnum = z.enum(["TODO", "IN_PROGRESS", "IN_REVIEW", "BLOCKED", "DONE"]);
+
+export const taskCreateSchema = z.object({
+  title: z.string().min(1, "Title is required").max(200),
+  description: z.string().max(2000).optional().nullable(),
+  status: TaskStatusEnum.default("TODO"),
+  priority: PriorityEnum.default("MEDIUM"),
+  storyPoints: z.coerce.number().int().min(0).max(99).optional().nullable(),
+  dueDate: z
+    .string()
+    .datetime({ offset: true })
+    .or(z.string().regex(/^\d{4}-\d{2}-\d{2}$/))
+    .optional()
+    .nullable(),
+  assigneeId: z.string().cuid().optional().nullable(),
+  parentId: z.string().cuid().optional().nullable(),
+});
+
+export const taskUpdateSchema = taskCreateSchema.partial();
+
+export const pageCreateSchema = z.object({
+  title: z.string().min(1, "Title is required").max(200),
+  emoji: z.string().max(8).optional().nullable(),
+  parentId: z.string().cuid().optional().nullable(),
+  content: z.any().optional().nullable(),
+});
+
+export const pageUpdateSchema = z.object({
+  title: z.string().min(1).max(200).optional(),
+  emoji: z.string().max(8).optional().nullable(),
+  parentId: z.string().cuid().optional().nullable(),
+  content: z.any().optional().nullable(),
+});

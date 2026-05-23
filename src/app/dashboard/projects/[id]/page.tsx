@@ -12,6 +12,8 @@ import { EnhancementList } from "@/components/project/EnhancementList";
 import { MilestoneList } from "@/components/project/MilestoneList";
 import { CommentThread } from "@/components/project/CommentThread";
 import { TagPicker } from "@/components/project/TagPicker";
+import { TaskQuickAdd } from "@/components/task/TaskQuickAdd";
+import { TaskTable } from "@/components/task/TaskTable";
 import { BlockReader } from "@/components/editor/BlockReader";
 import {
   addComment,
@@ -37,12 +39,19 @@ export default async function ProjectDetailPage({
   const session = await auth();
   if (!session?.user) return null;
 
-  const [project, allTags] = await Promise.all([
+  const [project, allTags, members] = await Promise.all([
     db.project.findUnique({
       where: { id },
       include: {
         owner: { select: { id: true, name: true, email: true } },
         tags: true,
+        tasks: {
+          include: {
+            assignee: { select: { id: true, name: true } },
+            reporter: { select: { id: true, name: true } },
+          },
+          orderBy: [{ status: "asc" }, { priority: "desc" }, { dueDate: "asc" }, { orderIndex: "asc" }],
+        },
         updates: {
           include: { author: { select: { id: true, name: true } } },
           orderBy: { createdAt: "desc" },
@@ -61,6 +70,11 @@ export default async function ProjectDetailPage({
       },
     }),
     db.tag.findMany({ orderBy: { name: "asc" } }),
+    db.user.findMany({
+      where: { active: true },
+      select: { id: true, name: true },
+      orderBy: { name: "asc" },
+    }),
   ]);
   if (!project) notFound();
 
@@ -142,6 +156,21 @@ export default async function ProjectDetailPage({
         </CardContent>
       </Card>
 
+      <section className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-base font-semibold">
+            Tasks <span className="text-xs font-normal text-slate-400">({project.tasks.length})</span>
+          </h2>
+          <TaskQuickAdd projectId={project.id} assignees={members} />
+        </div>
+        <TaskTable
+          rows={project.tasks}
+          assignees={members}
+          viewerId={session.user.id}
+          canManage={canEdit}
+        />
+      </section>
+
       <section className="space-y-2">
         <h2 className="text-base font-semibold">Milestones</h2>
         <MilestoneList
@@ -163,7 +192,7 @@ export default async function ProjectDetailPage({
             createdAt: u.createdAt,
             author: u.author,
           }))}
-          onAdd={(fd) => addProjectUpdate(project.id, fd)}
+          onAdd={addProjectUpdate.bind(null, project.id)}
         />
       </section>
 

@@ -3,7 +3,18 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Menu, X, LayoutDashboard, Folders, Columns3, Users2, Settings, BarChart3 } from "lucide-react";
+import {
+  Menu,
+  X,
+  LayoutDashboard,
+  Folders,
+  Columns3,
+  Users2,
+  Settings,
+  BarChart3,
+  CheckSquare,
+  BookOpen,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { isAdmin, isManagerOrAbove } from "@/lib/rbac";
 import type { Role } from "@prisma/client";
@@ -13,9 +24,11 @@ export function MobileNav({ role }: { role: Role }) {
   const pathname = usePathname();
 
   const links = [
-    { href: "/dashboard", label: "My projects", icon: LayoutDashboard, show: true },
-    { href: "/dashboard/board", label: "Board", icon: Columns3, show: true },
+    { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, show: true },
+    { href: "/dashboard/tasks", label: "Tasks", icon: CheckSquare, show: true },
+    { href: "/dashboard/board", label: "Project board", icon: Columns3, show: true },
     { href: "/dashboard/projects/new", label: "New project", icon: Folders, show: true },
+    { href: "/dashboard/pages", label: "Wiki", icon: BookOpen, show: true },
     { href: "/dashboard/manager", label: "Manager", icon: BarChart3, show: isManagerOrAbove(role) },
     { href: "/dashboard/team", label: "Team", icon: Users2, show: isAdmin(role) },
     { href: "/dashboard/settings", label: "Settings", icon: Settings, show: true },
@@ -51,7 +64,7 @@ export function MobileNav({ role }: { role: Role }) {
                 <X className="h-4 w-4" />
               </button>
             </div>
-            <nav className="flex flex-col gap-1">
+            <nav className="flex flex-col gap-1 overflow-y-auto">
               {links.map((l) => {
                 const active =
                   pathname === l.href || (l.href !== "/dashboard" && pathname.startsWith(l.href));

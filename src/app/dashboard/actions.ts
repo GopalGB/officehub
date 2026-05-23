@@ -13,16 +13,20 @@ import {
   inviteCreateSchema,
   milestoneCreateSchema,
   milestoneUpdateSchema,
+  pageCreateSchema,
+  pageUpdateSchema,
   projectCreateSchema,
   projectStatusUpdateSchema,
   projectUpdateSchema,
   tagCreateSchema,
+  taskCreateSchema,
+  taskUpdateSchema,
   userCreateSchema,
   userUpdateSchema,
 } from "@/lib/validation";
 import { generateInviteToken, inviteExpiry, inviteUrl } from "@/lib/invitations";
 import { canDeleteProject, canEditProject, isAdmin, isManagerOrAbove } from "@/lib/rbac";
-import type { ProjectStatus } from "@prisma/client";
+import type { ProjectStatus, TaskStatus } from "@prisma/client";
 
 async function requireSession() {
   const session = await auth();
@@ -430,6 +434,189 @@ export async function quickUpdateProjectStatus(projectId: string, status: Projec
   revalidatePath("/dashboard/manager");
   revalidatePath("/dashboard/board");
   revalidatePath(`/dashboard/projects/${projectId}`);
+}
+
+// ---------------- Tasks ----------------
+
+export async function createTask(projectId: string, formData: FormData) {
+  const user = await requireSession();
+  const parsed = taskCreateSchema.safeParse({
+    title: formData.get("title"),
+    description: formData.get("description") || null,
+    status: formData.get("status") || "TODO",
+    priority: formData.get("priority") || "MEDIUM",
+    storyPoints: formData.get("storyPoints") || undefined,
+    dueDate: formData.get("dueDate") || null,
+    assigneeId: formData.get("assigneeId") || null,
+    parentId: formData.get("parentId") || null,
+  });
+  if (!parsed.success) throw new Error(parsed.error.issues[0]?.message ?? "Invalid input");
+
+  const count = await db.task.count({ where: { projectId } });
+  await db.task.create({
+    data: {
+      projectId,
+      title: parsed.data.title,
+      description: parsed.data.description ?? null,
+      status: parsed.data.status,
+      priority: parsed.data.priority,
+      storyPoints: parsed.data.storyPoints ?? null,
+      dueDate: parsed.data.dueDate ? new Date(parsed.data.dueDate) : null,
+      assigneeId: parsed.data.assigneeId ?? null,
+      reporterId: user.id,
+      parentId: parsed.data.parentId ?? null,
+      orderIndex: count,
+    },
+  });
+  revalidatePath(`/dashboard/projects/${projectId}`);
+  revalidatePath("/dashboard/tasks");
+  revalidatePath("/dashboard/tasks/board");
+  revalidatePath("/dashboard");
+}
+
+export async function updateTask(taskId: string, formData: FormData) {
+  await requireSession();
+  const task = await db.task.findUnique({ where: { id: taskId } });
+  if (!task) throw new Error("Task not found");
+
+  const parsed = taskUpdateSchema.safeParse({
+    title: formData.get("title") ?? undefined,
+    description: formData.get("description") ?? undefined,
+    status: formData.get("status") ?? undefined,
+    priority: formData.get("priority") ?? undefined,
+    storyPoints: formData.get("storyPoints") || undefined,
+    dueDate: formData.get("dueDate") ?? undefined,
+    assigneeId: formData.get("assigneeId") || undefined,
+  });
+  if (!parsed.success) throw new Error(parsed.error.issues[0]?.message ?? "Invalid input");
+
+  const completing = parsed.data.status === "DONE" && task.status !== "DONE";
+  const reopening = parsed.data.status && parsed.data.status !== "DONE" && task.status === "DONE";
+
+  const data: Record<string, unknown> = {};
+  if (parsed.data.title !== undefined) data.title = parsed.data.title;
+  if (parsed.data.description !== undefined) data.description = parsed.data.description ?? null;
+  if (parsed.data.status !== undefined) data.status = parsed.data.status;
+  if (parsed.data.priority !== undefined) data.priority = parsed.data.priority;
+  if (parsed.data.storyPoints !== undefined) data.storyPoints = parsed.data.storyPoints ?? null;
+  if (parsed.data.dueDate !== undefined)
+    data.dueDate = parsed.data.dueDate ? new Date(parsed.data.dueDate) : null;
+  if (parsed.data.assigneeId !== undefined)
+    data.assigneeId = parsed.data.assigneeId === "" ? null : parsed.data.assigneeId;
+  if (completing) data.completedAt = new Date();
+  if (reopening) data.completedAt = null;
+
+  await db.task.update({ where: { id: taskId }, data });
+  revalidatePath(`/dashboard/projects/${task.projectId}`);
+  revalidatePath("/dashboard/tasks");
+  revalidatePath("/dashboard/tasks/board");
+  revalidatePath("/dashboard");
+}
+
+export async function quickChangeTaskStatus(taskId: string, status: TaskStatus) {
+  await requireSession();
+  const task = await db.task.findUnique({ where: { id: taskId } });
+  if (!task) throw new Error("Task not found");
+  await db.task.update({
+    where: { id: taskId },
+    data: {
+      status,
+      completedAt: status === "DONE" ? new Date() : task.status === "DONE" ? null : task.completedAt,
+    },
+  });
+  revalidatePath(`/dashboard/projects/${task.projectId}`);
+  revalidatePath("/dashboard/tasks");
+  revalidatePath("/dashboard/tasks/board");
+  revalidatePath("/dashboard");
+}
+
+export async function quickAssignTask(taskId: string, assigneeId: string | null) {
+  await requireSession();
+  const task = await db.task.findUnique({ where: { id: taskId } });
+  if (!task) throw new Error("Task not found");
+  await db.task.update({
+    where: { id: taskId },
+    data: { assigneeId: assigneeId || null },
+  });
+  revalidatePath(`/dashboard/projects/${task.projectId}`);
+  revalidatePath("/dashboard/tasks");
+  revalidatePath("/dashboard/tasks/board");
+}
+
+export async function deleteTask(taskId: string) {
+  const me = await requireSession();
+  const task = await db.task.findUnique({ where: { id: taskId } });
+  if (!task) return;
+  if (task.reporterId !== me.id && !isManagerOrAbove(me.role)) throw new Error("Forbidden");
+  await db.task.delete({ where: { id: taskId } });
+  revalidatePath(`/dashboard/projects/${task.projectId}`);
+  revalidatePath("/dashboard/tasks");
+  revalidatePath("/dashboard/tasks/board");
+}
+
+// ---------------- Pages (Notion wiki) ----------------
+
+export async function createPage(formData: FormData) {
+  const user = await requireSession();
+  const parsed = pageCreateSchema.safeParse({
+    title: formData.get("title") || "Untitled",
+    emoji: formData.get("emoji") || null,
+    parentId: formData.get("parentId") || null,
+    content: null,
+  });
+  if (!parsed.success) throw new Error(parsed.error.issues[0]?.message ?? "Invalid input");
+
+  const siblingCount = await db.page.count({
+    where: { parentId: parsed.data.parentId ?? null, archived: false },
+  });
+  const page = await db.page.create({
+    data: {
+      title: parsed.data.title,
+      emoji: parsed.data.emoji ?? null,
+      parentId: parsed.data.parentId ?? null,
+      authorId: user.id,
+      orderIndex: siblingCount,
+    },
+  });
+  revalidatePath("/dashboard/pages");
+  redirect(`/dashboard/pages/${page.id}`);
+}
+
+export async function updatePage(pageId: string, formData: FormData) {
+  await requireSession();
+  const parsed = pageUpdateSchema.safeParse({
+    title: formData.get("title") ?? undefined,
+    emoji: formData.get("emoji") ?? undefined,
+    parentId: formData.get("parentId") ?? undefined,
+    content: formData.get("content") ? JSON.parse(String(formData.get("content"))) : undefined,
+  });
+  if (!parsed.success) throw new Error(parsed.error.issues[0]?.message ?? "Invalid input");
+
+  const data: Record<string, unknown> = {};
+  if (parsed.data.title !== undefined) data.title = parsed.data.title;
+  if (parsed.data.emoji !== undefined) data.emoji = parsed.data.emoji ?? null;
+  if (parsed.data.parentId !== undefined) data.parentId = parsed.data.parentId ?? null;
+  if (parsed.data.content !== undefined) data.content = parsed.data.content ?? null;
+
+  await db.page.update({ where: { id: pageId }, data });
+  revalidatePath("/dashboard/pages");
+  revalidatePath(`/dashboard/pages/${pageId}`);
+}
+
+export async function savePageContent(pageId: string, content: unknown) {
+  await requireSession();
+  await db.page.update({ where: { id: pageId }, data: { content: content as never } });
+  revalidatePath(`/dashboard/pages/${pageId}`);
+}
+
+export async function archivePage(pageId: string) {
+  const me = await requireSession();
+  const page = await db.page.findUnique({ where: { id: pageId } });
+  if (!page) return;
+  if (page.authorId !== me.id && !isManagerOrAbove(me.role)) throw new Error("Forbidden");
+  await db.page.update({ where: { id: pageId }, data: { archived: true } });
+  revalidatePath("/dashboard/pages");
+  redirect("/dashboard/pages");
 }
 
 export async function changeOwnPassword(formData: FormData) {

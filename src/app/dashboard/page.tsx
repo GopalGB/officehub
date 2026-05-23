@@ -7,6 +7,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ActivityFeed } from "@/components/dashboard/ActivityFeed";
 import { DueSoonWidget } from "@/components/dashboard/DueSoonWidget";
+import { MyTasksWidget } from "@/components/dashboard/MyTasksWidget";
 
 export default async function DashboardPage({
   searchParams,
@@ -31,7 +32,7 @@ export default async function DashboardPage({
   const fourteenDays = new Date();
   fourteenDays.setDate(fourteenDays.getDate() + 14);
 
-  const [mine, recentUpdates, recentComments, recentEnhancements, dueSoon, counts] = await Promise.all([
+  const [mine, recentUpdates, recentComments, recentEnhancements, dueSoon, myTasks, counts] = await Promise.all([
     db.project.findMany({
       where,
       include: { owner: { select: { id: true, name: true } } },
@@ -64,6 +65,15 @@ export default async function DashboardPage({
       },
       orderBy: { dueDate: "asc" },
       take: 10,
+      include: { project: { select: { id: true, title: true } } },
+    }),
+    db.task.findMany({
+      where: {
+        assigneeId: session.user.id,
+        status: { not: "DONE" },
+      },
+      orderBy: [{ dueDate: "asc" }, { priority: "desc" }],
+      take: 8,
       include: { project: { select: { id: true, title: true } } },
     }),
     db.project.groupBy({
@@ -168,6 +178,27 @@ export default async function DashboardPage({
             ))}
           </div>
         )}
+      </section>
+
+      <section>
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
+            My open tasks
+          </h2>
+          <Link href="/dashboard/tasks" className="text-xs font-medium text-slate-500 hover:underline">
+            View all →
+          </Link>
+        </div>
+        <MyTasksWidget
+          items={myTasks.map((t) => ({
+            id: t.id,
+            title: t.title,
+            status: t.status,
+            dueDate: t.dueDate,
+            projectId: t.project.id,
+            projectTitle: t.project.title,
+          }))}
+        />
       </section>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
