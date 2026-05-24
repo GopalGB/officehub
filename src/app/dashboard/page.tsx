@@ -32,7 +32,7 @@ export default async function DashboardPage({
   const fourteenDays = new Date();
   fourteenDays.setDate(fourteenDays.getDate() + 14);
 
-  const [mine, recentUpdates, recentComments, recentEnhancements, dueSoon, myTasks, counts] = await Promise.all([
+  const [mine, recentUpdates, recentComments, recentEnhancements, dueSoon, myTasks, favorites, counts] = await Promise.all([
     db.project.findMany({
       where,
       include: { owner: { select: { id: true, name: true } } },
@@ -76,12 +76,22 @@ export default async function DashboardPage({
       take: 8,
       include: { project: { select: { id: true, title: true } } },
     }),
+    db.project.findMany({
+      where: {
+        favoritedBy: { some: { id: session.user.id } },
+        status: { not: "ARCHIVED" },
+      },
+      include: { owner: { select: { id: true, name: true } }, tags: true },
+      orderBy: { updatedAt: "desc" },
+      take: 8,
+    }),
     db.project.groupBy({
       by: ["status"],
       where: { ownerId: session.user.id },
       _count: { status: true },
     }),
   ]);
+  const favoriteIds = new Set(favorites.map((p) => p.id));
 
   const byStatus = Object.fromEntries(counts.map((c) => [c.status, c._count.status]));
   const activity = [
@@ -151,6 +161,19 @@ export default async function DashboardPage({
         ))}
       </div>
 
+      {favorites.length > 0 && !q && (
+        <section>
+          <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-slate-500">
+            <span className="text-amber-500">★</span> Pinned
+          </h2>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {favorites.map((p) => (
+              <ProjectCard key={p.id} project={p} isFavorite />
+            ))}
+          </div>
+        </section>
+      )}
+
       <section>
         <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">
           {q ? "Matches" : "Your projects"}
@@ -174,7 +197,7 @@ export default async function DashboardPage({
         ) : (
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
             {mine.map((p) => (
-              <ProjectCard key={p.id} project={p} />
+              <ProjectCard key={p.id} project={p} isFavorite={favoriteIds.has(p.id)} />
             ))}
           </div>
         )}

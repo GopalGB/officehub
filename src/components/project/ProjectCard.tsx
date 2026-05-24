@@ -4,12 +4,15 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar } from "@/components/ui/avatar";
 import { PriorityBadge, ProjectStatusBadge } from "./StatusBadge";
 import { TagPills } from "./TagPills";
+import { FavoriteButton } from "./FavoriteButton";
 import { formatDate, timeAgo } from "@/lib/utils";
 
 export function ProjectCard({
   project,
+  isFavorite = false,
 }: {
   project: Project & { owner: Pick<User, "id" | "name">; tags?: Tag[] };
+  isFavorite?: boolean;
 }) {
   const overdue =
     project.targetDate &&
@@ -17,10 +20,13 @@ export function ProjectCard({
     !["COMPLETED", "ARCHIVED"].includes(project.status);
   return (
     <Link href={`/dashboard/projects/${project.id}`} className="block">
-      <Card className="hover-lift h-full hover:border-slate-400 hover:shadow-md">
+      <Card className="hover-lift h-full hover:border-slate-400 hover:shadow-md dark:hover:border-slate-600">
         <CardHeader className="pb-3">
           <div className="flex items-start justify-between gap-2">
-            <CardTitle className="text-base">{project.title}</CardTitle>
+            <CardTitle className="flex items-center gap-1 text-base">
+              <FavoriteButton projectId={project.id} initiallyFavorited={isFavorite} size="sm" />
+              <span>{project.title}</span>
+            </CardTitle>
             <ProjectStatusBadge status={project.status} />
           </div>
           {project.summary && (

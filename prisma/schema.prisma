@@ -76,6 +76,7 @@ model User {
   assignedTasks   Task[]          @relation("TaskAssignee")
   reportedTasks   Task[]          @relation("TaskReporter")
   authoredPages   Page[]          @relation("PageAuthor")
+  favoriteProjects Project[]      @relation("ProjectFavorites")
 
   @@index([email])
   @@index([role])
@@ -129,6 +130,7 @@ model Project {
   ownerId     String
   owner       User          @relation("ProjectOwner", fields: [ownerId], references: [id])
   members     User[]        @relation("ProjectMembers")
+  favoritedBy User[]        @relation("ProjectFavorites")
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
 

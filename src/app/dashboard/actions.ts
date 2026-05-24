@@ -12,7 +12,6 @@ import {
   inviteAcceptSchema,
   inviteCreateSchema,
   milestoneCreateSchema,
-  milestoneUpdateSchema,
   pageCreateSchema,
   pageUpdateSchema,
   projectCreateSchema,
@@ -83,9 +82,19 @@ export async function createProject(formData: FormData) {
 
 export async function updateProject(projectId: string, formData: FormData) {
   const user = await requireSession();
-  const existing = await db.project.findUnique({ where: { id: projectId } });
+  const existing = await db.project.findUnique({
+    where: { id: projectId },
+    include: { members: { select: { id: true } } },
+  });
   if (!existing) throw new Error("Project not found");
-  if (!canEditProject({ viewerRole: user.role, viewerId: user.id, ownerId: existing.ownerId })) {
+  if (
+    !canEditProject({
+      viewerRole: user.role,
+      viewerId: user.id,
+      ownerId: existing.ownerId,
+      memberIds: existing.members.map((m) => m.id),
+    })
+  ) {
     throw new Error("Forbidden");
   }
 
@@ -400,9 +409,19 @@ export async function createTag(formData: FormData) {
 
 export async function setProjectTags(projectId: string, tagIds: string[]) {
   const user = await requireSession();
-  const project = await db.project.findUnique({ where: { id: projectId } });
+  const project = await db.project.findUnique({
+    where: { id: projectId },
+    include: { members: { select: { id: true } } },
+  });
   if (!project) throw new Error("Project not found");
-  if (!canEditProject({ viewerRole: user.role, viewerId: user.id, ownerId: project.ownerId })) {
+  if (
+    !canEditProject({
+      viewerRole: user.role,
+      viewerId: user.id,
+      ownerId: project.ownerId,
+      memberIds: project.members.map((m) => m.id),
+    })
+  ) {
     throw new Error("Forbidden");
   }
   await db.project.update({
@@ -418,9 +437,19 @@ export async function setProjectTags(projectId: string, tagIds: string[]) {
 
 export async function quickUpdateProjectStatus(projectId: string, status: ProjectStatus) {
   const user = await requireSession();
-  const project = await db.project.findUnique({ where: { id: projectId } });
+  const project = await db.project.findUnique({
+    where: { id: projectId },
+    include: { members: { select: { id: true } } },
+  });
   if (!project) throw new Error("Project not found");
-  if (!canEditProject({ viewerRole: user.role, viewerId: user.id, ownerId: project.ownerId })) {
+  if (
+    !canEditProject({
+      viewerRole: user.role,
+      viewerId: user.id,
+      ownerId: project.ownerId,
+      memberIds: project.members.map((m) => m.id),
+    })
+  ) {
     throw new Error("Forbidden");
   }
   await db.project.update({
@@ -552,6 +581,29 @@ export async function deleteTask(taskId: string) {
   revalidatePath(`/dashboard/projects/${task.projectId}`);
   revalidatePath("/dashboard/tasks");
   revalidatePath("/dashboard/tasks/board");
+}
+
+// ---------------- Project favorites (pins) ----------------
+
+export async function toggleProjectFavorite(projectId: string) {
+  const user = await requireSession();
+  const existing = await db.user.findUnique({
+    where: { id: user.id },
+    select: { favoriteProjects: { where: { id: projectId }, select: { id: true } } },
+  });
+  const isFav = (existing?.favoriteProjects.length ?? 0) > 0;
+  await db.user.update({
+    where: { id: user.id },
+    data: {
+      favoriteProjects: isFav
+        ? { disconnect: { id: projectId } }
+        : { connect: { id: projectId } },
+    },
+  });
+  revalidatePath("/dashboard");
+  revalidatePath(`/dashboard/projects/${projectId}`);
+  revalidatePath("/dashboard/manager");
+  revalidatePath("/dashboard/board");
 }
 
 // ---------------- Project members ----------------

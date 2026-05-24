@@ -15,9 +15,19 @@ export default async function EditProjectPage({
   const session = await auth();
   if (!session?.user) redirect("/login");
 
-  const project = await db.project.findUnique({ where: { id } });
+  const project = await db.project.findUnique({
+    where: { id },
+    include: { members: { select: { id: true } } },
+  });
   if (!project) notFound();
-  if (!canEditProject({ viewerRole: session.user.role, viewerId: session.user.id, ownerId: project.ownerId })) {
+  if (
+    !canEditProject({
+      viewerRole: session.user.role,
+      viewerId: session.user.id,
+      ownerId: project.ownerId,
+      memberIds: project.members.map((m) => m.id),
+    })
+  ) {
     redirect(`/dashboard/projects/${id}`);
   }
 

@@ -1,4 +1,3 @@
-import bcrypt from "bcryptjs";
 import { db } from "@/lib/db";
 import { jsonError, jsonOk, requireApiAuth } from "@/lib/api";
 import { projectCreateSchema } from "@/lib/validation";
@@ -33,8 +32,6 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const _unused = bcrypt; // satisfies tree-shaker when adapter pulls bcrypt path
   const { user, response } = await requireApiAuth();
   if (response) return response;
 

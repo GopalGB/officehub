@@ -3,7 +3,6 @@ import {
   Sparkles,
   Flag,
   CircleDot,
-  CheckCircle2,
   CalendarClock,
   CalendarCheck,
   MessageSquare,

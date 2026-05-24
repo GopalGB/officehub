@@ -1,169 +1,292 @@
 # OfficeHub
 
-A self-hosted, Notion-like workspace for offices. Track projects, timelines, enhancements, and roll up status across the team. One Docker compose up — that's it.
+A self-hosted Notion + Jira hybrid for small office teams. Track projects,
+tasks, timelines, and a built-in wiki — all on a single Linux server.
+Postgres + Next.js. One Docker Compose up. No SaaS, no telemetry, no per-seat
+fees.
 
-Built for a single team on a single Linux server. No SaaS, no per-seat licensing, no telemetry.
+**Live repo:** https://github.com/GopalGB/officehub · MIT licensed.
+
+---
 
 ## What you get
 
-- **Projects** — title, summary, rich (BlockNote) description, status, priority, start/target dates, tags.
-- **Status updates** — chronological log per project with a Notion-style block editor.
-- **Enhancements** — propose, prioritize, approve, complete, reject. Tracked per project.
-- **Milestones** — checklist with due dates per project.
-- **Comments** — light discussion thread on each project.
-- **Tags** — colored, project-spanning labels with built-in starter set (Engineering, Design, Marketing, Ops, Customer, Quick win).
-- **Manager view** — single-page roll-up across every project with status / owner / overdue / keyword filters.
-- **Board view** — drag-free Kanban with inline status changes (click the pill on a card to move it between columns).
-- **Dashboard widgets** — your status tiles + "Due soon" (next 14 days) + recent activity feed across your projects.
-- **Header search** — press `/` to focus, type to search across projects.
-- **Roles** — `ADMIN` / `MANAGER` / `MEMBER`. Members see their own work; managers see everything; admins manage users.
-- **Invitations** — admin creates a one-click invite link (14-day expiry). Invitee picks their own name + password. No password sharing.
-- **Mobile-friendly** — sidebar collapses to a drawer on small screens.
-- **Toast feedback** — every action confirms with a non-blocking toast.
-- **Self-hosted** — Postgres + Next.js, ships as one Docker image with `docker compose up`.
+### Project management (Jira-style)
+- **Projects** — title, summary, rich (BlockNote) description, status, priority, start/target dates, tags, multi-member ownership
+- **Tasks** — full backlog with status workflow (TODO → IN_PROGRESS → IN_REVIEW → DONE/BLOCKED), priority, assignee, reporter, story points, due dates, subtask hierarchy
+- **Milestones** — checklist with due dates per project
+- **Enhancements** — improvement proposals with status workflow
+- **Status updates** — chronological log with Notion-style block editor
+- **Comments** — light discussion threads on every project
+- **Manager rollup** — single-page view across every project with overdue tile + filters
+- **Project Kanban board** — drag-free; click status pill to move
+- **Task Kanban board** — separate board for tasks (5 columns)
+- **Project Timeline** — vertical aligned timeline with milestones, updates, target date, today marker
+
+### Knowledge (Notion-style)
+- **Wiki pages** — free-form BlockNote pages with nested children, emoji, autosave
+- **Page tree** — sidebar tree with expand/collapse + inline "add child"
+- **Page templates** — 7 starters: Meeting notes, SOP, Runbook, One-pager, 1:1, Onboarding, Blank
+
+### Workflow polish
+- **⌘K command palette** — global search + quick-jump (projects, tasks, pages, people)
+- **Calendar** — month grid view, milestones + tasks color-coded by status
+- **Project favorites** — star pin to top of dashboard
+- **Dark mode** — toggle in header, persists, respects system pref
+- **Search bar** in header — opens ⌘K palette
+- **Dashboard widgets** — status tiles, "Due soon" (14 days), my open tasks, recent activity feed
+- **Toast notifications** for every action
+- **Color avatars** — deterministic palette from name hash
+- **Subtle motion** — fade-ins, hover-lift cards (respects `prefers-reduced-motion`)
+- **Mobile-friendly** — sidebar collapses to drawer below 768px
+
+### Accounts
+- **3 roles**: ADMIN / MANAGER / MEMBER
+- **Two ways to add teammates**:
+  - **Invite link** — generates a 14-day URL, recipient sets their own password
+  - **Direct password** — admin sets it inline (auto-generates memorable
+    suggestions like `Mango482!`), stored bcrypt-hashed in your Postgres
+- **Closed signup by default** — flip to `SIGNUP_POLICY=open` for public self-signup
+
+### Infrastructure
+- **One docker-compose up** — Postgres + Next.js standalone
+- **REST API** for external automation (see [`docs/API.md`](docs/API.md))
+- **Health endpoint** at `/api/health` for monitoring
+- **Pre-push secret-scan hook** installed (blocks accidental `.env` pushes)
+
+---
 
 ## Stack
 
-- Next.js 15 (App Router, server components, server actions) + TypeScript
+- Next.js 15.1.6 (App Router, React Server Components, Server Actions)
+- TypeScript (strict mode)
 - Postgres 16 + Prisma 5
-- Auth.js v5 with credentials provider (email + password, bcrypt)
-- BlockNote 0.31 (Notion-like block editor, built on ProseMirror)
-- TailwindCSS + a small shadcn-style component layer
-- Single Dockerfile (standalone Next output) + docker-compose
+- Auth.js v5 with credentials provider, bcrypt
+- BlockNote 0.31 (Notion-like block editor on ProseMirror)
+- TailwindCSS 3 with shadcn-style component layer
+- Docker + Docker Compose
+- ~28 routes, ~106KB shared JS
 
-## How users sign up
+---
 
-There are two flows:
-
-1. **Invitation-first (default, recommended for offices)**
-   - Admin goes to `/dashboard/team` → "Invite teammate" → enter email + role → click **Create invite link**.
-   - Admin copies the generated link and shares it (Slack, email, in person).
-   - Recipient opens the link → fills in name + password → lands signed-in on the dashboard.
-   - Links expire after 14 days. Admin can revoke any pending invite.
-
-2. **Open self-signup (only if you flip the policy)**
-   - Set `SIGNUP_POLICY=open` in `.env` and restart.
-   - Anyone who knows the URL can register from `/signup` as a `MEMBER` (admin can promote later).
-   - Use only for environments behind VPN / IP allowlist.
-
-Admins can also create users directly (with a temp password) via the same Team page if needed — but invitations are the cleaner default.
-
-## Quick start (local dev)
+## Install on your office server
 
 ```bash
-# 1. Install
-npm install
+# On the server (Ubuntu 22.04+ / Debian 12+, Docker + docker compose, 2 GB RAM)
+git clone https://github.com/GopalGB/officehub.git /opt/officehub
+cd /opt/officehub
 
-# 2. Copy env + generate AUTH_SECRET
 cp .env.example .env
-echo "AUTH_SECRET=\"$(openssl rand -base64 32)\"" >> .env
 
-# 3. Start postgres (compose just the db service)
-docker compose up -d db
+# Generate the auth secret
+sed -i "s|AUTH_SECRET=.*|AUTH_SECRET=\"$(openssl rand -base64 32)\"|" .env
 
-# 4. Migrate + seed admin
-npx prisma migrate dev --name init
-npm run db:seed
+# Set your public URL
+sed -i "s|NEXTAUTH_URL=.*|NEXTAUTH_URL=\"https://office.yourcompany.com\"|" .env
 
-# 5. Run
-npm run dev
-# → http://localhost:3000
-# → sign in with SEED_ADMIN_EMAIL / SEED_ADMIN_PASSWORD from your .env
-```
+# Set a strong DB password (docker-compose reads $POSTGRES_PASSWORD from your shell)
+export POSTGRES_PASSWORD="$(openssl rand -base64 24 | tr -d '/+=' | cut -c1-24)"
 
-## Quick start (production self-host on your server)
-
-```bash
-git clone <your-fork-url> officehub
-cd officehub
-cp .env.example .env
-# Edit .env — change AUTH_SECRET, SEED_ADMIN_*, NEXTAUTH_URL
+# Build + start
 docker compose up -d --build
-# Wait ~30s, then visit http://your-server:3000
-# Run the seed once to create the first admin:
+
+# Wait ~30s for db to be healthy, then seed first admin
 docker compose exec app npx prisma db seed
 ```
 
-That's the whole deploy.
+App is live on `:3000`. Initial admin credentials come from `SEED_ADMIN_*`
+env vars (defaults shown in `.env.example`). Change them before first deploy.
+
+**For HTTPS via Caddy or nginx**, full Caddyfile + nginx snippets in
+[`docs/DEPLOY.md`](docs/DEPLOY.md).
+
+---
+
+## Local development
+
+```bash
+git clone https://github.com/GopalGB/officehub.git
+cd officehub
+cp .env.example .env
+echo "AUTH_SECRET=\"$(openssl rand -base64 32)\"" >> .env
+
+docker-compose up -d db        # start just Postgres
+npm install
+npx prisma db push             # apply schema (no migrations needed for dev)
+npm run db:seed                # admin + starter tags
+npm run dev                    # http://localhost:3000
+```
+
+Default login: `admin@office.local` / `Office2026!Admin`.
+
+---
+
+## How users join
+
+Two paths, both built in. Admin chooses per situation on `/dashboard/team`:
+
+1. **Invite link** (recommended for remote teammates):
+   - Admin → Team → "Add teammate" → Invite link tab
+   - Enter email + role → click "Create invite link"
+   - Copy the generated URL and send via Slack/email
+   - Recipient opens link, sets their own name + password, lands signed in
+   - Links auto-expire after 14 days
+2. **Direct password** (recommended for in-person onboarding):
+   - Admin → Team → "Add teammate" → Set password tab
+   - Enter name + email; the form auto-suggests a memorable password (regen button)
+   - Click "Create account" — done; share credentials with the user
+   - User can change password from `/dashboard/settings` later
+
+Passwords are bcrypt-hashed (cost 12) and stored only in your Postgres.
+
+---
+
+## Docs index
+
+| Doc | Purpose |
+|---|---|
+| [README.md](README.md) | You are here |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Why these tech decisions, data model |
+| [docs/DEPLOY.md](docs/DEPLOY.md) | Production deployment runbook (Caddy/nginx/backup/restore) |
+| [docs/API.md](docs/API.md) | REST API reference |
+| [docs/ROADMAP.md](docs/ROADMAP.md) | What's next (v1.1+) |
+| [AGENTS.md](AGENTS.md) | Guide for AI coding agents (Codex/Cursor/Claude) |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | How to send a PR |
+
+---
 
 ## Project structure
 
 ```
 .
-├── auth.ts, auth.config.ts        # Auth.js v5 root config
-├── middleware.ts                  # Auth-gating middleware
-├── prisma/
-│   ├── schema.prisma              # Data model
-│   └── seed.ts                    # First-admin bootstrap
-├── src/
-│   ├── app/
-│   │   ├── layout.tsx, page.tsx   # Root + landing redirect
-│   │   ├── login/, signup/        # Auth pages
-│   │   ├── dashboard/             # The app
-│   │   │   ├── page.tsx           # My projects
-│   │   │   ├── projects/...       # Create / view / edit
-│   │   │   ├── manager/page.tsx   # Manager rollup
-│   │   │   ├── team/page.tsx      # Admin user mgmt
-│   │   │   ├── settings/page.tsx  # Profile + password
-│   │   │   └── actions.ts         # All server actions
-│   │   └── api/                   # REST API (auth, projects, users, health)
-│   ├── components/
-│   │   ├── editor/                # BlockNote wrappers
-│   │   ├── layout/                # Sidebar + Header
-│   │   ├── project/               # Cards, forms, lists
-│   │   └── ui/                    # Button, Input, Card, etc.
-│   ├── lib/                       # db, auth helpers, rbac, validation, utils
-│   └── types/                     # next-auth augmentation
-├── docker-compose.yml             # Postgres + app
-├── Dockerfile                     # Multi-stage standalone build
-└── docs/
-    ├── ARCHITECTURE.md            # Why these decisions
-    ├── DEPLOY.md                  # Bare-metal, SSL, SQLite swap
-    └── ROADMAP.md                 # v2 features
+├── prisma/schema.prisma        # data model
+├── auth.ts, auth.config.ts     # Auth.js v5 config
+├── middleware.ts               # route protection
+├── docker-compose.yml          # Postgres + app
+├── Dockerfile                  # multi-stage standalone build
+└── src/
+    ├── app/
+    │   ├── login/, signup/, invite/[token]/
+    │   ├── dashboard/
+    │   │   ├── page.tsx            # dashboard home (favorites, tiles, widgets)
+    │   │   ├── projects/[id]/      # project detail + edit
+    │   │   ├── tasks/, tasks/board/
+    │   │   ├── board/              # project Kanban
+    │   │   ├── calendar/
+    │   │   ├── pages/, pages/[id]/ # wiki
+    │   │   ├── manager/, team/, settings/
+    │   │   └── actions.ts          # ALL server actions
+    │   └── api/                    # REST: me, projects, users, search, health
+    └── components/, lib/, types/
 ```
 
-## REST API (read + write)
+---
 
-All endpoints require an authenticated session cookie. JSON in, JSON out, `{ data }` / `{ error }` envelope.
+## REST API quick example
 
-| Method | Path | Role | Notes |
-|---|---|---|---|
-| GET    | `/api/me`                                  | any        | Current user |
-| GET    | `/api/projects?scope=mine\|all&status=...` | mine: any · all: MANAGER+ | List |
-| POST   | `/api/projects`                            | any        | Create |
-| GET    | `/api/projects/:id`                        | owner or MANAGER+ | Detail |
-| PATCH  | `/api/projects/:id`                        | owner or MANAGER+ | Update |
-| DELETE | `/api/projects/:id`                        | owner or ADMIN | Delete |
-| GET    | `/api/projects/:id/updates`                | owner or MANAGER+ | List status updates |
-| POST   | `/api/projects/:id/updates`                | any        | Add update |
-| GET    | `/api/projects/:id/enhancements`           | owner or MANAGER+ | List |
-| POST   | `/api/projects/:id/enhancements`           | any        | Propose |
-| GET    | `/api/projects/:id/milestones`             | owner or MANAGER+ | List |
-| POST   | `/api/projects/:id/milestones`             | any        | Add |
-| GET    | `/api/users`                               | MANAGER+   | List teammates |
-| POST   | `/api/users`                               | ADMIN      | Create user |
-| GET    | `/api/health`                              | public     | Liveness + DB check |
+```bash
+# List your projects (using browser session cookie)
+curl -s -H "Cookie: next-auth.session-token=<token>" \
+  http://localhost:3000/api/projects?scope=mine
 
-## Configuration
+# Search across everything
+curl -s -H "Cookie: next-auth.session-token=<token>" \
+  "http://localhost:3000/api/search?q=launch"
 
-See `.env.example` for the full list. The fields you must change before production:
+# Health (public)
+curl -s http://localhost:3000/api/health
+```
 
-- `AUTH_SECRET` — `openssl rand -base64 32`
-- `SEED_ADMIN_PASSWORD` — anything you can remember; the admin can change it after first sign-in
-- `NEXTAUTH_URL` — the public URL the app is reachable at
-- `POSTGRES_PASSWORD` — set in shell when running `docker compose` (otherwise defaults to `officehub`)
-- `SIGNUP_POLICY` — `closed` (admin-only) or `open` (anyone can self-signup as MEMBER)
+Full reference: [`docs/API.md`](docs/API.md).
+
+---
+
+## Integrating with AI coding agents (Codex / Cursor / Claude Code)
+
+This repo ships an [`AGENTS.md`](AGENTS.md) at the root — the
+[community standard](https://agents.md) recognized by OpenAI Codex, Cursor,
+Aider, Claude Code, and most other AI coding tools.
+
+```bash
+# Clone, then point your agent at it:
+
+# OpenAI Codex CLI
+codex review                     # independent diff review
+codex challenge                  # adversarial: try to break the code
+codex consult "How do I add..."  # ask a question, get a code-aware answer
+
+# Cursor / Claude Code: just open the repo. Both auto-load AGENTS.md.
+
+# Aider
+aider --read AGENTS.md src/app/dashboard/actions.ts
+```
+
+`AGENTS.md` covers:
+- Stack overview and directory layout
+- "How to add a new entity end-to-end" recipe
+- All conventions (RBAC, server actions, BlockNote SSR guard, etc.)
+- Things to avoid
+- Code review checklist
+
+If you're building an integration on top of OfficeHub via its REST API,
+start with [`docs/API.md`](docs/API.md).
+
+---
 
 ## Backup
 
-The only stateful data lives in two Docker volumes:
+Two Docker volumes hold all state:
+- `officehub_db_data` — Postgres data
+- `officehub_uploads` — file uploads (not yet wired, planned)
 
-- `officehub_db_data` — Postgres
-- `officehub_uploads` — file uploads (not yet wired in v1)
+Daily backup cron (from `docs/DEPLOY.md`):
+```bash
+docker exec officehub-db pg_dump -U officehub officehub | gzip \
+  > /var/backups/officehub/officehub-$(date +%F).sql.gz
+```
 
-Back them up with `docker run --rm -v officehub_db_data:/data -v $PWD:/backup alpine tar -czf /backup/db-$(date +%F).tgz /data`.
-Restore reverses it. See `docs/DEPLOY.md` for a full backup runbook.
+Restore reverses it. Test the restore path quarterly — an untested backup
+is not a backup.
+
+---
+
+## Configuration
+
+See `.env.example` for the full list. Critical fields to change:
+
+| Var | Purpose |
+|---|---|
+| `AUTH_SECRET` | Session signing key — `openssl rand -base64 32` |
+| `NEXTAUTH_URL` | Public URL of the deployment |
+| `DATABASE_URL` | Postgres connection string (compose handles this) |
+| `POSTGRES_PASSWORD` | Set in shell when running compose |
+| `SEED_ADMIN_EMAIL` / `_PASSWORD` / `_NAME` | First admin credentials |
+| `SIGNUP_POLICY` | `closed` (default — invite-only) or `open` |
+
+---
+
+## What's intentionally NOT in v1
+
+- File attachments (schema ready, upload pipeline pending — [docs/ROADMAP.md](docs/ROADMAP.md))
+- Email notifications / digests
+- SSO (OIDC/SAML)
+- Real-time collaborative editing
+- Mobile native apps
+- Multi-workspace / multi-tenant
+
+See [`docs/ROADMAP.md`](docs/ROADMAP.md) for the full backlog.
+
+---
 
 ## License
 
-MIT — do whatever you want with it.
+MIT. Do whatever you want with it. Issues + PRs welcome — see
+[`CONTRIBUTING.md`](CONTRIBUTING.md).
+
+---
+
+## Acknowledgements
+
+Built on the shoulders of: **Next.js** (Vercel), **Prisma** (Prisma team),
+**BlockNote** (TypeCellOS), **Auth.js**, **TailwindCSS**, **shadcn/ui**,
+**Lucide icons**, and the **Postgres** community.

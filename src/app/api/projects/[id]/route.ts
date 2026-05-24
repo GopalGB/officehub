@@ -38,9 +38,19 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
   if (response) return response;
   const { id } = await ctx.params;
 
-  const existing = await db.project.findUnique({ where: { id } });
+  const existing = await db.project.findUnique({
+    where: { id },
+    include: { members: { select: { id: true } } },
+  });
   if (!existing) return jsonError("NOT_FOUND", "Project not found", 404);
-  if (!canEditProject({ viewerRole: user!.role, viewerId: user!.id, ownerId: existing.ownerId })) {
+  if (
+    !canEditProject({
+      viewerRole: user!.role,
+      viewerId: user!.id,
+      ownerId: existing.ownerId,
+      memberIds: existing.members.map((m) => m.id),
+    })
+  ) {
     return jsonError("FORBIDDEN", "Cannot edit this project", 403);
   }
 
