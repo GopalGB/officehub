@@ -1,11 +1,10 @@
 import Link from "next/link";
 import { FileText } from "lucide-react";
 import { db } from "@/lib/db";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar } from "@/components/ui/avatar";
 import { timeAgo } from "@/lib/utils";
-import { createPage } from "@/app/dashboard/actions";
+import { NewPagePicker } from "@/components/pages/NewPagePicker";
 
 export default async function PagesIndexPage() {
   const recent = await db.page.findMany({
@@ -16,13 +15,6 @@ export default async function PagesIndexPage() {
   });
   const total = await db.page.count({ where: { archived: false } });
 
-  async function createRoot() {
-    "use server";
-    const fd = new FormData();
-    fd.set("title", "Untitled");
-    await createPage(fd);
-  }
-
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <header className="flex flex-wrap items-center justify-between gap-3">
@@ -32,9 +24,7 @@ export default async function PagesIndexPage() {
             Free-form pages for docs, runbooks, SOPs, meeting notes — anything not project-specific.
           </p>
         </div>
-        <form action={createRoot}>
-          <Button type="submit">+ New page</Button>
-        </form>
+        <NewPagePicker />
       </header>
 
       {total === 0 ? (

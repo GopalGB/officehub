@@ -554,7 +554,53 @@ export async function deleteTask(taskId: string) {
   revalidatePath("/dashboard/tasks/board");
 }
 
+// ---------------- Project members ----------------
+
+export async function setProjectMembers(projectId: string, userIds: string[]) {
+  const user = await requireSession();
+  const project = await db.project.findUnique({
+    where: { id: projectId },
+    include: { members: { select: { id: true } } },
+  });
+  if (!project) throw new Error("Project not found");
+  if (
+    !canEditProject({
+      viewerRole: user.role,
+      viewerId: user.id,
+      ownerId: project.ownerId,
+      memberIds: project.members.map((m) => m.id),
+    })
+  ) {
+    throw new Error("Forbidden");
+  }
+  await db.project.update({
+    where: { id: projectId },
+    data: { members: { set: userIds.map((id) => ({ id })) } },
+  });
+  revalidatePath(`/dashboard/projects/${projectId}`);
+  revalidatePath("/dashboard/manager");
+  revalidatePath("/dashboard/board");
+}
+
 // ---------------- Pages (Notion wiki) ----------------
+
+export async function createPageFromTemplate(templateKey: string) {
+  const user = await requireSession();
+  const { getTemplate } = await import("@/lib/pageTemplates");
+  const tpl = getTemplate(templateKey);
+  const siblingCount = await db.page.count({ where: { parentId: null, archived: false } });
+  const page = await db.page.create({
+    data: {
+      title: tpl.title,
+      emoji: tpl.emoji,
+      content: tpl.content as never,
+      authorId: user.id,
+      orderIndex: siblingCount,
+    },
+  });
+  revalidatePath("/dashboard/pages");
+  redirect(`/dashboard/pages/${page.id}`);
+}
 
 export async function createPage(formData: FormData) {
   const user = await requireSession();

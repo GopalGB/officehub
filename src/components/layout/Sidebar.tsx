@@ -14,6 +14,7 @@ import {
   BarChart3,
   CheckSquare,
   BookOpen,
+  Calendar,
 } from "lucide-react";
 
 export function Sidebar({ role }: { role: Role }) {
@@ -38,6 +39,7 @@ export function Sidebar({ role }: { role: Role }) {
         { href: "/dashboard/projects/new", label: "New project", icon: Folders, show: true },
         { href: "/dashboard/board", label: "Project board", icon: Columns3, show: true },
         { href: "/dashboard/tasks", label: "Tasks", icon: CheckSquare, show: true },
+        { href: "/dashboard/calendar", label: "Calendar", icon: Calendar, show: true },
         { href: "/dashboard/manager", label: "Manager view", icon: BarChart3, show: isManagerOrAbove(role) },
       ],
     },
@@ -96,7 +98,13 @@ export function Sidebar({ role }: { role: Role }) {
         })}
       </nav>
       <div className="mt-auto px-2 pt-4 text-xs text-slate-400">
-        <p>OfficeHub · v1.2</p>
+        <p>OfficeHub · v1.4</p>
+        <p className="mt-0.5">
+          <kbd className="rounded border border-slate-200 bg-white px-1 text-[10px] font-semibold text-slate-500">
+            ⌘K
+          </kbd>{" "}
+          quick jump
+        </p>
       </div>
     </aside>
   );

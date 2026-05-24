@@ -4,6 +4,7 @@ import { Sidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
 import { ToastProvider } from "@/components/ui/toast";
 import { MobileNav } from "@/components/layout/MobileNav";
+import { CommandPalette } from "@/components/layout/CommandPalette";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const session = await auth();
@@ -11,6 +12,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   return (
     <ToastProvider>
+      <CommandPalette />
       <div className="flex min-h-screen bg-slate-50">
         <Sidebar role={session.user.role} />
         <div className="flex min-w-0 flex-1 flex-col">

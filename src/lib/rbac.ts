@@ -31,11 +31,13 @@ export function canEditProject(opts: {
   viewerRole: Role | undefined | null;
   viewerId: string | undefined | null;
   ownerId: string;
+  memberIds?: string[];
 }): boolean {
   if (!opts.viewerRole || !opts.viewerId) return false;
   if (isAdmin(opts.viewerRole)) return true;
   if (isManagerOrAbove(opts.viewerRole)) return true;
-  return opts.viewerId === opts.ownerId;
+  if (opts.viewerId === opts.ownerId) return true;
+  return opts.memberIds?.includes(opts.viewerId) ?? false;
 }
 
 export function canDeleteProject(opts: {

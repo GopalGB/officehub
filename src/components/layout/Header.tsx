@@ -20,7 +20,7 @@ export function Header({
     <header className="flex h-14 items-center gap-3 border-b border-slate-200 bg-white px-4 md:px-6">
       {mobileNav}
       <div className="hidden flex-1 md:block">
-        <SearchBar role={role} />
+        <SearchBar />
       </div>
       <div className="ml-auto flex items-center gap-3">
         <Badge variant="muted" className="hidden sm:inline-flex">

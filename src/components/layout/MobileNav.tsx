@@ -14,6 +14,7 @@ import {
   BarChart3,
   CheckSquare,
   BookOpen,
+  Calendar,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { isAdmin, isManagerOrAbove } from "@/lib/rbac";
@@ -26,6 +27,7 @@ export function MobileNav({ role }: { role: Role }) {
   const links = [
     { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, show: true },
     { href: "/dashboard/tasks", label: "Tasks", icon: CheckSquare, show: true },
+    { href: "/dashboard/calendar", label: "Calendar", icon: Calendar, show: true },
     { href: "/dashboard/board", label: "Project board", icon: Columns3, show: true },
     { href: "/dashboard/projects/new", label: "New project", icon: Folders, show: true },
     { href: "/dashboard/pages", label: "Wiki", icon: BookOpen, show: true },

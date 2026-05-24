@@ -15,6 +15,7 @@ import { TagPicker } from "@/components/project/TagPicker";
 import { TaskQuickAdd } from "@/components/task/TaskQuickAdd";
 import { TaskTable } from "@/components/task/TaskTable";
 import { ProjectTimeline } from "@/components/project/ProjectTimeline";
+import { MembersPicker } from "@/components/project/MembersPicker";
 import { BlockReader } from "@/components/editor/BlockReader";
 import {
   addComment,
@@ -45,6 +46,7 @@ export default async function ProjectDetailPage({
       where: { id },
       include: {
         owner: { select: { id: true, name: true, email: true } },
+        members: { select: { id: true, name: true, email: true } },
         tags: true,
         tasks: {
           include: {
@@ -79,10 +81,12 @@ export default async function ProjectDetailPage({
   ]);
   if (!project) notFound();
 
+  const memberIds = project.members.map((m) => m.id);
   const canEdit = canEditProject({
     viewerRole: session.user.role,
     viewerId: session.user.id,
     ownerId: project.ownerId,
+    memberIds,
   });
   const canDelete = canDeleteProject({
     viewerRole: session.user.role,
@@ -133,6 +137,21 @@ export default async function ProjectDetailPage({
           <span>Updated {timeAgo(project.updatedAt)}</span>
         </div>
       </header>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Members</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <MembersPicker
+            projectId={project.id}
+            ownerName={project.owner.name}
+            allUsers={members.filter((m) => m.id !== project.ownerId)}
+            selectedIds={memberIds}
+            canEdit={canEdit}
+          />
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>
