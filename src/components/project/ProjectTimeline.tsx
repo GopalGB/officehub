@@ -32,13 +32,14 @@ const ICONS = {
   today: CircleDot,
 } as const;
 
-const TONE_COMPLETE = "bg-emerald-100 text-emerald-700 ring-emerald-200";
-const TONE_TARGET = "bg-amber-100 text-amber-700 ring-amber-200";
-const TONE_OVERDUE = "bg-rose-100 text-rose-700 ring-rose-200";
-const TONE_DEFAULT = "bg-slate-100 text-slate-600 ring-slate-200";
-const TONE_TODAY = "bg-slate-900 text-white ring-slate-900";
-const TONE_UPDATE = "bg-indigo-100 text-indigo-700 ring-indigo-200";
-const TONE_ACTIVE = "bg-sky-100 text-sky-700 ring-sky-200";
+// Monochrome — distinguished by fill (today/complete = solid black) vs outline.
+const TONE_COMPLETE = "bg-black text-white ring-black dark:bg-white dark:text-black dark:ring-white";
+const TONE_TARGET = "bg-neutral-100 text-black ring-black/30 dark:bg-neutral-900 dark:text-white dark:ring-white/30";
+const TONE_OVERDUE = "bg-white text-black ring-2 ring-black dark:bg-black dark:text-white dark:ring-white";
+const TONE_DEFAULT = "bg-neutral-100 text-neutral-700 ring-black/15 dark:bg-neutral-900 dark:text-neutral-300 dark:ring-white/15";
+const TONE_TODAY = "bg-black text-white ring-black dark:bg-white dark:text-black dark:ring-white";
+const TONE_UPDATE = "bg-neutral-50 text-black ring-black/20 dark:bg-neutral-900 dark:text-white dark:ring-white/20";
+const TONE_ACTIVE = "bg-neutral-100 text-black ring-black/25 dark:bg-neutral-900 dark:text-white dark:ring-white/25";
 
 export function ProjectTimeline({
   project,
@@ -187,7 +188,7 @@ export function ProjectTimeline({
                 className={cn(
                   "text-sm font-medium",
                   e.kind === "today" ? "text-slate-900" : "text-slate-800",
-                  e.overdue && e.kind !== "completed" ? "text-rose-700" : "",
+                  e.overdue && e.kind !== "completed" ? "underline decoration-2 underline-offset-2" : "",
                 )}
               >
                 {e.title}

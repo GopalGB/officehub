@@ -25,13 +25,13 @@ export function FavoriteButton({
     e.preventDefault();
     e.stopPropagation();
     const next = !fav;
-    setFav(next); // optimistic
+    setFav(next);
     start(async () => {
       try {
         await toggleProjectFavorite(projectId);
         toast(next ? "Pinned to your favorites" : "Unpinned", "success");
       } catch {
-        setFav(!next); // revert
+        setFav(!next);
         toast("Could not update favorite", "error");
       }
     });
@@ -48,7 +48,7 @@ export function FavoriteButton({
       aria-label={fav ? "Unpin from favorites" : "Pin to favorites"}
       title={fav ? "Unpin" : "Pin to favorites"}
       className={cn(
-        "inline-flex items-center justify-center rounded-md transition-colors hover:bg-slate-100 dark:hover:bg-slate-800",
+        "inline-flex items-center justify-center rounded-md transition-colors hover:bg-neutral-100 dark:hover:bg-neutral-900",
         px,
         className,
       )}
@@ -56,7 +56,7 @@ export function FavoriteButton({
       <Star
         className={cn(
           iconSize,
-          fav ? "fill-amber-400 text-amber-400" : "text-slate-400 dark:text-slate-500",
+          fav ? "fill-black text-black dark:fill-white dark:text-white" : "text-neutral-400 dark:text-neutral-500",
         )}
       />
     </button>

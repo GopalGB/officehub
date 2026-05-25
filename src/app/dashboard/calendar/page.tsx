@@ -222,12 +222,12 @@ export default async function CalendarPage({
                       className={cn(
                         "block truncate rounded px-1.5 py-0.5 text-[11px] font-medium transition-colors hover:opacity-90",
                         e.completed
-                          ? "bg-emerald-50 text-emerald-700"
+                          ? "bg-black text-white"
                           : e.overdue
-                          ? "bg-rose-50 text-rose-700"
+                          ? "bg-white text-black border border-black underline decoration-2 underline-offset-2"
                           : e.kind === "milestone"
-                          ? "bg-amber-50 text-amber-700"
-                          : "bg-indigo-50 text-indigo-700",
+                          ? "bg-neutral-100 text-black border border-black/20"
+                          : "bg-neutral-50 text-black border border-black/15",
                       )}
                       title={`${e.title} — ${e.projectTitle}`}
                     >
@@ -253,16 +253,16 @@ export default async function CalendarPage({
 
       <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500">
         <span className="inline-flex items-center gap-1">
-          <span className="inline-block h-2 w-2 rounded-sm bg-amber-200" /> Milestone
+          <span className="inline-block h-2 w-2 rounded-sm bg-neutral-200 border border-black/20" /> Milestone
         </span>
         <span className="inline-flex items-center gap-1">
-          <span className="inline-block h-2 w-2 rounded-sm bg-indigo-200" /> Task
+          <span className="inline-block h-2 w-2 rounded-sm bg-neutral-50 border border-black/15" /> Task
         </span>
         <span className="inline-flex items-center gap-1">
-          <span className="inline-block h-2 w-2 rounded-sm bg-emerald-200" /> Completed
+          <span className="inline-block h-2 w-2 rounded-sm bg-black" /> Completed
         </span>
         <span className="inline-flex items-center gap-1">
-          <span className="inline-block h-2 w-2 rounded-sm bg-rose-200" /> Overdue
+          <span className="inline-block h-2 w-2 rounded-sm bg-white border border-black" /> Overdue
         </span>
       </div>
     </div>

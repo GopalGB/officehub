@@ -10,11 +10,11 @@ import { Select } from "@/components/ui/select";
 import { formatDate, timeAgo } from "@/lib/utils";
 
 const STATUS_TILES: { label: string; key: ProjectStatus; tone: string }[] = [
-  { label: "Planning", key: "PLANNING", tone: "bg-sky-50 text-sky-900" },
-  { label: "In Progress", key: "IN_PROGRESS", tone: "bg-indigo-50 text-indigo-900" },
-  { label: "Blocked", key: "BLOCKED", tone: "bg-rose-50 text-rose-900" },
-  { label: "On Hold", key: "ON_HOLD", tone: "bg-amber-50 text-amber-900" },
-  { label: "Completed", key: "COMPLETED", tone: "bg-emerald-50 text-emerald-900" },
+  { label: "Planning", key: "PLANNING", tone: "bg-white text-black border border-black/15 dark:bg-black dark:text-white dark:border-white/20" },
+  { label: "In Progress", key: "IN_PROGRESS", tone: "bg-neutral-100 text-black border border-black/30 dark:bg-neutral-900 dark:text-white dark:border-white/30" },
+  { label: "Blocked", key: "BLOCKED", tone: "bg-white text-black border-2 border-black underline decoration-2 underline-offset-2 dark:bg-black dark:text-white dark:border-white" },
+  { label: "On Hold", key: "ON_HOLD", tone: "bg-neutral-50 text-neutral-600 border border-black/15 dark:bg-neutral-900 dark:text-neutral-300 dark:border-white/20" },
+  { label: "Completed", key: "COMPLETED", tone: "bg-black text-white border border-black dark:bg-white dark:text-black dark:border-white" },
 ];
 
 export default async function ManagerPage({
@@ -92,7 +92,7 @@ export default async function ManagerPage({
             <CardTitle className="text-xs font-medium text-slate-500">Overdue</CardTitle>
           </CardHeader>
           <CardContent className="pt-0">
-            <p className="inline-block rounded bg-rose-100 px-2 py-0.5 text-xl font-semibold text-rose-900">
+            <p className="inline-block rounded border-2 border-black bg-white px-2 py-0.5 text-xl font-semibold text-black underline decoration-2 underline-offset-2 dark:border-white dark:bg-black dark:text-white">
               {overdueCount}
             </p>
           </CardContent>
@@ -176,7 +176,7 @@ export default async function ManagerPage({
                   <td className="px-4 py-3">
                     <PriorityBadge priority={p.priority} />
                   </td>
-                  <td className={`px-4 py-3 text-sm ${isOverdue ? "font-semibold text-rose-600" : "text-slate-700"}`}>
+                  <td className={`px-4 py-3 text-sm ${isOverdue ? "font-semibold text-black underline decoration-2 underline-offset-2 dark:text-white" : "text-neutral-700 dark:text-neutral-300"}`}>
                     {formatDate(p.targetDate)}
                     {isOverdue && <span className="ml-1 text-xs">(overdue)</span>}
                   </td>

@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
 import { AddTeammateTabs } from "@/components/team/AddTeammateTabs";
 import { PendingInvites } from "@/components/team/PendingInvites";
+import { InlineRoleSelect } from "@/components/team/InlineRoleSelect";
 import { updateUser } from "@/app/dashboard/actions";
 import { inviteUrl } from "@/lib/invitations";
 import { formatDate } from "@/lib/utils";
@@ -110,25 +111,7 @@ export default async function TeamPage() {
                     </td>
                     <td className="px-4 py-3 text-slate-600">{u.email}</td>
                     <td className="px-4 py-3">
-                      <form action={update} className="inline-flex">
-                        <Select
-                          name="role"
-                          defaultValue={u.role}
-                          disabled={isSelf}
-                          className="h-8 w-[120px] text-xs"
-                          onChange={(e) => {
-                            const f = new FormData();
-                            f.set("role", e.currentTarget.value);
-                            void update(f);
-                          }}
-                        >
-                          {ROLE_OPTIONS.map((r) => (
-                            <option key={r.value} value={r.value}>
-                              {r.label}
-                            </option>
-                          ))}
-                        </Select>
-                      </form>
+                      <InlineRoleSelect userId={u.id} defaultValue={u.role} disabled={isSelf} />
                     </td>
                     <td className="px-4 py-3">
                       {u.active ? (

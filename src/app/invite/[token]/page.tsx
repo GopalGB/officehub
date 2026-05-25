@@ -111,7 +111,7 @@ export default async function InviteAcceptPage({
               <p className="text-xs text-slate-500">Min 8 chars with uppercase, lowercase, and a number.</p>
             </div>
             {error && (
-              <p className="rounded border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+              <p className="rounded border-2 border-black bg-white px-3 py-2 text-sm font-medium text-black dark:border-white dark:bg-black dark:text-white">
                 {error}
               </p>
             )}

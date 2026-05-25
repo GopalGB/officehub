@@ -33,7 +33,7 @@ export function KanbanCard({
         <QuickStatusMenu projectId={project.id} status={project.status} canEdit={canEdit} />
       </div>
       <div className="mt-2 flex items-center justify-between text-[11px] text-slate-400">
-        <span className={overdue ? "font-semibold text-rose-600" : ""}>
+        <span className={overdue ? "font-semibold text-black underline decoration-2 underline-offset-2 dark:text-white" : ""}>
           {project.targetDate ? `Target ${formatDate(project.targetDate)}` : "No target date"}
           {overdue && " · overdue"}
         </span>

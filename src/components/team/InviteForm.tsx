@@ -71,16 +71,16 @@ export function InviteForm() {
       </form>
 
       {error && (
-        <p className="rounded border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p>
+        <p className="rounded border-2 border-black bg-white px-3 py-2 text-sm font-medium text-black dark:border-white dark:bg-black dark:text-white">{error}</p>
       )}
 
       {result && (
-        <div className="rounded-md border border-emerald-200 bg-emerald-50 p-3">
-          <p className="text-sm font-medium text-emerald-900">
+        <div className="rounded-md border-2 border-black bg-white p-3 dark:border-white dark:bg-black">
+          <p className="text-sm font-medium text-black dark:text-white">
             Share this link with <strong>{result.email}</strong> — they&apos;ll set their own password.
           </p>
           <div className="mt-2 flex items-center gap-2">
-            <code className="flex-1 truncate rounded border border-emerald-200 bg-white px-2 py-1.5 text-xs text-slate-700">
+            <code className="flex-1 truncate rounded border border-black/15 bg-white px-2 py-1.5 text-xs text-black dark:border-white/20 dark:bg-neutral-950 dark:text-white">
               {result.url}
             </code>
             <Button type="button" size="sm" variant={copied ? "secondary" : "default"} onClick={copy}>

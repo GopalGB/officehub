@@ -36,7 +36,7 @@ export function MyTasksWidget({ items }: { items: Item[] }) {
             </div>
             <TaskStatusBadge status={t.status} />
             <span
-              className={`shrink-0 text-xs ${overdue ? "font-semibold text-rose-600" : "text-slate-500"}`}
+              className={`shrink-0 text-xs ${overdue ? "font-semibold text-black underline decoration-2 underline-offset-2 dark:text-white" : "text-neutral-500 dark:text-neutral-400"}`}
             >
               {t.dueDate ? formatDate(t.dueDate) : "—"}
             </span>

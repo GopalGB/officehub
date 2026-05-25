@@ -7,6 +7,7 @@ import { isManagerOrAbove } from "@/lib/rbac";
 import { TaskTable } from "@/components/task/TaskTable";
 import { Button } from "@/components/ui/button";
 import { TASK_STATUS_OPTIONS } from "@/components/project/StatusBadge";
+import { AutoSubmitSelect } from "@/components/ui/auto-submit-select";
 
 export default async function TasksPage({
   searchParams,
@@ -81,32 +82,22 @@ export default async function TasksPage({
         </div>
         <form method="get" className="inline-flex items-center gap-2">
           <input type="hidden" name="scope" value={scope} />
-          <select
+          <AutoSubmitSelect
             name="status"
             defaultValue={status ?? "ALL"}
-            onChange={(e) => (e.currentTarget.form as HTMLFormElement).submit()}
-            className="h-8 rounded-md border border-slate-200 px-2 text-xs"
-          >
-            <option value="ALL">All statuses</option>
-            {TASK_STATUS_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </select>
-          <select
+            options={[
+              { value: "ALL", label: "All statuses" },
+              ...TASK_STATUS_OPTIONS,
+            ]}
+          />
+          <AutoSubmitSelect
             name="project"
             defaultValue={project ?? "ALL"}
-            onChange={(e) => (e.currentTarget.form as HTMLFormElement).submit()}
-            className="h-8 rounded-md border border-slate-200 px-2 text-xs"
-          >
-            <option value="ALL">All projects</option>
-            {projects.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.title}
-              </option>
-            ))}
-          </select>
+            options={[
+              { value: "ALL", label: "All projects" },
+              ...projects.map((p) => ({ value: p.id, label: p.title })),
+            ]}
+          />
         </form>
       </div>
 

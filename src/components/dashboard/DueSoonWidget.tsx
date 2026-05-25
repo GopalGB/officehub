@@ -21,7 +21,7 @@ export function DueSoonWidget({ items }: { items: DueItem[] }) {
         return (
           <li key={m.id} className="flex items-center gap-3 px-4 py-3">
             <CalendarClock
-              className={`h-4 w-4 shrink-0 ${overdue ? "text-rose-500" : "text-slate-400"}`}
+              className={`h-4 w-4 shrink-0 ${overdue ? "text-black dark:text-white" : "text-neutral-400 dark:text-neutral-500"}`}
             />
             <div className="min-w-0 flex-1">
               <p className="text-sm font-medium text-slate-900">{m.title}</p>
@@ -32,7 +32,7 @@ export function DueSoonWidget({ items }: { items: DueItem[] }) {
                 {m.projectTitle}
               </Link>
             </div>
-            <span className={`shrink-0 text-xs ${overdue ? "font-semibold text-rose-600" : "text-slate-500"}`}>
+            <span className={`shrink-0 text-xs ${overdue ? "font-semibold text-black underline decoration-2 underline-offset-2 dark:text-white" : "text-neutral-500 dark:text-neutral-400"}`}>
               {formatDate(m.dueDate)}
               {overdue && " · overdue"}
             </span>

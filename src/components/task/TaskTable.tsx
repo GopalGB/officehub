@@ -110,7 +110,7 @@ export function TaskTable({
                   {t.storyPoints ?? "—"}
                 </td>
                 <td
-                  className={`px-3 py-2 align-middle text-xs ${overdue ? "font-semibold text-rose-600" : "text-slate-600"}`}
+                  className={`px-3 py-2 align-middle text-xs ${overdue ? "font-semibold text-black underline decoration-2 underline-offset-2 dark:text-white" : "text-neutral-600 dark:text-neutral-400"}`}
                 >
                   {t.dueDate ? formatDate(t.dueDate) : "—"}
                 </td>

@@ -7,13 +7,14 @@ import { useToast } from "@/components/ui/toast";
 import { PROJECT_STATUS_OPTIONS } from "./StatusBadge";
 import { cn } from "@/lib/utils";
 
+// Monochrome tones — distinguishable via fill vs outline, not color.
 const TONE: Record<ProjectStatus, string> = {
-  PLANNING: "bg-sky-50 text-sky-900 border-sky-200",
-  IN_PROGRESS: "bg-indigo-50 text-indigo-900 border-indigo-200",
-  BLOCKED: "bg-rose-50 text-rose-900 border-rose-200",
-  ON_HOLD: "bg-amber-50 text-amber-900 border-amber-200",
-  COMPLETED: "bg-emerald-50 text-emerald-900 border-emerald-200",
-  ARCHIVED: "bg-slate-100 text-slate-600 border-slate-200",
+  PLANNING: "bg-white text-black border-black/15 dark:bg-black dark:text-white dark:border-white/20",
+  IN_PROGRESS: "bg-neutral-100 text-black border-black/30 dark:bg-neutral-900 dark:text-white dark:border-white/30",
+  BLOCKED: "bg-white text-black border-black underline decoration-2 underline-offset-2 dark:bg-black dark:text-white dark:border-white",
+  ON_HOLD: "bg-neutral-50 text-neutral-600 border-black/15 dark:bg-neutral-900 dark:text-neutral-300 dark:border-white/20",
+  COMPLETED: "bg-black text-white border-black dark:bg-white dark:text-black dark:border-white",
+  ARCHIVED: "bg-neutral-50 text-neutral-500 border-black/10 dark:bg-neutral-900 dark:text-neutral-500 dark:border-white/10",
 };
 
 export function QuickStatusMenu({
@@ -55,7 +56,7 @@ export function QuickStatusMenu({
       }}
       onClick={(e) => e.stopPropagation()}
       className={cn(
-        "h-7 appearance-none rounded-md border px-2 pr-7 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-slate-300 disabled:opacity-50",
+        "h-7 appearance-none rounded-md border px-2 pr-7 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-black/30 disabled:opacity-50 dark:focus:ring-white/30",
         TONE[status],
       )}
       style={{

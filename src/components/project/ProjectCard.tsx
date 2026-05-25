@@ -43,7 +43,7 @@ export function ProjectCard({
             <PriorityBadge priority={project.priority} />
           </div>
           <div className="flex items-center justify-between">
-            <span className={overdue ? "font-semibold text-rose-600" : ""}>
+            <span className={overdue ? "font-semibold text-black underline decoration-2 underline-offset-2 dark:text-white" : ""}>
               {project.targetDate ? formatDate(project.targetDate) : "No target"}
               {overdue && " · overdue"}
             </span>

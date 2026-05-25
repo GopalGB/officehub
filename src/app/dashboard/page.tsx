@@ -164,7 +164,7 @@ export default async function DashboardPage({
       {favorites.length > 0 && !q && (
         <section>
           <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-slate-500">
-            <span className="text-amber-500">★</span> Pinned
+            <span className="text-black dark:text-white">★</span> Pinned
           </h2>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
             {favorites.map((p) => (

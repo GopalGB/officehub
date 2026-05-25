@@ -6,13 +6,14 @@ import { db } from "@/lib/db";
 import { isManagerOrAbove } from "@/lib/rbac";
 import { TaskKanbanCard } from "@/components/task/TaskKanbanCard";
 import { Button } from "@/components/ui/button";
+import { AutoSubmitSelect } from "@/components/ui/auto-submit-select";
 
 const COLUMNS: { status: TaskStatus; label: string; ring: string }[] = [
   { status: "TODO", label: "To Do", ring: "bg-slate-50 ring-slate-200" },
-  { status: "IN_PROGRESS", label: "In Progress", ring: "bg-indigo-50 ring-indigo-200" },
-  { status: "IN_REVIEW", label: "In Review", ring: "bg-amber-50 ring-amber-200" },
-  { status: "BLOCKED", label: "Blocked", ring: "bg-rose-50 ring-rose-200" },
-  { status: "DONE", label: "Done", ring: "bg-emerald-50 ring-emerald-200" },
+  { status: "IN_PROGRESS", label: "In Progress", ring: "bg-neutral-100 ring-black/15 dark:bg-neutral-900 dark:ring-white/15" },
+  { status: "IN_REVIEW", label: "In Review", ring: "bg-neutral-50 ring-black/15 dark:bg-neutral-900 dark:ring-white/15" },
+  { status: "BLOCKED", label: "Blocked", ring: "bg-white ring-black dark:bg-neutral-950 dark:ring-white" },
+  { status: "DONE", label: "Done", ring: "bg-black ring-black dark:bg-white dark:ring-white" },
 ];
 
 export default async function TaskBoardPage({
@@ -79,19 +80,14 @@ export default async function TaskBoardPage({
           </div>
           <form method="get" className="inline-flex items-center gap-2">
             <input type="hidden" name="scope" value={scope} />
-            <select
+            <AutoSubmitSelect
               name="project"
               defaultValue={project ?? "ALL"}
-              onChange={(e) => (e.currentTarget.form as HTMLFormElement).submit()}
-              className="h-8 rounded-md border border-slate-200 px-2 text-xs"
-            >
-              <option value="ALL">All projects</option>
-              {projects.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.title}
-                </option>
-              ))}
-            </select>
+              options={[
+                { value: "ALL", label: "All projects" },
+                ...projects.map((p) => ({ value: p.id, label: p.title })),
+              ]}
+            />
           </form>
           <Button asChild variant="outline">
             <Link href="/dashboard/tasks">← Table view</Link>

@@ -6,13 +6,14 @@ import { db } from "@/lib/db";
 import { isManagerOrAbove } from "@/lib/rbac";
 import { KanbanCard } from "@/components/project/KanbanCard";
 import { Button } from "@/components/ui/button";
+import { AutoSubmitSelect } from "@/components/ui/auto-submit-select";
 
 const COLUMNS: { status: ProjectStatus; label: string; ring: string }[] = [
-  { status: "PLANNING", label: "Planning", ring: "bg-sky-50 ring-sky-200" },
-  { status: "IN_PROGRESS", label: "In Progress", ring: "bg-indigo-50 ring-indigo-200" },
-  { status: "BLOCKED", label: "Blocked", ring: "bg-rose-50 ring-rose-200" },
-  { status: "ON_HOLD", label: "On Hold", ring: "bg-amber-50 ring-amber-200" },
-  { status: "COMPLETED", label: "Completed", ring: "bg-emerald-50 ring-emerald-200" },
+  { status: "PLANNING", label: "Planning", ring: "bg-white ring-black/10 dark:bg-neutral-950 dark:ring-white/15" },
+  { status: "IN_PROGRESS", label: "In Progress", ring: "bg-neutral-100 ring-black/15 dark:bg-neutral-900 dark:ring-white/15" },
+  { status: "BLOCKED", label: "Blocked", ring: "bg-white ring-black dark:bg-neutral-950 dark:ring-white" },
+  { status: "ON_HOLD", label: "On Hold", ring: "bg-neutral-50 ring-black/10 dark:bg-neutral-900 dark:ring-white/10" },
+  { status: "COMPLETED", label: "Completed", ring: "bg-black ring-black dark:bg-white dark:ring-white" },
 ];
 
 export default async function BoardPage({
@@ -83,19 +84,14 @@ export default async function BoardPage({
           {isManagerOrAbove(session.user.role) && owners.length > 0 && (
             <form method="get" className="inline-flex items-center gap-2">
               <input type="hidden" name="scope" value={safeScope} />
-              <select
+              <AutoSubmitSelect
                 name="owner"
                 defaultValue={owner ?? "ALL"}
-                onChange={(e) => (e.currentTarget.form as HTMLFormElement).submit()}
-                className="h-8 rounded-md border border-slate-200 px-2 text-xs"
-              >
-                <option value="ALL">All owners</option>
-                {owners.map((o) => (
-                  <option key={o.id} value={o.id}>
-                    {o.name}
-                  </option>
-                ))}
-              </select>
+                options={[
+                  { value: "ALL", label: "All owners" },
+                  ...owners.map((o) => ({ value: o.id, label: o.name })),
+                ]}
+              />
             </form>
           )}
           <Button asChild>

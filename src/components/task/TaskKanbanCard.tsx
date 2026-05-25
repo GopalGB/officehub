@@ -42,7 +42,7 @@ export function TaskKanbanCard({
       </div>
       <div className="mt-1 text-[10px] text-slate-400">
         {task.dueDate ? (
-          <span className={overdue ? "font-semibold text-rose-600" : ""}>
+          <span className={overdue ? "font-semibold text-black underline decoration-2 underline-offset-2 dark:text-white" : ""}>
             Due {formatDate(task.dueDate)}
             {overdue && " · overdue"}
           </span>
