@@ -47,17 +47,17 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
       <div className="pointer-events-none fixed bottom-6 right-6 z-50 flex w-80 flex-col gap-2">
         {items.map((t) => {
           const Icon = t.variant === "success" ? CheckCircle2 : t.variant === "error" ? AlertCircle : Info;
-          // Monochrome — error variant is solid-inverted for emphasis.
+          // Pure white — error variant uses thicker border + underline for emphasis.
           const tone =
             t.variant === "error"
-              ? "border-black bg-black text-white dark:border-white dark:bg-white dark:text-black"
-              : "border-black/15 bg-white text-black dark:border-white/20 dark:bg-neutral-950 dark:text-white";
+              ? "border-2 border-black bg-white text-black dark:border-white dark:bg-black dark:text-white"
+              : "border border-black/15 bg-white text-black dark:border-white/20 dark:bg-black dark:text-white";
           return (
             <div
               key={t.id}
               role="status"
               className={cn(
-                "pointer-events-auto flex items-start gap-2 rounded-md border px-3 py-2 text-sm shadow-md animate-fade-in-fast",
+                "pointer-events-auto flex items-start gap-2 rounded-md px-3 py-2 text-sm shadow-md animate-fade-in-fast",
                 tone,
               )}
             >

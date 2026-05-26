@@ -13,7 +13,7 @@ const TONE: Record<ProjectStatus, string> = {
   IN_PROGRESS: "bg-neutral-100 text-black border-black/30 dark:bg-neutral-900 dark:text-white dark:border-white/30",
   BLOCKED: "bg-white text-black border-black underline decoration-2 underline-offset-2 dark:bg-black dark:text-white dark:border-white",
   ON_HOLD: "bg-neutral-50 text-neutral-600 border-black/15 dark:bg-neutral-900 dark:text-neutral-300 dark:border-white/20",
-  COMPLETED: "bg-black text-white border-black dark:bg-white dark:text-black dark:border-white",
+  COMPLETED: "border-2 border-black bg-white text-black font-semibold dark:border-white dark:bg-black dark:text-white",
   ARCHIVED: "bg-neutral-50 text-neutral-500 border-black/10 dark:bg-neutral-900 dark:text-neutral-500 dark:border-white/10",
 };
 

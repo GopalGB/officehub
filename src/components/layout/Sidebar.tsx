@@ -84,7 +84,7 @@ export function Sidebar({ role }: { role: Role }) {
                       href={l.href}
                       className={cn(
                         "flex items-center gap-2 rounded-md px-2.5 py-1.5 text-sm transition-colors",
-                        active ? "bg-slate-900 text-white" : "text-slate-700 hover:bg-slate-100",
+                        active ? "border-2 border-black bg-white text-black font-semibold" : "text-black hover:bg-neutral-100",
                       )}
                     >
                       <Icon className="h-4 w-4" />

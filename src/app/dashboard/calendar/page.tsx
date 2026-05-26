@@ -138,13 +138,13 @@ export default async function CalendarPage({
             <div className="inline-flex rounded-md border border-slate-200 bg-white p-0.5 text-xs">
               <Link
                 href={`?y=${year}&m=${month}&scope=mine`}
-                className={`rounded px-3 py-1.5 ${safeScope === "mine" ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-100"}`}
+                className={`rounded px-3 py-1.5 ${safeScope === "mine" ? "border-2 border-black bg-white text-black font-semibold" : "text-neutral-700 hover:bg-neutral-100"}`}
               >
                 Mine
               </Link>
               <Link
                 href={`?y=${year}&m=${month}&scope=all`}
-                className={`rounded px-3 py-1.5 ${safeScope === "all" ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-100"}`}
+                className={`rounded px-3 py-1.5 ${safeScope === "all" ? "border-2 border-black bg-white text-black font-semibold" : "text-neutral-700 hover:bg-neutral-100"}`}
               >
                 All
               </Link>
@@ -153,14 +153,14 @@ export default async function CalendarPage({
           <div className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white p-0.5">
             <Link
               href={`?y=${prev.getFullYear()}&m=${prev.getMonth()}&scope=${safeScope}`}
-              className="inline-flex h-7 w-7 items-center justify-center rounded text-slate-600 hover:bg-slate-100"
+              className="inline-flex h-7 w-7 items-center justify-center rounded text-neutral-700 hover:bg-neutral-100"
               aria-label="Previous month"
             >
               <ChevronLeft className="h-4 w-4" />
             </Link>
             <Link
               href={`?scope=${safeScope}`}
-              className="rounded px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100"
+              className="rounded px-2 py-1 text-xs font-medium text-black hover:bg-neutral-100"
             >
               Today
             </Link>
@@ -169,7 +169,7 @@ export default async function CalendarPage({
             </span>
             <Link
               href={`?y=${next.getFullYear()}&m=${next.getMonth()}&scope=${safeScope}`}
-              className="inline-flex h-7 w-7 items-center justify-center rounded text-slate-600 hover:bg-slate-100"
+              className="inline-flex h-7 w-7 items-center justify-center rounded text-neutral-700 hover:bg-neutral-100"
               aria-label="Next month"
             >
               <ChevronRight className="h-4 w-4" />
@@ -205,9 +205,9 @@ export default async function CalendarPage({
                     className={cn(
                       "inline-flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-semibold",
                       today
-                        ? "bg-slate-900 text-white"
+                        ? "border-2 border-black bg-white text-black font-semibold"
                         : inMonth
-                        ? "text-slate-700"
+                        ? "text-black"
                         : "text-slate-400",
                     )}
                   >
@@ -222,7 +222,7 @@ export default async function CalendarPage({
                       className={cn(
                         "block truncate rounded px-1.5 py-0.5 text-[11px] font-medium transition-colors hover:opacity-90",
                         e.completed
-                          ? "bg-black text-white"
+                          ? "border-2 border-black bg-white text-black font-semibold"
                           : e.overdue
                           ? "bg-white text-black border border-black underline decoration-2 underline-offset-2"
                           : e.kind === "milestone"

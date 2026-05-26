@@ -13,7 +13,7 @@ const COLUMNS: { status: TaskStatus; label: string; ring: string }[] = [
   { status: "IN_PROGRESS", label: "In Progress", ring: "bg-neutral-100 ring-black/15 dark:bg-neutral-900 dark:ring-white/15" },
   { status: "IN_REVIEW", label: "In Review", ring: "bg-neutral-50 ring-black/15 dark:bg-neutral-900 dark:ring-white/15" },
   { status: "BLOCKED", label: "Blocked", ring: "bg-white ring-black dark:bg-neutral-950 dark:ring-white" },
-  { status: "DONE", label: "Done", ring: "bg-black ring-black dark:bg-white dark:ring-white" },
+  { status: "DONE", label: "Done", ring: "bg-neutral-100 ring-black/30 dark:bg-white dark:ring-white" },
 ];
 
 export default async function TaskBoardPage({
@@ -65,14 +65,14 @@ export default async function TaskBoardPage({
           <div className="inline-flex rounded-md border border-slate-200 bg-white p-0.5 text-xs">
             <Link
               href={`?scope=mine${project ? `&project=${project}` : ""}`}
-              className={`rounded px-3 py-1.5 ${scope === "mine" ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-100"}`}
+              className={`rounded px-3 py-1.5 ${scope === "mine" ? "border-2 border-black bg-white text-black font-semibold" : "text-neutral-700 hover:bg-neutral-100"}`}
             >
               Mine
             </Link>
             {isManagerOrAbove(session.user.role) && (
               <Link
                 href={`?scope=all${project ? `&project=${project}` : ""}`}
-                className={`rounded px-3 py-1.5 ${scope === "all" ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-100"}`}
+                className={`rounded px-3 py-1.5 ${scope === "all" ? "border-2 border-black bg-white text-black font-semibold" : "text-neutral-700 hover:bg-neutral-100"}`}
               >
                 All
               </Link>
@@ -99,7 +99,7 @@ export default async function TaskBoardPage({
         {byCol.map((col) => (
           <div key={col.status} className={`flex min-h-[400px] flex-col gap-2 rounded-md p-2 ring-1 ${col.ring}`}>
             <div className="flex items-center justify-between px-1 pt-1">
-              <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-600">
+              <h2 className="text-xs font-semibold uppercase tracking-wide text-neutral-700">
                 {col.label}
               </h2>
               <span className="text-xs font-semibold text-slate-500">{col.items.length}</span>

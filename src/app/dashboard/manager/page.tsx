@@ -14,7 +14,7 @@ const STATUS_TILES: { label: string; key: ProjectStatus; tone: string }[] = [
   { label: "In Progress", key: "IN_PROGRESS", tone: "bg-neutral-100 text-black border border-black/30 dark:bg-neutral-900 dark:text-white dark:border-white/30" },
   { label: "Blocked", key: "BLOCKED", tone: "bg-white text-black border-2 border-black underline decoration-2 underline-offset-2 dark:bg-black dark:text-white dark:border-white" },
   { label: "On Hold", key: "ON_HOLD", tone: "bg-neutral-50 text-neutral-600 border border-black/15 dark:bg-neutral-900 dark:text-neutral-300 dark:border-white/20" },
-  { label: "Completed", key: "COMPLETED", tone: "bg-black text-white border border-black dark:bg-white dark:text-black dark:border-white" },
+  { label: "Completed", key: "COMPLETED", tone: "border-2 border-black bg-white text-black font-semibold border border-black dark:bg-white dark:text-black dark:border-white" },
 ];
 
 export default async function ManagerPage({
@@ -124,7 +124,7 @@ export default async function ManagerPage({
         </Select>
         <button
           type="submit"
-          className="h-9 rounded bg-slate-900 px-4 text-sm font-medium text-white hover:bg-slate-800"
+          className="h-9 rounded border-2 border-black bg-white px-4 text-sm font-semibold text-black hover:bg-neutral-50"
         >
           Apply
         </button>
@@ -169,7 +169,7 @@ export default async function ManagerPage({
                     </Link>
                     {p.summary && <p className="line-clamp-1 text-xs text-slate-500">{p.summary}</p>}
                   </td>
-                  <td className="px-4 py-3 text-slate-700">{p.owner.name}</td>
+                  <td className="px-4 py-3 text-black">{p.owner.name}</td>
                   <td className="px-4 py-3">
                     <ProjectStatusBadge status={p.status} />
                   </td>

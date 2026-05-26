@@ -33,11 +33,11 @@ const ICONS = {
 } as const;
 
 // Monochrome — distinguished by fill (today/complete = solid black) vs outline.
-const TONE_COMPLETE = "bg-black text-white ring-black dark:bg-white dark:text-black dark:ring-white";
+const TONE_COMPLETE = "border-2 border-black bg-white text-black ring-black dark:bg-white dark:text-black dark:ring-white";
 const TONE_TARGET = "bg-neutral-100 text-black ring-black/30 dark:bg-neutral-900 dark:text-white dark:ring-white/30";
 const TONE_OVERDUE = "bg-white text-black ring-2 ring-black dark:bg-black dark:text-white dark:ring-white";
 const TONE_DEFAULT = "bg-neutral-100 text-neutral-700 ring-black/15 dark:bg-neutral-900 dark:text-neutral-300 dark:ring-white/15";
-const TONE_TODAY = "bg-black text-white ring-black dark:bg-white dark:text-black dark:ring-white";
+const TONE_TODAY = "border-2 border-black bg-white text-black ring-black dark:bg-white dark:text-black dark:ring-white";
 const TONE_UPDATE = "bg-neutral-50 text-black ring-black/20 dark:bg-neutral-900 dark:text-white dark:ring-white/20";
 const TONE_ACTIVE = "bg-neutral-100 text-black ring-black/25 dark:bg-neutral-900 dark:text-white dark:ring-white/25";
 

@@ -77,7 +77,7 @@ export function TagPicker({
               onClick={() => toggle(t.id)}
               disabled={!canEdit || pending}
               className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-medium transition ${
-                on ? "border-slate-900 text-white" : "border-slate-200 text-slate-700 hover:border-slate-400"
+                on ? "border-black text-white" : "border-slate-200 text-black hover:border-slate-400"
               }`}
               style={{
                 backgroundColor: on ? t.color : `${t.color}22`,

@@ -41,7 +41,7 @@ export function MobileNav({ role }: { role: Role }) {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-700 md:hidden"
+        className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-slate-200 bg-white text-black md:hidden"
         aria-label="Open menu"
       >
         <Menu className="h-4 w-4" />
@@ -60,7 +60,7 @@ export function MobileNav({ role }: { role: Role }) {
               <button
                 type="button"
                 onClick={() => setOpen(false)}
-                className="inline-flex h-8 w-8 items-center justify-center rounded text-slate-500 hover:bg-slate-100"
+                className="inline-flex h-8 w-8 items-center justify-center rounded text-slate-500 hover:bg-neutral-100"
                 aria-label="Close menu"
               >
                 <X className="h-4 w-4" />
@@ -78,7 +78,7 @@ export function MobileNav({ role }: { role: Role }) {
                     onClick={() => setOpen(false)}
                     className={cn(
                       "flex items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors",
-                      active ? "bg-slate-900 text-white" : "text-slate-700 hover:bg-slate-100",
+                      active ? "border-2 border-black bg-white text-black font-semibold" : "text-black hover:bg-neutral-100",
                     )}
                   >
                     <Icon className="h-4 w-4" />

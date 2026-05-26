@@ -48,8 +48,8 @@ function TreeRow({
     <li>
       <div
         className={cn(
-          "group flex items-center gap-1 rounded px-1 py-1 text-sm hover:bg-slate-100",
-          active && "bg-slate-900 text-white hover:bg-slate-900",
+          "group flex items-center gap-1 rounded px-1 py-1 text-sm hover:bg-neutral-100",
+          active && "border-2 border-black bg-white text-black font-semibold hover:bg-slate-900",
         )}
         style={{ paddingLeft: `${depth * 12 + 4}px` }}
       >
@@ -59,7 +59,7 @@ function TreeRow({
           onClick={() => setOpen((o) => !o)}
           className={cn(
             "inline-flex h-5 w-5 shrink-0 items-center justify-center rounded hover:bg-slate-200",
-            active && "hover:bg-slate-800",
+            active && "hover:bg-neutral-100",
             !hasChildren && "invisible",
           )}
         >
@@ -72,7 +72,7 @@ function TreeRow({
           {node.emoji ? (
             <span className="text-xs">{node.emoji}</span>
           ) : (
-            <FileText className={cn("h-3.5 w-3.5 shrink-0", active ? "text-white/70" : "text-slate-400")} />
+            <FileText className={cn("h-3.5 w-3.5 shrink-0", active ? "text-black/70" : "text-slate-400")} />
           )}
           <span className="truncate">{node.title || "Untitled"}</span>
         </Link>
@@ -112,7 +112,7 @@ function NewPageInline({ parentId, active }: { parentId: string; active: boolean
         disabled={pending}
         className={cn(
           "inline-flex h-5 w-5 items-center justify-center rounded opacity-0 transition group-hover:opacity-100 hover:bg-slate-200",
-          active ? "hover:bg-slate-800 text-white/80" : "text-slate-500",
+          active ? "hover:bg-neutral-100 text-black/80" : "text-slate-500",
         )}
       >
         <Plus className="h-3 w-3" />
@@ -134,7 +134,7 @@ function NewPageButton({ parentId, label }: { parentId: string | null; label: st
       <button
         type="submit"
         disabled={pending}
-        className="mt-1 w-full rounded px-2 py-1.5 text-left text-xs text-slate-500 hover:bg-slate-100"
+        className="mt-1 w-full rounded px-2 py-1.5 text-left text-xs text-slate-500 hover:bg-neutral-100"
       >
         {pending ? "Creating…" : label}
       </button>

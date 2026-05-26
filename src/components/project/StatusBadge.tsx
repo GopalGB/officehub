@@ -122,5 +122,5 @@ export const TASK_STATUS_TONE: Record<TaskStatus, string> = {
   IN_PROGRESS: "bg-neutral-100 text-black border-black/30 dark:bg-neutral-900 dark:text-white dark:border-white/30",
   IN_REVIEW: "bg-neutral-50 text-black border-black/20 dark:bg-neutral-900 dark:text-white dark:border-white/20",
   BLOCKED: "bg-white text-black border-black underline decoration-2 underline-offset-2 dark:bg-black dark:text-white dark:border-white",
-  DONE: "bg-black text-white border-black dark:bg-white dark:text-black dark:border-white",
+  DONE: "border-2 border-black bg-white text-black font-semibold dark:border-white dark:bg-black dark:text-white",
 };
