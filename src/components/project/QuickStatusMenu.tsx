@@ -50,8 +50,13 @@ export function QuickStatusMenu({
         const next = e.target.value as ProjectStatus;
         if (next === status) return;
         start(async () => {
-          await quickUpdateProjectStatus(projectId, next);
-          toast(`Moved to ${PROJECT_STATUS_OPTIONS.find((o) => o.value === next)?.label}`, "success");
+          try {
+            await quickUpdateProjectStatus(projectId, next);
+            toast(`Moved to ${PROJECT_STATUS_OPTIONS.find((o) => o.value === next)?.label}`, "success");
+          } catch (err) {
+            e.target.value = status;
+            toast(err instanceof Error ? err.message : "Could not change status", "error");
+          }
         });
       }}
       onClick={(e) => e.stopPropagation()}

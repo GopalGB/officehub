@@ -18,15 +18,23 @@ export default async function DashboardPage({
   if (!session?.user) return null;
   const { q } = await searchParams;
 
+  // Members see projects they own AND projects they've been added to.
+  const accessFilter = {
+    OR: [
+      { ownerId: session.user.id },
+      { members: { some: { id: session.user.id } } },
+    ],
+  };
   const where: Record<string, unknown> = {
-    ownerId: session.user.id,
-    status: { not: "ARCHIVED" },
+    AND: [accessFilter, { status: { not: "ARCHIVED" } }],
   };
   if (q) {
-    where.OR = [
-      { title: { contains: q, mode: "insensitive" } },
-      { summary: { contains: q, mode: "insensitive" } },
-    ];
+    (where.AND as unknown[]).push({
+      OR: [
+        { title: { contains: q, mode: "insensitive" } },
+        { summary: { contains: q, mode: "insensitive" } },
+      ],
+    });
   }
 
   const fourteenDays = new Date();
@@ -40,26 +48,26 @@ export default async function DashboardPage({
       take: 24,
     }),
     db.projectUpdate.findMany({
-      where: { project: { ownerId: session.user.id } },
+      where: { project: accessFilter },
       orderBy: { createdAt: "desc" },
       take: 5,
       include: { author: { select: { name: true } }, project: { select: { id: true, title: true } } },
     }),
     db.comment.findMany({
-      where: { project: { ownerId: session.user.id } },
+      where: { project: accessFilter },
       orderBy: { createdAt: "desc" },
       take: 5,
       include: { author: { select: { name: true } }, project: { select: { id: true, title: true } } },
     }),
     db.enhancement.findMany({
-      where: { project: { ownerId: session.user.id } },
+      where: { project: accessFilter },
       orderBy: { createdAt: "desc" },
       take: 5,
       include: { author: { select: { name: true } }, project: { select: { id: true, title: true } } },
     }),
     db.milestone.findMany({
       where: {
-        project: { ownerId: session.user.id },
+        project: accessFilter,
         completed: false,
         dueDate: { lte: fourteenDays },
       },
@@ -87,7 +95,7 @@ export default async function DashboardPage({
     }),
     db.project.groupBy({
       by: ["status"],
-      where: { ownerId: session.user.id },
+      where: accessFilter,
       _count: { status: true },
     }),
   ]);

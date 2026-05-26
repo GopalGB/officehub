@@ -30,11 +30,17 @@ export function InlineRoleSelect({
       className="h-8 w-[120px] text-xs"
       onChange={(e) => {
         const value = e.currentTarget.value;
+        const target = e.currentTarget;
         const fd = new FormData();
         fd.set("role", value);
         start(async () => {
-          await updateUser(userId, fd);
-          toast(`Role set to ${value.toLowerCase()}`, "success");
+          try {
+            await updateUser(userId, fd);
+            toast(`Role set to ${value.toLowerCase()}`, "success");
+          } catch (err) {
+            target.value = defaultValue;
+            toast(err instanceof Error ? err.message : "Could not change role", "error");
+          }
         });
       }}
     >

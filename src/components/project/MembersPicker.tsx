@@ -32,13 +32,19 @@ export function MembersPicker({
   const { toast } = useToast();
 
   function toggle(id: string) {
+    const prev = new Set(selected);
     const next = new Set(selected);
     if (next.has(id)) next.delete(id);
     else next.add(id);
     setSelected(next);
     start(async () => {
-      await setProjectMembers(projectId, Array.from(next));
-      toast("Members updated", "success");
+      try {
+        await setProjectMembers(projectId, Array.from(next));
+        toast("Members updated", "success");
+      } catch (e) {
+        setSelected(prev); // revert optimistic update
+        toast(e instanceof Error ? e.message : "Could not update members", "error");
+      }
     });
   }
 

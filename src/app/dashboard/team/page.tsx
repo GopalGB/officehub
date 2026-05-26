@@ -3,7 +3,6 @@ import { auth } from "../../../../auth";
 import { db } from "@/lib/db";
 import { isAdmin } from "@/lib/rbac";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
@@ -13,12 +12,6 @@ import { InlineRoleSelect } from "@/components/team/InlineRoleSelect";
 import { updateUser } from "@/app/dashboard/actions";
 import { inviteUrl } from "@/lib/invitations";
 import { formatDate } from "@/lib/utils";
-
-const ROLE_OPTIONS = [
-  { value: "MEMBER", label: "Member" },
-  { value: "MANAGER", label: "Manager" },
-  { value: "ADMIN", label: "Admin" },
-];
 
 export default async function TeamPage() {
   const session = await auth();

@@ -27,8 +27,13 @@ export function TaskStatusMenu({
         const next = e.target.value as TaskStatus;
         if (next === status) return;
         start(async () => {
-          await quickChangeTaskStatus(taskId, next);
-          toast(`Moved to ${TASK_STATUS_LABEL[next]}`, "success");
+          try {
+            await quickChangeTaskStatus(taskId, next);
+            toast(`Moved to ${TASK_STATUS_LABEL[next]}`, "success");
+          } catch (err) {
+            e.target.value = status;
+            toast(err instanceof Error ? err.message : "Could not change status", "error");
+          }
         });
       }}
       onClick={(e) => e.stopPropagation()}

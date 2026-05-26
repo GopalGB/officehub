@@ -36,14 +36,20 @@ export function AssigneeMenu({
         disabled={disabled || pending}
         onChange={(e) => {
           const next = e.target.value || null;
+          const prevValue = assignee?.id ?? "";
           start(async () => {
-            await quickAssignTask(taskId, next);
-            toast(
-              next
-                ? `Assigned to ${options.find((o) => o.id === next)?.name}`
-                : "Unassigned",
-              "success",
-            );
+            try {
+              await quickAssignTask(taskId, next);
+              toast(
+                next
+                  ? `Assigned to ${options.find((o) => o.id === next)?.name}`
+                  : "Unassigned",
+                "success",
+              );
+            } catch (err) {
+              e.target.value = prevValue;
+              toast(err instanceof Error ? err.message : "Could not assign", "error");
+            }
           });
         }}
         className="h-7 appearance-none rounded border border-slate-200 bg-white px-2 pr-6 text-xs focus:outline-none focus:ring-2 focus:ring-slate-300 disabled:opacity-50"

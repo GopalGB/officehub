@@ -612,18 +612,13 @@ export async function setProjectMembers(projectId: string, userIds: string[]) {
   const user = await requireSession();
   const project = await db.project.findUnique({
     where: { id: projectId },
-    include: { members: { select: { id: true } } },
+    select: { id: true, ownerId: true },
   });
   if (!project) throw new Error("Project not found");
-  if (
-    !canEditProject({
-      viewerRole: user.role,
-      viewerId: user.id,
-      ownerId: project.ownerId,
-      memberIds: project.members.map((m) => m.id),
-    })
-  ) {
-    throw new Error("Forbidden");
+  // Tighter than canEditProject — only the owner or a manager+ can change the
+  // member roster. Regular members can edit project content but not membership.
+  if (!isManagerOrAbove(user.role) && project.ownerId !== user.id) {
+    throw new Error("Only the project owner or a manager can change members");
   }
   await db.project.update({
     where: { id: projectId },
@@ -686,7 +681,7 @@ export async function updatePage(pageId: string, formData: FormData) {
     title: formData.get("title") ?? undefined,
     emoji: formData.get("emoji") ?? undefined,
     parentId: formData.get("parentId") ?? undefined,
-    content: formData.get("content") ? JSON.parse(String(formData.get("content"))) : undefined,
+    content: formData.get("content") ? parseJSON(formData.get("content")) ?? undefined : undefined,
   });
   if (!parsed.success) throw new Error(parsed.error.issues[0]?.message ?? "Invalid input");
 
