@@ -1,0 +1,55 @@
+---
+description: OfficeHub coding rules (canonical source AGENTS.md)
+globs:
+  - "src/**/*.ts"
+  - "src/**/*.tsx"
+  - "prisma/schema.prisma"
+  - "*.ts"
+  - "*.tsx"
+alwaysApply: true
+---
+
+# OfficeHub — Cursor rules
+
+Canonical source: read [AGENTS.md](../../AGENTS.md) at repo root before suggesting code.
+
+## Stack (exact versions)
+- Next.js 15.1+ (App Router, Server Components, Server Actions)
+- TypeScript strict (`@typescript-eslint/strict-type-checked`)
+- Postgres 16 + Prisma 5+
+- Auth.js v5 (credentials provider, JWT sessions)
+- BlockNote 0.31 (SSR-guarded)
+- Tailwind 3 + shadcn-style component layer
+- Node 20+ / Docker Compose for self-host
+
+## Hard rules
+1. Strict TypeScript — never `any`. Use `unknown` + narrowing or Zod schemas.
+2. Server actions in `src/app/dashboard/actions.ts` — one file, all mutations.
+3. REST routes use `requireApiAuth()` from `src/lib/api.ts`.
+4. RBAC via `src/lib/rbac.ts` — every project-touching mutation passes `memberIds` to `canEditProject`.
+5. Forms → server actions. API routes → external automation only.
+6. BlockNote hooks crash in SSR — always mount-guard (see `src/components/editor/BlockEditor.tsx`).
+7. Server actions as props → use `action.bind(null, id)`. Never inline arrows.
+8. Server components → use `<AutoSubmitSelect>` instead of `<select onChange>`.
+9. Pure white theme — black only as text + thin borders + small icon fills.
+10. Validate every input with Zod from `src/lib/validation.ts`.
+11. Wrap `useTransition(async)` in try/catch + toast.
+12. `revalidatePath` after every mutation.
+13. No raw `JSON.parse` — use `parseJSON` helper.
+
+## Permission boundaries (3-tier)
+
+| Action | Allowed |
+|---|---|
+| **Always** | Add new server action / page / component matching existing patterns · Add Zod schema · Fix typecheck errors · Update tests · Add `revalidatePath` calls |
+| **Ask first** | Schema change (new model, new column, new index) · Auth flow change · New external dependency · Removing a public API endpoint · Adding a feature flag |
+| **Never** | Skip the typecheck gate · Add `dark:` Tailwind variants (dead code) · Catch + swallow errors silently · Hard-code role checks · Add solid black or colored backgrounds · Commit `.env` or secrets |
+
+## How to add a feature
+Follow `docs/EXTENDING.md` (7-step recipe). For larger work: `docs/GSD-PLAYBOOK.md`.
+
+## Before submit
+```bash
+npx tsc --noEmit --noUnusedLocals --noUnusedParameters
+npm run build
+```

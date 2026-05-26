@@ -1,0 +1,52 @@
+# Cursor rules for OfficeHub
+
+This project follows the conventions documented in `AGENTS.md` at the repo root.
+Cursor: read AGENTS.md before suggesting code. Always.
+
+## Stack
+- Next.js 15 (App Router, Server Components, Server Actions)
+- TypeScript strict (no `any`)
+- Postgres 16 + Prisma 5
+- Auth.js v5 (credentials provider, JWT sessions)
+- BlockNote 0.31 (rich-text editor, SSR-guarded)
+- TailwindCSS 3 with shadcn-style component layer
+- Docker Compose for self-host
+
+## Hard rules
+
+1. **Strict TypeScript.** Never use `any`. Prefer `unknown` + narrowing or a Zod schema.
+2. **Server actions live in `src/app/dashboard/actions.ts`** — one file, all mutations.
+3. **REST routes** under `src/app/api/**/route.ts` — use `requireApiAuth` from `src/lib/api.ts`.
+4. **RBAC** comes from `src/lib/rbac.ts`. Every project-touching mutation MUST pass `memberIds` to `canEditProject`.
+5. **Forms use server actions, not API routes.** API routes are for external automation.
+6. **BlockNote hooks (`useCreateBlockNote`) crash during SSR.** Always wrap in a mount guard — see `src/components/editor/BlockEditor.tsx` for the pattern.
+7. **Server actions passed as props to client components must be bound at the top level**, not via inline arrow closures. Use `action.bind(null, projectId)`.
+8. **Server components cannot pass event handlers** (`onChange`, `onClick`) to client elements. Use `<AutoSubmitSelect>` from `src/components/ui/auto-submit-select.tsx` or extract a client component.
+9. **No `bg-slate-*` for primary surfaces.** App is pure white. Black appears only as text + thin borders + small icon fills.
+10. **Validate every server-action input with Zod** from `src/lib/validation.ts`.
+11. **Wrap every `useTransition(async)` in try/catch + toast** — silent failures break UX.
+12. **`revalidatePath` after every mutation** that changes visible state.
+
+## How to add a new feature
+
+Follow `docs/EXTENDING.md` step-by-step. The 7 phases:
+1. Schema → 2. Validation → 3. Server action → 4. Client component → 5. Page → 6. Sidebar link → 7. Test in browser.
+
+For larger work (a new entity), follow `docs/GSD-PLAYBOOK.md`.
+
+## Forbidden
+
+- `process.env` reads in client components — only in server code.
+- `JSON.parse` without `try/catch` (use the `parseJSON` helper in `actions.ts`).
+- `useEffect` for data fetching in server components.
+- Importing server-only code (`db`, `auth`) into client components.
+- Editing `prisma/schema.prisma` without running `npx prisma db push && npx prisma generate`.
+- Adding solid black or colored backgrounds — pure white only.
+- Logging secrets, tokens, or PII anywhere (`console.log`, error messages, server actions).
+
+## Before submitting a change
+
+```bash
+npx tsc --noEmit --noUnusedLocals --noUnusedParameters   # MUST be zero
+npm run build                                              # MUST succeed
+```

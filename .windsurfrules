@@ -1,0 +1,35 @@
+# Windsurf rules for OfficeHub
+
+Source of truth: `AGENTS.md` (root). Read it before suggesting code.
+
+This file mirrors `.cursorrules` — same rules, different agent. If they diverge,
+`AGENTS.md` wins.
+
+## Stack
+Next.js 15 + TS strict + Postgres 16 + Prisma 5 + Auth.js v5 + BlockNote + Tailwind + Docker Compose.
+
+## Hard rules
+1. TypeScript strict — no `any`.
+2. Server actions in `src/app/dashboard/actions.ts`.
+3. RBAC via `src/lib/rbac.ts` — `canEditProject` needs `memberIds`.
+4. Forms → server actions. API routes → external automation only.
+5. BlockNote requires SSR mount guard.
+6. Bound server actions when passed as props (`action.bind(null, id)`).
+7. Server components → use `<AutoSubmitSelect>` instead of inline `onChange`.
+8. Pure white theme only.
+9. Validate inputs with Zod schemas from `src/lib/validation.ts`.
+10. `try/catch + toast` for all `useTransition(async)` calls.
+11. `revalidatePath` after every mutation.
+
+## Add a feature
+Follow `docs/EXTENDING.md`. For large work: `docs/GSD-PLAYBOOK.md`.
+
+## Forbidden
+- `process.env` in client code
+- Raw `JSON.parse` without try/catch
+- Importing `db` / `auth` into client components
+- Colored or solid-black backgrounds
+- Logging secrets
+
+## Before submit
+`npx tsc --noEmit --noUnusedLocals --noUnusedParameters && npm run build`
