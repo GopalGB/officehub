@@ -3,7 +3,6 @@ import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { SearchBar } from "./SearchBar";
-import { ThemeToggle } from "./ThemeToggle";
 import type { Role } from "@prisma/client";
 
 export function Header({
@@ -24,7 +23,6 @@ export function Header({
         <SearchBar />
       </div>
       <div className="ml-auto flex items-center gap-2">
-        <ThemeToggle />
         <Badge variant="muted" className="hidden sm:inline-flex">
           {role}
         </Badge>

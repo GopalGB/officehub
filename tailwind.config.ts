@@ -1,6 +1,9 @@
 import type { Config } from "tailwindcss";
 
 const config: Config = {
+  // Dark mode disabled — ThemeProvider removed in v1.9, so the `.dark` class is
+  // never set on <html>. The `dark:` variants throughout the codebase are dead
+  // code under this config but harmless.
   darkMode: ["class"],
   content: [
     "./src/pages/**/*.{ts,tsx}",
