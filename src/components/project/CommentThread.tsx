@@ -5,6 +5,7 @@ import type { Comment, User } from "@prisma/client";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { useToast } from "@/components/ui/toast";
 import { timeAgo } from "@/lib/utils";
 
 type CommentWithAuthor = Comment & { author: Pick<User, "id" | "name"> };
@@ -25,6 +26,7 @@ export function CommentThread({
   onDelete: (id: string, projectId: string) => Promise<void>;
 }) {
   const [pending, start] = useTransition();
+  const { toast } = useToast();
   const ref = useRef<HTMLFormElement>(null);
   return (
     <div className="space-y-4">
@@ -32,8 +34,12 @@ export function CommentThread({
         ref={ref}
         action={(fd) =>
           start(async () => {
-            await onAdd(projectId, fd);
-            ref.current?.reset();
+            try {
+              await onAdd(projectId, fd);
+              ref.current?.reset();
+            } catch (e) {
+              toast(e instanceof Error ? e.message : "Could not post comment", "error");
+            }
           })
         }
         className="space-y-2 rounded-md border border-slate-200 bg-white p-4"

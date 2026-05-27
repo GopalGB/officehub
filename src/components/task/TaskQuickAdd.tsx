@@ -28,9 +28,13 @@ export function TaskQuickAdd({
   function onSubmit(fd: FormData) {
     if (!String(fd.get("title") ?? "").trim()) return;
     start(async () => {
-      await createTask(projectId, fd);
-      toast("Task added", "success");
-      setOpen(false);
+      try {
+        await createTask(projectId, fd);
+        toast("Task added", "success");
+        setOpen(false);
+      } catch (e) {
+        toast(e instanceof Error ? e.message : "Could not create task", "error");
+      }
     });
   }
 

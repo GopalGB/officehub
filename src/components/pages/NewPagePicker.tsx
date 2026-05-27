@@ -15,9 +15,13 @@ export function NewPagePicker() {
 
   function pick(templateKey: string) {
     start(async () => {
-      await createPageFromTemplate(templateKey);
-      toast("Page created", "success");
-      setOpen(false);
+      try {
+        await createPageFromTemplate(templateKey);
+        toast("Page created", "success");
+        setOpen(false);
+      } catch (e) {
+        toast(e instanceof Error ? e.message : "Could not create page", "error");
+      }
     });
   }
 

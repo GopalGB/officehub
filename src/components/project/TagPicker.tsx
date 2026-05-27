@@ -43,9 +43,15 @@ export function TagPicker({
     const next = new Set(selected);
     if (next.has(id)) next.delete(id);
     else next.add(id);
+    const prev = new Set(selected);
     setSelected(next);
     start(async () => {
-      await setProjectTags(projectId, Array.from(next));
+      try {
+        await setProjectTags(projectId, Array.from(next));
+      } catch (e) {
+        setSelected(prev);
+        toast(e instanceof Error ? e.message : "Could not update tags", "error");
+      }
     });
   }
 
@@ -55,10 +61,14 @@ export function TagPicker({
     fd.set("name", newName.trim());
     fd.set("color", newColor);
     start(async () => {
-      await createTag(fd);
-      toast(`Added "${newName.trim()}"`, "success");
-      setNewName("");
-      setAdding(false);
+      try {
+        await createTag(fd);
+        toast(`Added "${newName.trim()}"`, "success");
+        setNewName("");
+        setAdding(false);
+      } catch (e) {
+        toast(e instanceof Error ? e.message : "Could not create tag", "error");
+      }
     });
   }
 

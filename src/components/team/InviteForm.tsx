@@ -27,13 +27,19 @@ export function InviteForm() {
     setResult(null);
     setCopied(false);
     start(async () => {
-      const r = await createInvitation(fd);
-      if ("error" in r) {
-        setError(r.error);
-        toast(r.error, "error");
-      } else {
-        setResult(r);
-        toast(`Invite link ready for ${r.email}`, "success");
+      try {
+        const r = await createInvitation(fd);
+        if ("error" in r) {
+          setError(r.error);
+          toast(r.error, "error");
+        } else {
+          setResult(r);
+          toast(`Invite link ready for ${r.email}`, "success");
+        }
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : "Could not create invitation";
+        setError(msg);
+        toast(msg, "error");
       }
     });
   }

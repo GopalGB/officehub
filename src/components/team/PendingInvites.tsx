@@ -33,8 +33,12 @@ export function PendingInvites({ invites }: { invites: Invite[] }) {
   function revoke(id: string, email: string) {
     if (!confirm(`Revoke the invite for ${email}?`)) return;
     start(async () => {
-      await revokeInvitation(id);
-      toast(`Revoked invite for ${email}`, "info");
+      try {
+        await revokeInvitation(id);
+        toast(`Revoked invite for ${email}`, "info");
+      } catch (e) {
+        toast(e instanceof Error ? e.message : "Could not revoke invitation", "error");
+      }
     });
   }
 

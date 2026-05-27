@@ -37,8 +37,12 @@ export function TaskTable({
   function onDelete(taskId: string, title: string) {
     if (!confirm(`Delete "${title}"?`)) return;
     start(async () => {
-      await deleteTask(taskId);
-      toast("Task deleted", "info");
+      try {
+        await deleteTask(taskId);
+        toast("Task deleted", "info");
+      } catch (e) {
+        toast(e instanceof Error ? e.message : "Could not delete task", "error");
+      }
     });
   }
 

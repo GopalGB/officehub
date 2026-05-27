@@ -52,16 +52,24 @@ export function PageEditor({
     fd.set("title", title);
     fd.set("emoji", emoji);
     start(async () => {
-      await updatePage(pageId, fd);
-      setSavedAt(new Date());
+      try {
+        await updatePage(pageId, fd);
+        setSavedAt(new Date());
+      } catch (e) {
+        toast(e instanceof Error ? e.message : "Could not save page metadata", "error");
+      }
     });
   }
 
   function onDelete() {
     if (!confirm("Archive this page? You can find archived pages in the database backup; the UI doesn't restore them yet.")) return;
     start(async () => {
-      await archivePage(pageId);
-      toast("Page archived", "info");
+      try {
+        await archivePage(pageId);
+        toast("Page archived", "info");
+      } catch (e) {
+        toast(e instanceof Error ? e.message : "Could not archive page", "error");
+      }
     });
   }
 

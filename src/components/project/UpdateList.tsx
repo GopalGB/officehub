@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { BlockEditor } from "@/components/editor/BlockEditor";
 import { BlockReader } from "@/components/editor/BlockReader";
 import { Avatar } from "@/components/ui/avatar";
+import { useToast } from "@/components/ui/toast";
 import { timeAgo } from "@/lib/utils";
 
 interface UpdateItem {
@@ -25,6 +26,7 @@ export function UpdateList({
   const [draft, setDraft] = useState<Block[] | null>(null);
   const [pending, start] = useTransition();
   const [resetKey, setResetKey] = useState(0);
+  const { toast } = useToast();
 
   return (
     <div className="space-y-6">
@@ -34,9 +36,14 @@ export function UpdateList({
           action={(fd) => {
             fd.set("content", JSON.stringify(draft ?? []));
             start(async () => {
-              await onAdd(fd);
-              setDraft(null);
-              setResetKey((k) => k + 1);
+              try {
+                await onAdd(fd);
+                setDraft(null);
+                setResetKey((k) => k + 1);
+                toast("Update posted", "success");
+              } catch (e) {
+                toast(e instanceof Error ? e.message : "Could not post update", "error");
+              }
             });
           }}
           className="space-y-3"
