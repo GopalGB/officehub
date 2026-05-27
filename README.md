@@ -69,6 +69,51 @@ fees.
 
 ---
 
+## Install — three ways
+
+Pick whichever fits your machine. All three end with a working OfficeHub at `http://localhost:3000` and admin credentials printed to your terminal.
+
+### 1. Native install — macOS / Linux (no Docker needed)
+
+Requires Node 20+, git, and PostgreSQL. The script installs Postgres for you on macOS via Homebrew; on Linux it asks you to install via your package manager first (one apt/dnf/pacman command — instructions printed).
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/GopalGB/officehub/main/scripts/setup-native.sh | bash
+```
+
+Then:
+```bash
+cd ~/officehub
+npm run dev
+```
+
+### 2. Native install — Windows (no Docker, no WSL)
+
+Requires Node 20+, git, and PostgreSQL. Install missing pieces via `winget` (instructions printed by the script).
+
+Open **PowerShell** (NOT cmd) and run:
+```powershell
+irm https://raw.githubusercontent.com/GopalGB/officehub/main/scripts/setup-native.ps1 | iex
+```
+
+Then:
+```powershell
+cd $HOME\officehub
+npm run dev
+```
+
+### 3. Docker install (everything bundled — recommended for servers)
+
+If you have Docker installed, this is the simplest path because Postgres comes with it. No language/runtime requirements beyond Docker itself.
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/GopalGB/officehub/main/scripts/setup.sh | bash
+```
+
+That's the whole install. Container runs in the background; no `npm run dev` needed.
+
+---
+
 ## Install on your office server
 
 ```bash
