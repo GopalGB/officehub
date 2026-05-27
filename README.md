@@ -246,6 +246,20 @@ Full reference: [`docs/API.md`](docs/API.md).
 
 ---
 
+## Want Codex to adapt this for your company?
+
+Paste the link to this repo and **[CODEX-PLAYBOOK.md](CODEX-PLAYBOOK.md)** into a fresh Codex session, then say:
+
+```
+Read AGENTS.md and CODEX-PLAYBOOK.md from this repo. I want to adapt
+OfficeHub for <my company>. Ask me the 6 questions, then propose the
+brand + feature flag PR.
+```
+
+Codex follows the playbook end-to-end: detects your OS, picks the right install command, asks the 6 questions, makes a clean branded PR, and walks you through deploying when ready.
+
+The same playbook works for Cursor, Claude Code, and Aider (all auto-load `AGENTS.md` + `CODEX-PLAYBOOK.md` from the repo root).
+
 ## Integrating with AI coding agents (Codex / Cursor / Claude Code)
 
 This repo ships an [`AGENTS.md`](AGENTS.md) at the root — the
