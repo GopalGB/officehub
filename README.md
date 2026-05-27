@@ -191,11 +191,19 @@ Passwords are bcrypt-hashed (cost 12) and stored only in your Postgres.
 | Doc | Purpose |
 |---|---|
 | [README.md](README.md) | You are here |
+| [BUILD.md](BUILD.md) | Build / run / test / lint / deploy — pure commands reference |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Why these tech decisions, data model |
 | [docs/DEPLOY.md](docs/DEPLOY.md) | Production deployment runbook (Caddy/nginx/backup/restore) |
+| [docs/EXTENDING.md](docs/EXTENDING.md) | 8 recipes for common extensions |
+| [docs/GSD-PLAYBOOK.md](docs/GSD-PLAYBOOK.md) | 7-phase build methodology |
+| [docs/B2B-DEPLOYMENT.md](docs/B2B-DEPLOYMENT.md) | Multi-tenant, SSO, white-label, compliance |
 | [docs/API.md](docs/API.md) | REST API reference |
+| [docs/SKILLS-CATALOG.md](docs/SKILLS-CATALOG.md) | AI-agent skills tiered Tier 1→5 |
 | [docs/ROADMAP.md](docs/ROADMAP.md) | What's next (v1.1+) |
-| [AGENTS.md](AGENTS.md) | Guide for AI coding agents (Codex/Cursor/Claude) |
+| [AGENTS.md](AGENTS.md) | Universal AI-agent rules (Codex/Cursor/Claude all auto-load) |
+| [CLAUDE.md](CLAUDE.md) | Claude Code project rules |
+| [CODEX.md](CODEX.md) | OpenAI Codex CLI commands + recipes |
+| [CODEX-PLAYBOOK.md](CODEX-PLAYBOOK.md) | "Codex, adapt this for my company" brief |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | How to send a PR |
 
 ---

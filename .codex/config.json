@@ -1,0 +1,39 @@
+{
+  "$schema": "https://raw.githubusercontent.com/openai/codex/main/schema.json",
+  "$comment": [
+    "OpenAI Codex CLI sample config for OfficeHub.",
+    "Copy or merge into your global ~/.codex/config.json if you want these defaults.",
+    "All keys are optional — Codex falls back to its defaults for anything not set."
+  ],
+  "context": {
+    "alwaysReadFiles": [
+      "AGENTS.md",
+      "CLAUDE.md",
+      "BUILD.md",
+      "CODEX-PLAYBOOK.md"
+    ],
+    "ignorePaths": [
+      ".next/**",
+      "node_modules/**",
+      "prisma/migrations/**",
+      "public/**",
+      ".env",
+      ".env.*",
+      "!.env.example"
+    ]
+  },
+  "hooks": {
+    "post-edit": "npx tsc --noEmit --noUnusedLocals --noUnusedParameters",
+    "pre-commit": "npm run build"
+  },
+  "model": {
+    "default": "auto",
+    "review": "auto",
+    "challenge": "auto"
+  },
+  "conventions": {
+    "commitFormat": "conventional",
+    "commitTrailer": "Co-Authored-By: Codex <noreply@openai.com>",
+    "branchPrefix": "feat/codex/"
+  }
+}
