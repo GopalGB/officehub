@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { auth } from "../../../../../auth";
 import { db } from "@/lib/db";
 import { isManagerOrAbove } from "@/lib/rbac";
-import { TaskKanbanCard } from "@/components/task/TaskKanbanCard";
+import { TaskBoardClient } from "@/components/task/TaskBoardClient";
 import { Button } from "@/components/ui/button";
 import { AutoSubmitSelect } from "@/components/ui/auto-submit-select";
 
@@ -50,8 +50,6 @@ export default async function TaskBoardPage({
     }),
   ]);
 
-  const byCol = COLUMNS.map((c) => ({ ...c, items: tasks.filter((t) => t.status === c.status) }));
-
   return (
     <div className="space-y-4">
       <header className="flex flex-wrap items-center justify-between gap-2">
@@ -95,31 +93,13 @@ export default async function TaskBoardPage({
         </div>
       </header>
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
-        {byCol.map((col) => (
-          <div key={col.status} className={`flex min-h-[400px] flex-col gap-2 rounded-md p-2 ring-1 ${col.ring}`}>
-            <div className="flex items-center justify-between px-1 pt-1">
-              <h2 className="text-xs font-semibold uppercase tracking-wide text-neutral-700">
-                {col.label}
-              </h2>
-              <span className="text-xs font-semibold text-slate-500">{col.items.length}</span>
-            </div>
-            <div className="flex flex-1 flex-col gap-2 overflow-y-auto">
-              {col.items.length === 0 ? (
-                <p className="px-1 py-4 text-center text-xs text-slate-400">Empty</p>
-              ) : (
-                col.items.map((t) => {
-                  const canEdit =
-                    isManagerOrAbove(session.user.role) ||
-                    t.reporterId === session.user.id ||
-                    t.assigneeId === session.user.id;
-                  return <TaskKanbanCard key={t.id} task={t} canEdit={canEdit} />;
-                })
-              )}
-            </div>
-          </div>
-        ))}
-      </div>
+      <TaskBoardClient
+        columns={COLUMNS}
+        initialTasks={tasks}
+        viewerId={session.user.id}
+        isManagerOrAbove={isManagerOrAbove(session.user.role)}
+      />
+      <p className="text-xs text-neutral-400">Drag any task to a new column to change its status.</p>
     </div>
   );
 }

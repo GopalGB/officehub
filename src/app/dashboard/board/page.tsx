@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { auth } from "../../../../auth";
 import { db } from "@/lib/db";
 import { isManagerOrAbove } from "@/lib/rbac";
-import { KanbanCard } from "@/components/project/KanbanCard";
+import { ProjectBoardClient } from "@/components/project/ProjectBoardClient";
 import { Button } from "@/components/ui/button";
 import { AutoSubmitSelect } from "@/components/ui/auto-submit-select";
 
@@ -49,11 +49,6 @@ export default async function BoardPage({
         })
       : Promise.resolve([]),
   ]);
-
-  const byStatus = COLUMNS.map((c) => ({
-    ...c,
-    items: projects.filter((p) => p.status === c.status),
-  }));
 
   return (
     <div className="space-y-4">
@@ -100,29 +95,13 @@ export default async function BoardPage({
         </div>
       </header>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
-        {byStatus.map((col) => (
-          <div key={col.status} className={`flex min-h-[400px] flex-col gap-2 rounded-md p-2 ring-1 ${col.ring}`}>
-            <div className="flex items-center justify-between px-1 pt-1">
-              <h2 className="text-xs font-semibold uppercase tracking-wide text-neutral-700">
-                {col.label}
-              </h2>
-              <span className="text-xs font-semibold text-slate-500">{col.items.length}</span>
-            </div>
-            <div className="flex flex-1 flex-col gap-2 overflow-y-auto">
-              {col.items.length === 0 ? (
-                <p className="px-1 py-4 text-center text-xs text-slate-400">No projects</p>
-              ) : (
-                col.items.map((p) => {
-                  const canEdit =
-                    isManagerOrAbove(session.user.role) || p.ownerId === session.user.id;
-                  return <KanbanCard key={p.id} project={p} canEdit={canEdit} />;
-                })
-              )}
-            </div>
-          </div>
-        ))}
-      </div>
+      <ProjectBoardClient
+        columns={COLUMNS}
+        initialProjects={projects}
+        viewerId={session.user.id}
+        canEditByOwner={isManagerOrAbove(session.user.role)}
+      />
+      <p className="text-xs text-neutral-400">Drag any card to a new column to change its status.</p>
     </div>
   );
 }
