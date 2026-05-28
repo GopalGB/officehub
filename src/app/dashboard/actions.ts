@@ -12,6 +12,9 @@ import {
   inviteAcceptSchema,
   inviteCreateSchema,
   milestoneCreateSchema,
+  moveProjectSchema,
+  moveTaskSchema,
+  TaskStatusEnum,
   pageCreateSchema,
   pageUpdateSchema,
   projectCreateSchema,
@@ -48,6 +51,13 @@ function neighbourOrderIndex(
   return { before: siblings[idx], after: idx < siblings.length - 1 ? siblings[idx + 1] : null };
 }
 
+// Two users dropping into the same gap concurrently can compute the same
+// midpoint, leaving two rows with an equal orderIndex. We accept this: the board
+// queries break ties deterministically (priority, then updatedAt) so the order
+// stays stable, and the next drag of either card recomputes a fresh midpoint and
+// self-heals. A UNIQUE(status, orderIndex) constraint was rejected — it would
+// force retry logic on every insert/seed to defend against a rare, cosmetic, and
+// self-correcting collision.
 function midpoint(
   before: Sibling | null,
   after: Sibling | null,
@@ -102,23 +112,27 @@ export async function createProject(formData: FormData) {
   });
   if (!parsed.success) throw new Error(parsed.error.issues[0]?.message ?? "Invalid input");
 
-  const last = await db.project.findFirst({
-    where: { status: parsed.data.status },
-    orderBy: { orderIndex: "desc" },
-    select: { orderIndex: true },
-  });
-  const project = await db.project.create({
-    data: {
-      title: parsed.data.title,
-      summary: parsed.data.summary ?? null,
-      description: parsed.data.description ?? undefined,
-      status: parsed.data.status,
-      priority: parsed.data.priority,
-      startDate: parseDate(formData.get("startDate")),
-      targetDate: parseDate(formData.get("targetDate")),
-      ownerId: user.id,
-      orderIndex: last ? last.orderIndex + ORDER_STEP : 0,
-    },
+  // Read-then-append in one transaction so two concurrent creates in the same
+  // column can't compute an identical orderIndex (TOCTOU).
+  const project = await db.$transaction(async (tx) => {
+    const last = await tx.project.findFirst({
+      where: { status: parsed.data.status },
+      orderBy: { orderIndex: "desc" },
+      select: { orderIndex: true },
+    });
+    return tx.project.create({
+      data: {
+        title: parsed.data.title,
+        summary: parsed.data.summary ?? null,
+        description: parsed.data.description ?? undefined,
+        status: parsed.data.status,
+        priority: parsed.data.priority,
+        startDate: parseDate(formData.get("startDate")),
+        targetDate: parseDate(formData.get("targetDate")),
+        ownerId: user.id,
+        orderIndex: last ? last.orderIndex + ORDER_STEP : 0,
+      },
+    });
   });
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/manager");
@@ -519,69 +533,82 @@ export type MoveProjectArgs = {
 
 export async function moveProject(args: MoveProjectArgs) {
   const user = await requireSession();
-  const { projectId, toStatus } = args;
-  const targetCardId = args.targetCardId ?? null;
-  const placement: Placement = args.placement ?? "below";
+  const parsed = moveProjectSchema.safeParse(args);
+  if (!parsed.success) throw new Error(parsed.error.issues[0]?.message ?? "Invalid move");
+  const { projectId, toStatus } = parsed.data;
+  let targetCardId = parsed.data.targetCardId ?? null;
+  const placement: Placement = parsed.data.placement ?? "below";
 
-  const project = await db.project.findUnique({
-    where: { id: projectId },
-    include: { members: { select: { id: true } } },
-  });
-  if (!project) throw new Error("Project not found");
-  if (
-    !canEditProject({
-      viewerRole: user.role,
-      viewerId: user.id,
-      ownerId: project.ownerId,
-      memberIds: project.members.map((m) => m.id),
-    })
-  ) {
-    throw new Error("Forbidden");
-  }
-
-  await db.$transaction(async (tx) => {
-    const siblings = await tx.project.findMany({
-      where: { status: toStatus, id: { not: projectId } },
-      orderBy: { orderIndex: "asc" },
-      select: { id: true, orderIndex: true },
-    });
-    let before: Sibling | null = null;
-    let after: Sibling | null = null;
-    if (targetCardId) {
-      ({ before, after } = neighbourOrderIndex(siblings, targetCardId, placement));
-    }
-    let newOrderIndex = midpoint(before, after, siblings);
-    if (needsRebalance(before, after)) {
-      for (let i = 0; i < siblings.length; i++) {
-        await tx.project.update({
-          where: { id: siblings[i].id },
-          data: { orderIndex: i * ORDER_STEP },
-        });
+  await db.$transaction(
+    async (tx) => {
+      // RBAC re-checked with fresh data INSIDE the transaction so a membership
+      // change racing with an in-flight drag can't slip past the gate.
+      const project = await tx.project.findUnique({
+        where: { id: projectId },
+        include: { members: { select: { id: true } } },
+      });
+      if (!project) throw new Error("Project not found");
+      if (
+        !canEditProject({
+          viewerRole: user.role,
+          viewerId: user.id,
+          ownerId: project.ownerId,
+          memberIds: project.members.map((m) => m.id),
+        })
+      ) {
+        throw new Error("Forbidden");
       }
-      const beforeIdx = before ? siblings.findIndex((s) => s.id === before!.id) : -1;
-      const afterIdx = after ? siblings.findIndex((s) => s.id === after!.id) : -1;
-      if (beforeIdx >= 0 && afterIdx >= 0) {
-        newOrderIndex = ((beforeIdx * ORDER_STEP) + (afterIdx * ORDER_STEP)) / 2;
-      } else if (beforeIdx >= 0) {
-        newOrderIndex = beforeIdx * ORDER_STEP + ORDER_STEP / 2;
-      } else if (afterIdx >= 0) {
-        newOrderIndex = afterIdx * ORDER_STEP - ORDER_STEP / 2;
-      } else {
-        newOrderIndex = 0;
-      }
-    }
 
-    const data: Prisma.ProjectUpdateInput = {
-      status: toStatus,
-      orderIndex: newOrderIndex,
-    };
-    if (toStatus === "COMPLETED" && project.status !== "COMPLETED") {
-      data.actualEndDate = new Date();
-    } else if (toStatus !== "COMPLETED" && project.status === "COMPLETED") {
-      data.actualEndDate = null;
-    }
-    await tx.project.update({ where: { id: projectId }, data });
-  });
+      const siblings = await tx.project.findMany({
+        where: { status: toStatus, id: { not: projectId } },
+        orderBy: { orderIndex: "asc" },
+        select: { id: true, orderIndex: true },
+      });
+      // A client-supplied targetCardId that isn't actually in the destination
+      // column (stale or forged) is ignored — fall back to appending.
+      if (targetCardId && !siblings.some((s) => s.id === targetCardId)) {
+        targetCardId = null;
+      }
+      let before: Sibling | null = null;
+      let after: Sibling | null = null;
+      if (targetCardId) {
+        ({ before, after } = neighbourOrderIndex(siblings, targetCardId, placement));
+      }
+      let newOrderIndex = midpoint(before, after, siblings);
+      if (needsRebalance(before, after)) {
+        // Parallelize the re-spread so N updates cost ~1 round-trip, not N —
+        // critical over the high-latency remote DB where serial awaits time out.
+        await Promise.all(
+          siblings.map((s, i) =>
+            tx.project.update({ where: { id: s.id }, data: { orderIndex: i * ORDER_STEP } }),
+          ),
+        );
+        const beforeIdx = before ? siblings.findIndex((s) => s.id === before!.id) : -1;
+        const afterIdx = after ? siblings.findIndex((s) => s.id === after!.id) : -1;
+        if (beforeIdx >= 0 && afterIdx >= 0) {
+          newOrderIndex = ((beforeIdx * ORDER_STEP) + (afterIdx * ORDER_STEP)) / 2;
+        } else if (beforeIdx >= 0) {
+          newOrderIndex = beforeIdx * ORDER_STEP + ORDER_STEP / 2;
+        } else if (afterIdx >= 0) {
+          newOrderIndex = afterIdx * ORDER_STEP - ORDER_STEP / 2;
+        } else {
+          newOrderIndex = 0;
+        }
+      }
+
+      const data: Prisma.ProjectUpdateInput = {
+        status: toStatus,
+        orderIndex: newOrderIndex,
+      };
+      if (toStatus === "COMPLETED" && project.status !== "COMPLETED") {
+        data.actualEndDate = new Date();
+      } else if (toStatus !== "COMPLETED" && project.status === "COMPLETED") {
+        data.actualEndDate = null;
+      }
+      await tx.project.update({ where: { id: projectId }, data });
+    },
+    { timeout: 15000 },
+  );
 
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/manager");
@@ -605,25 +632,28 @@ export async function createTask(projectId: string, formData: FormData) {
   });
   if (!parsed.success) throw new Error(parsed.error.issues[0]?.message ?? "Invalid input");
 
-  const last = await db.task.findFirst({
-    where: { projectId, status: parsed.data.status },
-    orderBy: { orderIndex: "desc" },
-    select: { orderIndex: true },
-  });
-  await db.task.create({
-    data: {
-      projectId,
-      title: parsed.data.title,
-      description: parsed.data.description ?? null,
-      status: parsed.data.status,
-      priority: parsed.data.priority,
-      storyPoints: parsed.data.storyPoints ?? null,
-      dueDate: parsed.data.dueDate ? new Date(parsed.data.dueDate) : null,
-      assigneeId: parsed.data.assigneeId ?? null,
-      reporterId: user.id,
-      parentId: parsed.data.parentId ?? null,
-      orderIndex: last ? last.orderIndex + ORDER_STEP : 0,
-    },
+  // Read-then-append in one transaction (TOCTOU guard, same as createProject).
+  await db.$transaction(async (tx) => {
+    const last = await tx.task.findFirst({
+      where: { projectId, status: parsed.data.status },
+      orderBy: { orderIndex: "desc" },
+      select: { orderIndex: true },
+    });
+    await tx.task.create({
+      data: {
+        projectId,
+        title: parsed.data.title,
+        description: parsed.data.description ?? null,
+        status: parsed.data.status,
+        priority: parsed.data.priority,
+        storyPoints: parsed.data.storyPoints ?? null,
+        dueDate: parsed.data.dueDate ? new Date(parsed.data.dueDate) : null,
+        assigneeId: parsed.data.assigneeId ?? null,
+        reporterId: user.id,
+        parentId: parsed.data.parentId ?? null,
+        orderIndex: last ? last.orderIndex + ORDER_STEP : 0,
+      },
+    });
   });
   revalidatePath(`/dashboard/projects/${projectId}`);
   revalidatePath("/dashboard/tasks");
@@ -671,16 +701,36 @@ export async function updateTask(taskId: string, formData: FormData) {
 }
 
 export async function quickChangeTaskStatus(taskId: string, status: TaskStatus) {
-  await requireSession();
-  const task = await db.task.findUnique({ where: { id: taskId } });
-  if (!task) throw new Error("Task not found");
-  await db.task.update({
+  const user = await requireSession();
+  const parsedStatus = TaskStatusEnum.safeParse(status);
+  if (!parsedStatus.success) throw new Error("Invalid status");
+
+  const task = await db.task.findUnique({
     where: { id: taskId },
-    data: {
-      status,
-      completedAt: status === "DONE" ? new Date() : task.status === "DONE" ? null : task.completedAt,
-    },
+    include: { project: { include: { members: { select: { id: true } } } } },
   });
+  if (!task) throw new Error("Task not found");
+
+  // RBAC: project editor, or the task's reporter/assignee (mirrors moveTask).
+  const projectEditAllowed = canEditProject({
+    viewerRole: user.role,
+    viewerId: user.id,
+    ownerId: task.project.ownerId,
+    memberIds: task.project.members.map((m) => m.id),
+  });
+  const taskOwnership = task.reporterId === user.id || task.assigneeId === user.id;
+  if (!projectEditAllowed && !taskOwnership) throw new Error("Forbidden");
+
+  // Re-read status inside the transaction so the completedAt side-effect can't
+  // be computed from a stale snapshot under concurrent status changes.
+  await db.$transaction(async (tx) => {
+    const fresh = await tx.task.findUnique({ where: { id: taskId }, select: { status: true, completedAt: true } });
+    if (!fresh) throw new Error("Task not found");
+    const completedAt =
+      status === "DONE" ? new Date() : fresh.status === "DONE" ? null : fresh.completedAt;
+    await tx.task.update({ where: { id: taskId }, data: { status, completedAt } });
+  });
+
   revalidatePath(`/dashboard/projects/${task.projectId}`);
   revalidatePath("/dashboard/tasks");
   revalidatePath("/dashboard/tasks/board");
@@ -698,81 +748,94 @@ export type MoveTaskArgs = {
 
 export async function moveTask(args: MoveTaskArgs) {
   const user = await requireSession();
-  const { taskId, toStatus } = args;
-  const targetCardId = args.targetCardId ?? null;
-  const placement: Placement = args.placement ?? "below";
+  const parsed = moveTaskSchema.safeParse(args);
+  if (!parsed.success) throw new Error(parsed.error.issues[0]?.message ?? "Invalid move");
+  const { taskId, toStatus } = parsed.data;
+  let targetCardId = parsed.data.targetCardId ?? null;
+  const placement: Placement = parsed.data.placement ?? "below";
+  const reassign = parsed.data.toAssigneeId !== undefined;
 
-  const task = await db.task.findUnique({
-    where: { id: taskId },
-    include: { project: { include: { members: { select: { id: true } } } } },
-  });
-  if (!task) throw new Error("Task not found");
+  let projectId = "";
+  await db.$transaction(
+    async (tx) => {
+      // RBAC re-checked with fresh data INSIDE the transaction (reporter/assignee
+      // or membership can change mid-drag).
+      const task = await tx.task.findUnique({
+        where: { id: taskId },
+        include: { project: { include: { members: { select: { id: true } } } } },
+      });
+      if (!task) throw new Error("Task not found");
+      projectId = task.projectId;
 
-  const projectEditAllowed = canEditProject({
-    viewerRole: user.role,
-    viewerId: user.id,
-    ownerId: task.project.ownerId,
-    memberIds: task.project.members.map((m) => m.id),
-  });
-  const taskOwnership = task.reporterId === user.id || task.assigneeId === user.id;
-  if (!projectEditAllowed && !taskOwnership) {
-    throw new Error("Forbidden");
-  }
-
-  await db.$transaction(async (tx) => {
-    const siblings = await tx.task.findMany({
-      where: { projectId: task.projectId, status: toStatus, id: { not: taskId } },
-      orderBy: { orderIndex: "asc" },
-      select: { id: true, orderIndex: true },
-    });
-    let before: Sibling | null = null;
-    let after: Sibling | null = null;
-    if (targetCardId) {
-      ({ before, after } = neighbourOrderIndex(siblings, targetCardId, placement));
-    }
-    let newOrderIndex = midpoint(before, after, siblings);
-    if (needsRebalance(before, after)) {
-      for (let i = 0; i < siblings.length; i++) {
-        await tx.task.update({
-          where: { id: siblings[i].id },
-          data: { orderIndex: i * ORDER_STEP },
-        });
+      const projectEditAllowed = canEditProject({
+        viewerRole: user.role,
+        viewerId: user.id,
+        ownerId: task.project.ownerId,
+        memberIds: task.project.members.map((m) => m.id),
+      });
+      const taskOwnership = task.reporterId === user.id || task.assigneeId === user.id;
+      if (!projectEditAllowed && !taskOwnership) {
+        throw new Error("Forbidden");
       }
-      const beforeIdx = before ? siblings.findIndex((s) => s.id === before!.id) : -1;
-      const afterIdx = after ? siblings.findIndex((s) => s.id === after!.id) : -1;
-      if (beforeIdx >= 0 && afterIdx >= 0) {
-        newOrderIndex = ((beforeIdx * ORDER_STEP) + (afterIdx * ORDER_STEP)) / 2;
-      } else if (beforeIdx >= 0) {
-        newOrderIndex = beforeIdx * ORDER_STEP + ORDER_STEP / 2;
-      } else if (afterIdx >= 0) {
-        newOrderIndex = afterIdx * ORDER_STEP - ORDER_STEP / 2;
-      } else {
-        newOrderIndex = 0;
-      }
-    }
 
-    const data: Prisma.TaskUpdateInput = {
-      status: toStatus,
-      orderIndex: newOrderIndex,
-    };
-    if (toStatus === "DONE" && task.status !== "DONE") {
-      data.completedAt = new Date();
-    } else if (toStatus !== "DONE" && task.status === "DONE") {
-      data.completedAt = null;
-    }
-    if (args.toAssigneeId !== undefined) {
-      // Only manager+ or reporter can reassign on lane drop
-      if (!isManagerOrAbove(user.role) && task.reporterId !== user.id) {
-        throw new Error("Only the reporter or a manager can reassign this task");
+      const siblings = await tx.task.findMany({
+        where: { projectId: task.projectId, status: toStatus, id: { not: taskId } },
+        orderBy: { orderIndex: "asc" },
+        select: { id: true, orderIndex: true },
+      });
+      // Ignore a targetCardId that isn't in this project+column (stale/forged).
+      if (targetCardId && !siblings.some((s) => s.id === targetCardId)) {
+        targetCardId = null;
       }
-      data.assignee = args.toAssigneeId
-        ? { connect: { id: args.toAssigneeId } }
-        : { disconnect: true };
-    }
-    await tx.task.update({ where: { id: taskId }, data });
-  });
+      let before: Sibling | null = null;
+      let after: Sibling | null = null;
+      if (targetCardId) {
+        ({ before, after } = neighbourOrderIndex(siblings, targetCardId, placement));
+      }
+      let newOrderIndex = midpoint(before, after, siblings);
+      if (needsRebalance(before, after)) {
+        await Promise.all(
+          siblings.map((s, i) =>
+            tx.task.update({ where: { id: s.id }, data: { orderIndex: i * ORDER_STEP } }),
+          ),
+        );
+        const beforeIdx = before ? siblings.findIndex((s) => s.id === before!.id) : -1;
+        const afterIdx = after ? siblings.findIndex((s) => s.id === after!.id) : -1;
+        if (beforeIdx >= 0 && afterIdx >= 0) {
+          newOrderIndex = ((beforeIdx * ORDER_STEP) + (afterIdx * ORDER_STEP)) / 2;
+        } else if (beforeIdx >= 0) {
+          newOrderIndex = beforeIdx * ORDER_STEP + ORDER_STEP / 2;
+        } else if (afterIdx >= 0) {
+          newOrderIndex = afterIdx * ORDER_STEP - ORDER_STEP / 2;
+        } else {
+          newOrderIndex = 0;
+        }
+      }
 
-  revalidatePath(`/dashboard/projects/${task.projectId}`);
+      const data: Prisma.TaskUpdateInput = {
+        status: toStatus,
+        orderIndex: newOrderIndex,
+      };
+      if (toStatus === "DONE" && task.status !== "DONE") {
+        data.completedAt = new Date();
+      } else if (toStatus !== "DONE" && task.status === "DONE") {
+        data.completedAt = null;
+      }
+      if (reassign) {
+        // Only manager+ or reporter can reassign on lane drop
+        if (!isManagerOrAbove(user.role) && task.reporterId !== user.id) {
+          throw new Error("Only the reporter or a manager can reassign this task");
+        }
+        data.assignee = parsed.data.toAssigneeId
+          ? { connect: { id: parsed.data.toAssigneeId } }
+          : { disconnect: true };
+      }
+      await tx.task.update({ where: { id: taskId }, data });
+    },
+    { timeout: 15000 },
+  );
+
+  revalidatePath(`/dashboard/projects/${projectId}`);
   revalidatePath("/dashboard/tasks");
   revalidatePath("/dashboard/tasks/board");
   revalidatePath("/dashboard");

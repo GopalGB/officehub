@@ -142,6 +142,26 @@ export const taskCreateSchema = z.object({
 
 export const taskUpdateSchema = taskCreateSchema.partial();
 
+// ---- Board drag-and-drop move payloads (client-supplied → must be validated) ----
+export const placementEnum = z.enum(["above", "below"]);
+
+export const moveProjectSchema = z.object({
+  projectId: z.string().cuid(),
+  toStatus: ProjectStatusEnum,
+  targetCardId: z.string().cuid().nullable().optional(),
+  placement: placementEnum.optional(),
+});
+export type MoveProjectInput = z.infer<typeof moveProjectSchema>;
+
+export const moveTaskSchema = z.object({
+  taskId: z.string().cuid(),
+  toStatus: TaskStatusEnum,
+  targetCardId: z.string().cuid().nullable().optional(),
+  placement: placementEnum.optional(),
+  toAssigneeId: z.string().cuid().nullable().optional(),
+});
+export type MoveTaskInput = z.infer<typeof moveTaskSchema>;
+
 export const pageCreateSchema = z.object({
   title: z.string().min(1, "Title is required").max(200),
   emoji: z.string().max(8).optional().nullable(),
