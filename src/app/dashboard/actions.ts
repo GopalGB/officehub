@@ -25,7 +25,46 @@ import {
 } from "@/lib/validation";
 import { generateInviteToken, inviteExpiry, inviteUrl } from "@/lib/invitations";
 import { canDeleteProject, canEditProject, isAdmin, isManagerOrAbove } from "@/lib/rbac";
-import type { ProjectStatus, TaskStatus } from "@prisma/client";
+import type { Prisma, ProjectStatus, TaskStatus } from "@prisma/client";
+
+// ---------------- Board ordering helpers ----------------
+
+const ORDER_STEP = 1024;
+const ORDER_PRECISION_FLOOR = 0.001;
+
+type Placement = "above" | "below";
+type Sibling = { id: string; orderIndex: number };
+
+function neighbourOrderIndex(
+  siblings: Sibling[],
+  targetId: string,
+  placement: Placement,
+): { before: Sibling | null; after: Sibling | null } {
+  const idx = siblings.findIndex((s) => s.id === targetId);
+  if (idx < 0) return { before: null, after: null };
+  if (placement === "above") {
+    return { before: idx > 0 ? siblings[idx - 1] : null, after: siblings[idx] };
+  }
+  return { before: siblings[idx], after: idx < siblings.length - 1 ? siblings[idx + 1] : null };
+}
+
+function midpoint(
+  before: Sibling | null,
+  after: Sibling | null,
+  siblings: Sibling[],
+): number {
+  if (!before && !after) {
+    return siblings.length ? siblings[siblings.length - 1].orderIndex + ORDER_STEP : 0;
+  }
+  if (!before && after) return after.orderIndex - ORDER_STEP;
+  if (before && !after) return before.orderIndex + ORDER_STEP;
+  return (before!.orderIndex + after!.orderIndex) / 2;
+}
+
+function needsRebalance(before: Sibling | null, after: Sibling | null): boolean {
+  if (!before || !after) return false;
+  return Math.abs(before.orderIndex - after.orderIndex) < ORDER_PRECISION_FLOOR;
+}
 
 async function requireSession() {
   const session = await auth();
@@ -63,6 +102,11 @@ export async function createProject(formData: FormData) {
   });
   if (!parsed.success) throw new Error(parsed.error.issues[0]?.message ?? "Invalid input");
 
+  const last = await db.project.findFirst({
+    where: { status: parsed.data.status },
+    orderBy: { orderIndex: "desc" },
+    select: { orderIndex: true },
+  });
   const project = await db.project.create({
     data: {
       title: parsed.data.title,
@@ -73,6 +117,7 @@ export async function createProject(formData: FormData) {
       startDate: parseDate(formData.get("startDate")),
       targetDate: parseDate(formData.get("targetDate")),
       ownerId: user.id,
+      orderIndex: last ? last.orderIndex + ORDER_STEP : 0,
     },
   });
   revalidatePath("/dashboard");
@@ -465,6 +510,85 @@ export async function quickUpdateProjectStatus(projectId: string, status: Projec
   revalidatePath(`/dashboard/projects/${projectId}`);
 }
 
+export type MoveProjectArgs = {
+  projectId: string;
+  toStatus: ProjectStatus;
+  targetCardId?: string | null;
+  placement?: Placement;
+};
+
+export async function moveProject(args: MoveProjectArgs) {
+  const user = await requireSession();
+  const { projectId, toStatus } = args;
+  const targetCardId = args.targetCardId ?? null;
+  const placement: Placement = args.placement ?? "below";
+
+  const project = await db.project.findUnique({
+    where: { id: projectId },
+    include: { members: { select: { id: true } } },
+  });
+  if (!project) throw new Error("Project not found");
+  if (
+    !canEditProject({
+      viewerRole: user.role,
+      viewerId: user.id,
+      ownerId: project.ownerId,
+      memberIds: project.members.map((m) => m.id),
+    })
+  ) {
+    throw new Error("Forbidden");
+  }
+
+  await db.$transaction(async (tx) => {
+    const siblings = await tx.project.findMany({
+      where: { status: toStatus, id: { not: projectId } },
+      orderBy: { orderIndex: "asc" },
+      select: { id: true, orderIndex: true },
+    });
+    let before: Sibling | null = null;
+    let after: Sibling | null = null;
+    if (targetCardId) {
+      ({ before, after } = neighbourOrderIndex(siblings, targetCardId, placement));
+    }
+    let newOrderIndex = midpoint(before, after, siblings);
+    if (needsRebalance(before, after)) {
+      for (let i = 0; i < siblings.length; i++) {
+        await tx.project.update({
+          where: { id: siblings[i].id },
+          data: { orderIndex: i * ORDER_STEP },
+        });
+      }
+      const beforeIdx = before ? siblings.findIndex((s) => s.id === before!.id) : -1;
+      const afterIdx = after ? siblings.findIndex((s) => s.id === after!.id) : -1;
+      if (beforeIdx >= 0 && afterIdx >= 0) {
+        newOrderIndex = ((beforeIdx * ORDER_STEP) + (afterIdx * ORDER_STEP)) / 2;
+      } else if (beforeIdx >= 0) {
+        newOrderIndex = beforeIdx * ORDER_STEP + ORDER_STEP / 2;
+      } else if (afterIdx >= 0) {
+        newOrderIndex = afterIdx * ORDER_STEP - ORDER_STEP / 2;
+      } else {
+        newOrderIndex = 0;
+      }
+    }
+
+    const data: Prisma.ProjectUpdateInput = {
+      status: toStatus,
+      orderIndex: newOrderIndex,
+    };
+    if (toStatus === "COMPLETED" && project.status !== "COMPLETED") {
+      data.actualEndDate = new Date();
+    } else if (toStatus !== "COMPLETED" && project.status === "COMPLETED") {
+      data.actualEndDate = null;
+    }
+    await tx.project.update({ where: { id: projectId }, data });
+  });
+
+  revalidatePath("/dashboard");
+  revalidatePath("/dashboard/manager");
+  revalidatePath("/dashboard/board");
+  revalidatePath(`/dashboard/projects/${projectId}`);
+}
+
 // ---------------- Tasks ----------------
 
 export async function createTask(projectId: string, formData: FormData) {
@@ -481,7 +605,11 @@ export async function createTask(projectId: string, formData: FormData) {
   });
   if (!parsed.success) throw new Error(parsed.error.issues[0]?.message ?? "Invalid input");
 
-  const count = await db.task.count({ where: { projectId } });
+  const last = await db.task.findFirst({
+    where: { projectId, status: parsed.data.status },
+    orderBy: { orderIndex: "desc" },
+    select: { orderIndex: true },
+  });
   await db.task.create({
     data: {
       projectId,
@@ -494,7 +622,7 @@ export async function createTask(projectId: string, formData: FormData) {
       assigneeId: parsed.data.assigneeId ?? null,
       reporterId: user.id,
       parentId: parsed.data.parentId ?? null,
-      orderIndex: count,
+      orderIndex: last ? last.orderIndex + ORDER_STEP : 0,
     },
   });
   revalidatePath(`/dashboard/projects/${projectId}`);
@@ -553,6 +681,97 @@ export async function quickChangeTaskStatus(taskId: string, status: TaskStatus) 
       completedAt: status === "DONE" ? new Date() : task.status === "DONE" ? null : task.completedAt,
     },
   });
+  revalidatePath(`/dashboard/projects/${task.projectId}`);
+  revalidatePath("/dashboard/tasks");
+  revalidatePath("/dashboard/tasks/board");
+  revalidatePath("/dashboard");
+}
+
+export type MoveTaskArgs = {
+  taskId: string;
+  toStatus: TaskStatus;
+  targetCardId?: string | null;
+  placement?: Placement;
+  // optional: when swimlanes are enabled, reassign on lane drop
+  toAssigneeId?: string | null;
+};
+
+export async function moveTask(args: MoveTaskArgs) {
+  const user = await requireSession();
+  const { taskId, toStatus } = args;
+  const targetCardId = args.targetCardId ?? null;
+  const placement: Placement = args.placement ?? "below";
+
+  const task = await db.task.findUnique({
+    where: { id: taskId },
+    include: { project: { include: { members: { select: { id: true } } } } },
+  });
+  if (!task) throw new Error("Task not found");
+
+  const projectEditAllowed = canEditProject({
+    viewerRole: user.role,
+    viewerId: user.id,
+    ownerId: task.project.ownerId,
+    memberIds: task.project.members.map((m) => m.id),
+  });
+  const taskOwnership = task.reporterId === user.id || task.assigneeId === user.id;
+  if (!projectEditAllowed && !taskOwnership) {
+    throw new Error("Forbidden");
+  }
+
+  await db.$transaction(async (tx) => {
+    const siblings = await tx.task.findMany({
+      where: { projectId: task.projectId, status: toStatus, id: { not: taskId } },
+      orderBy: { orderIndex: "asc" },
+      select: { id: true, orderIndex: true },
+    });
+    let before: Sibling | null = null;
+    let after: Sibling | null = null;
+    if (targetCardId) {
+      ({ before, after } = neighbourOrderIndex(siblings, targetCardId, placement));
+    }
+    let newOrderIndex = midpoint(before, after, siblings);
+    if (needsRebalance(before, after)) {
+      for (let i = 0; i < siblings.length; i++) {
+        await tx.task.update({
+          where: { id: siblings[i].id },
+          data: { orderIndex: i * ORDER_STEP },
+        });
+      }
+      const beforeIdx = before ? siblings.findIndex((s) => s.id === before!.id) : -1;
+      const afterIdx = after ? siblings.findIndex((s) => s.id === after!.id) : -1;
+      if (beforeIdx >= 0 && afterIdx >= 0) {
+        newOrderIndex = ((beforeIdx * ORDER_STEP) + (afterIdx * ORDER_STEP)) / 2;
+      } else if (beforeIdx >= 0) {
+        newOrderIndex = beforeIdx * ORDER_STEP + ORDER_STEP / 2;
+      } else if (afterIdx >= 0) {
+        newOrderIndex = afterIdx * ORDER_STEP - ORDER_STEP / 2;
+      } else {
+        newOrderIndex = 0;
+      }
+    }
+
+    const data: Prisma.TaskUpdateInput = {
+      status: toStatus,
+      orderIndex: newOrderIndex,
+    };
+    if (toStatus === "DONE" && task.status !== "DONE") {
+      data.completedAt = new Date();
+    } else if (toStatus !== "DONE" && task.status === "DONE") {
+      data.completedAt = null;
+    }
+    if (args.toAssigneeId !== undefined) {
+      // Only manager+ or reporter can reassign on lane drop
+      if (!isManagerOrAbove(user.role) && task.reporterId !== user.id) {
+        throw new Error("Only the reporter or a manager can reassign this task");
+      }
+      data.assignee = args.toAssigneeId
+        ? { connect: { id: args.toAssigneeId } }
+        : { disconnect: true };
+    }
+    await tx.task.update({ where: { id: taskId }, data });
+  });
+
   revalidatePath(`/dashboard/projects/${task.projectId}`);
   revalidatePath("/dashboard/tasks");
   revalidatePath("/dashboard/tasks/board");

@@ -131,6 +131,7 @@ model Project {
   owner       User          @relation("ProjectOwner", fields: [ownerId], references: [id])
   members     User[]        @relation("ProjectMembers")
   favoritedBy User[]        @relation("ProjectFavorites")
+  orderIndex  Float         @default(0)
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
 
@@ -144,6 +145,7 @@ model Project {
   @@index([ownerId])
   @@index([status])
   @@index([targetDate])
+  @@index([status, orderIndex])
 }
 
 model ProjectUpdate {
@@ -229,7 +231,7 @@ model Task {
   parentId     String?
   parent       Task?      @relation("TaskSubtasks", fields: [parentId], references: [id], onDelete: SetNull)
   subtasks     Task[]     @relation("TaskSubtasks")
-  orderIndex   Int        @default(0)
+  orderIndex   Float      @default(0)
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
   completedAt  DateTime?
@@ -239,6 +241,8 @@ model Task {
   @@index([status])
   @@index([dueDate])
   @@index([parentId])
+  @@index([projectId, status, orderIndex])
+  @@index([assigneeId, status, orderIndex])
 }
 
 // ============ PAGES (Notion-side wiki) ============
