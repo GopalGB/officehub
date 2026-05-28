@@ -8,12 +8,12 @@ import { TaskBoardClient } from "@/components/task/TaskBoardClient";
 import { Button } from "@/components/ui/button";
 import { AutoSubmitSelect } from "@/components/ui/auto-submit-select";
 
-const COLUMNS: { status: TaskStatus; label: string; ring: string }[] = [
-  { status: "TODO", label: "To Do", ring: "bg-slate-50 ring-slate-200" },
-  { status: "IN_PROGRESS", label: "In Progress", ring: "bg-neutral-100 ring-black/15 dark:bg-neutral-900 dark:ring-white/15" },
-  { status: "IN_REVIEW", label: "In Review", ring: "bg-neutral-50 ring-black/15 dark:bg-neutral-900 dark:ring-white/15" },
-  { status: "BLOCKED", label: "Blocked", ring: "bg-white ring-black dark:bg-neutral-950 dark:ring-white" },
-  { status: "DONE", label: "Done", ring: "bg-neutral-100 ring-black/30 dark:bg-white dark:ring-white" },
+const COLUMNS: { status: TaskStatus; label: string; tone: string; wipLimit?: number }[] = [
+  { status: "TODO", label: "To Do", tone: "bg-white ring-black/10" },
+  { status: "IN_PROGRESS", label: "In Progress", tone: "bg-neutral-50 ring-black/15", wipLimit: 12 },
+  { status: "IN_REVIEW", label: "In Review", tone: "bg-neutral-50 ring-black/15", wipLimit: 6 },
+  { status: "BLOCKED", label: "Blocked", tone: "bg-white ring-black" },
+  { status: "DONE", label: "Done", tone: "bg-neutral-50 ring-black/30" },
 ];
 
 export default async function TaskBoardPage({
@@ -40,7 +40,7 @@ export default async function TaskBoardPage({
         assignee: { select: { id: true, name: true } },
         project: { select: { id: true, title: true } },
       },
-      orderBy: [{ priority: "desc" }, { dueDate: "asc" }],
+      orderBy: [{ orderIndex: "asc" }, { priority: "desc" }, { dueDate: "asc" }],
       take: 500,
     }),
     db.project.findMany({
@@ -56,7 +56,7 @@ export default async function TaskBoardPage({
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Task board</h1>
           <p className="text-sm text-slate-500">
-            Kanban for tasks. Click the status pill on a card to move it.
+            Drag a task across columns or reorder it within a column. Keyboard: Tab to focus, Space to grab, arrows to move, Space to drop, Esc to cancel.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -99,7 +99,9 @@ export default async function TaskBoardPage({
         viewerId={session.user.id}
         isManagerOrAbove={isManagerOrAbove(session.user.role)}
       />
-      <p className="text-xs text-neutral-400">Drag any task to a new column to change its status.</p>
+      <p className="text-xs text-neutral-400">
+        Drag freely across columns or reorder within. Tasks you don&apos;t report or own show a lock icon.
+      </p>
     </div>
   );
 }

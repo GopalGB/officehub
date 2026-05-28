@@ -8,12 +8,12 @@ import { ProjectBoardClient } from "@/components/project/ProjectBoardClient";
 import { Button } from "@/components/ui/button";
 import { AutoSubmitSelect } from "@/components/ui/auto-submit-select";
 
-const COLUMNS: { status: ProjectStatus; label: string; ring: string }[] = [
-  { status: "PLANNING", label: "Planning", ring: "bg-white ring-black/10 dark:bg-neutral-950 dark:ring-white/15" },
-  { status: "IN_PROGRESS", label: "In Progress", ring: "bg-neutral-100 ring-black/15 dark:bg-neutral-900 dark:ring-white/15" },
-  { status: "BLOCKED", label: "Blocked", ring: "bg-white ring-black dark:bg-neutral-950 dark:ring-white" },
-  { status: "ON_HOLD", label: "On Hold", ring: "bg-neutral-50 ring-black/10 dark:bg-neutral-900 dark:ring-white/10" },
-  { status: "COMPLETED", label: "Completed", ring: "bg-neutral-100 ring-black/30 dark:bg-white dark:ring-white" },
+const COLUMNS: { status: ProjectStatus; label: string; tone: string; wipLimit?: number }[] = [
+  { status: "PLANNING", label: "Planning", tone: "bg-white ring-black/10" },
+  { status: "IN_PROGRESS", label: "In Progress", tone: "bg-neutral-50 ring-black/15", wipLimit: 8 },
+  { status: "BLOCKED", label: "Blocked", tone: "bg-white ring-black" },
+  { status: "ON_HOLD", label: "On Hold", tone: "bg-neutral-50 ring-black/10" },
+  { status: "COMPLETED", label: "Completed", tone: "bg-neutral-50 ring-black/30" },
 ];
 
 export default async function BoardPage({
@@ -31,14 +31,20 @@ export default async function BoardPage({
   const where: Record<string, unknown> = {
     status: { in: COLUMNS.map((c) => c.status) },
   };
-  if (safeScope === "mine") where.ownerId = session.user.id;
+  if (safeScope === "mine") {
+    // Members see projects they own OR are explicitly added to.
+    where.OR = [
+      { ownerId: session.user.id },
+      { members: { some: { id: session.user.id } } },
+    ];
+  }
   if (owner && owner !== "ALL") where.ownerId = owner;
 
   const [projects, owners] = await Promise.all([
     db.project.findMany({
       where,
       include: { owner: { select: { id: true, name: true } } },
-      orderBy: [{ priority: "desc" }, { targetDate: "asc" }, { updatedAt: "desc" }],
+      orderBy: [{ orderIndex: "asc" }, { priority: "desc" }, { targetDate: "asc" }, { updatedAt: "desc" }],
       take: 500,
     }),
     isManagerOrAbove(session.user.role as Role)
@@ -56,7 +62,7 @@ export default async function BoardPage({
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Board</h1>
           <p className="text-sm text-slate-500">
-            Drag-free Kanban — click the status pill on a card to move it.
+            Drag a project card across columns or reorder it within a column. Keyboard: Tab to focus, Space to grab, arrows to move, Space to drop, Esc to cancel.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -101,7 +107,9 @@ export default async function BoardPage({
         viewerId={session.user.id}
         canEditByOwner={isManagerOrAbove(session.user.role)}
       />
-      <p className="text-xs text-neutral-400">Drag any card to a new column to change its status.</p>
+      <p className="text-xs text-neutral-400">
+        Drag freely across columns or reorder within. Cards you don&apos;t own show a lock icon.
+      </p>
     </div>
   );
 }
