@@ -2,9 +2,11 @@
 
 import { useMemo, useRef, useState, useTransition } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   DndContext,
   DragOverlay,
+  KeyboardCode,
   KeyboardSensor,
   PointerSensor,
   TouchSensor,
@@ -19,7 +21,6 @@ import {
 } from "@dnd-kit/core";
 import {
   SortableContext,
-  arrayMove,
   sortableKeyboardCoordinates,
   useSortable,
   verticalListSortingStrategy,
@@ -33,6 +34,8 @@ import { useToast } from "@/components/ui/toast";
 import { moveProject } from "@/app/dashboard/actions";
 import { formatDate, timeAgo, cn } from "@/lib/utils";
 import { computePlacement } from "@/components/board/dnd-helpers";
+
+const ORDER_STEP = 1024;
 
 type ProjectWithOwner = Project & { owner: Pick<User, "id" | "name"> };
 type Column = {
@@ -58,11 +61,19 @@ export function ProjectBoardClient({
   const [pending, start] = useTransition();
   const { toast } = useToast();
   const lastMoveRef = useRef<number>(0);
+  // Snapshot of state at drag start — the correct target for every revert
+  // (permission denied, dropped outside, cancelled). Never revert to the
+  // mount-time `initialProjects`, which would undo earlier successful moves.
+  const dragStartRef = useRef<ProjectWithOwner[]>(initialProjects);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
     useSensor(TouchSensor, { activationConstraint: { delay: 300, tolerance: 8 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+      // Space grabs/drops; Enter is freed so the focused card can navigate.
+      keyboardCodes: { start: [KeyboardCode.Space], cancel: [KeyboardCode.Esc], end: [KeyboardCode.Space] },
+    }),
   );
 
   const knownStatuses = useMemo(() => columns.map((c) => c.status), [columns]);
@@ -76,7 +87,16 @@ export function ProjectBoardClient({
     return canEditByOwner || p.ownerId === viewerId;
   }
 
+  function restoreFocus(cardId: string) {
+    if (typeof window === "undefined") return;
+    window.requestAnimationFrame(() => {
+      const node = document.querySelector<HTMLElement>(`[data-card-id="${cardId}"]`);
+      node?.focus();
+    });
+  }
+
   function onDragStart(e: DragStartEvent) {
+    dragStartRef.current = projects;
     setActiveId(String(e.active.id));
   }
 
@@ -91,7 +111,6 @@ export function ProjectBoardClient({
       const active = curr.find((p) => p.id === activeIdStr);
       if (!active) return curr;
 
-      // Determine target status: column id or the over card's column
       let targetStatus: ProjectStatus;
       if ((knownStatuses as readonly string[]).includes(overIdStr)) {
         targetStatus = overIdStr as ProjectStatus;
@@ -109,7 +128,11 @@ export function ProjectBoardClient({
   function onDragEnd(e: DragEndEvent) {
     setActiveId(null);
     const { active, over } = e;
-    if (!over) return;
+    // Dropped outside any column: undo the onDragOver preview.
+    if (!over) {
+      setProjects(dragStartRef.current);
+      return;
+    }
 
     const projectId = String(active.id);
     const overId = String(over.id);
@@ -117,13 +140,12 @@ export function ProjectBoardClient({
     const project = projects.find((p) => p.id === projectId);
     if (!project) return;
     if (!canMove(project)) {
-      // revert the live preview if cross-column movement happened
-      setProjects(initialProjects);
+      setProjects(dragStartRef.current);
       toast("You can't move someone else's project", "error");
       return;
     }
 
-    // Determine target status + neighbor card
+    // Determine target status + neighbour card
     let toStatus: ProjectStatus;
     let targetCardId: string | null = null;
     let placement: "above" | "below" = "below";
@@ -132,20 +154,16 @@ export function ProjectBoardClient({
       toStatus = overId as ProjectStatus;
     } else {
       const overCard = projects.find((p) => p.id === overId);
-      if (!overCard) return;
+      if (!overCard) {
+        setProjects(dragStartRef.current);
+        return;
+      }
       toStatus = overCard.status;
       targetCardId = overId;
       placement = computePlacement(active, over);
     }
 
-    // No-op short-circuit: same status, same neighbor, same placement.
-    const sameColumn = project.status === toStatus;
-    if (sameColumn && targetCardId === null) {
-      // dropped into the column header zone of same column — append.
-      // Allow this — recalculate order.
-    }
-
-    const previousProjects = projects;
+    const previousProjects = dragStartRef.current;
 
     // WIP-limit warning (informational only, not blocking)
     const col = columns.find((c) => c.status === toStatus);
@@ -154,26 +172,32 @@ export function ProjectBoardClient({
       toast(`WIP limit exceeded in ${col.label} (${newColCount}/${col.wipLimit})`, "info");
     }
 
-    // Compute the locally-visible new ordering with arrayMove for instant reflow.
+    // Optimistic reorder that mirrors the server's neighbour+placement math:
+    // build the destination column WITHOUT the dragged card, insert at the
+    // target index, then re-spread orderIndex by visual order.
     setProjects((curr) => {
-      const updated = curr.map((p) =>
-        p.id === projectId ? { ...p, status: toStatus } : p,
-      );
-      const colItems = updated
-        .filter((p) => p.status === toStatus)
+      const moved = curr.find((p) => p.id === projectId);
+      if (!moved) return curr;
+      const colItems = curr
+        .filter((p) => p.id !== projectId && p.status === toStatus)
         .sort((a, b) => a.orderIndex - b.orderIndex);
-      const fromIdx = colItems.findIndex((p) => p.id === projectId);
-      let toIdx = targetCardId
-        ? colItems.findIndex((p) => p.id === targetCardId) + (placement === "above" ? 0 : 1)
-        : colItems.length;
-      if (toIdx < 0) toIdx = colItems.length;
-      const reordered = arrayMove(colItems, fromIdx, Math.max(0, Math.min(toIdx, colItems.length - 1)));
-      // Re-spread orderIndex by visual order so the optimistic UI is stable.
-      const spread = new Map(reordered.map((p, i) => [p.id, i * 1024]));
-      return updated.map((p) =>
-        spread.has(p.id) ? { ...p, orderIndex: spread.get(p.id)! } : p,
-      );
+      let insertAt = colItems.length;
+      if (targetCardId) {
+        const ti = colItems.findIndex((p) => p.id === targetCardId);
+        if (ti >= 0) insertAt = ti + (placement === "above" ? 0 : 1);
+      }
+      const ordered = [
+        ...colItems.slice(0, insertAt),
+        { ...moved, status: toStatus },
+        ...colItems.slice(insertAt),
+      ];
+      const spread = new Map(ordered.map((p, i) => [p.id, i * ORDER_STEP]));
+      return curr.map((p) => {
+        if (p.id === projectId) return { ...p, status: toStatus, orderIndex: spread.get(p.id) ?? p.orderIndex };
+        return spread.has(p.id) ? { ...p, orderIndex: spread.get(p.id)! } : p;
+      });
     });
+    restoreFocus(projectId);
 
     const moveAt = ++lastMoveRef.current;
     start(async () => {
@@ -191,8 +215,7 @@ export function ProjectBoardClient({
 
   function onDragCancel() {
     setActiveId(null);
-    // restore from authoritative state by re-sorting current local state
-    setProjects((curr) => [...curr]);
+    setProjects(dragStartRef.current);
   }
 
   const announcements: Announcements = {
@@ -247,7 +270,7 @@ export function ProjectBoardClient({
       <DragOverlay dropAnimation={{ duration: 200, easing: "cubic-bezier(0.18, 0.67, 0.6, 1.22)" }}>
         {activeProject ? (
           <div className="rotate-1 scale-[1.02] cursor-grabbing shadow-2xl">
-            <CardBody project={activeProject} />
+            <CardBody project={activeProject} overlay />
           </div>
         ) : null}
       </DragOverlay>
@@ -327,6 +350,7 @@ function EmptyHint({ isOver, isDragging }: { isOver: boolean; isDragging: boolea
 }
 
 function SortableCard({ project, canMove }: { project: ProjectWithOwner; canMove: boolean }) {
+  const router = useRouter();
   const {
     attributes,
     listeners,
@@ -341,21 +365,35 @@ function SortableCard({ project, canMove }: { project: ProjectWithOwner; canMove
     transition,
   } as React.CSSProperties;
 
+  const href = `/dashboard/projects/${project.id}`;
+
+  function handleKeyDown(e: React.KeyboardEvent) {
+    // Enter opens the project (Space is reserved for grab/drop by the sensor).
+    if (e.key === "Enter" && !isDragging) {
+      e.preventDefault();
+      router.push(href);
+      return;
+    }
+    listeners?.onKeyDown?.(e as unknown as KeyboardEvent);
+  }
+
   return (
     <div
       ref={setNodeRef}
+      data-card-id={project.id}
       style={style}
       {...attributes}
       {...listeners}
+      onKeyDown={handleKeyDown}
       className={cn(
-        "touch-none",
         canMove ? "cursor-grab active:cursor-grabbing" : "cursor-default",
-        isDragging && "opacity-30",
+        // Allow vertical scroll on touch when idle; lock gestures only mid-drag.
+        isDragging ? "touch-none opacity-30" : "touch-pan-y",
       )}
       aria-label={
         canMove
-          ? `Project ${project.title}, status ${project.status}. Press space to grab.`
-          : `Project ${project.title}, status ${project.status}. Drag locked — you don't own this project.`
+          ? `Project ${project.title}, status ${project.status}. Press space to grab, enter to open.`
+          : `Project ${project.title}, status ${project.status}. Drag locked — you don't own this project. Press enter to open.`
       }
     >
       <CardBody project={project} locked={!canMove} />
@@ -363,7 +401,15 @@ function SortableCard({ project, canMove }: { project: ProjectWithOwner; canMove
   );
 }
 
-function CardBody({ project, locked }: { project: ProjectWithOwner; locked?: boolean }) {
+function CardBody({
+  project,
+  locked,
+  overlay,
+}: {
+  project: ProjectWithOwner;
+  locked?: boolean;
+  overlay?: boolean;
+}) {
   const overdue =
     project.targetDate &&
     new Date(project.targetDate) < new Date() &&
@@ -376,13 +422,18 @@ function CardBody({ project, locked }: { project: ProjectWithOwner; locked?: boo
       )}
     >
       <div className="flex items-start justify-between gap-2">
-        <Link
-          href={`/dashboard/projects/${project.id}`}
-          onPointerDown={(e) => e.stopPropagation()}
-          className="line-clamp-2 text-sm font-semibold text-black hover:underline"
-        >
-          {project.title}
-        </Link>
+        {overlay ? (
+          <span className="line-clamp-2 text-sm font-semibold text-black">{project.title}</span>
+        ) : (
+          <Link
+            href={`/dashboard/projects/${project.id}`}
+            onPointerDown={(e) => e.stopPropagation()}
+            tabIndex={-1}
+            className="line-clamp-2 text-sm font-semibold text-black hover:underline"
+          >
+            {project.title}
+          </Link>
+        )}
         {locked && (
           <span title="You can't move this card" aria-hidden>
             <Lock className="h-3.5 w-3.5 text-neutral-400" />

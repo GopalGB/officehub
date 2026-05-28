@@ -2,9 +2,11 @@
 
 import { useMemo, useRef, useState, useTransition } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   DndContext,
   DragOverlay,
+  KeyboardCode,
   KeyboardSensor,
   PointerSensor,
   TouchSensor,
@@ -19,7 +21,6 @@ import {
 } from "@dnd-kit/core";
 import {
   SortableContext,
-  arrayMove,
   sortableKeyboardCoordinates,
   useSortable,
   verticalListSortingStrategy,
@@ -33,6 +34,8 @@ import { useToast } from "@/components/ui/toast";
 import { moveTask } from "@/app/dashboard/actions";
 import { formatDate, cn } from "@/lib/utils";
 import { computePlacement } from "@/components/board/dnd-helpers";
+
+const ORDER_STEP = 1024;
 
 type TaskWithRelations = Task & {
   assignee: Pick<User, "id" | "name"> | null;
@@ -61,11 +64,16 @@ export function TaskBoardClient({
   const [pending, start] = useTransition();
   const { toast } = useToast();
   const lastMoveRef = useRef<number>(0);
+  // Snapshot at drag start — the correct revert target for every early exit.
+  const dragStartRef = useRef<TaskWithRelations[]>(initialTasks);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
     useSensor(TouchSensor, { activationConstraint: { delay: 300, tolerance: 8 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+      keyboardCodes: { start: [KeyboardCode.Space], cancel: [KeyboardCode.Esc], end: [KeyboardCode.Space] },
+    }),
   );
 
   const knownStatuses = useMemo(() => columns.map((c) => c.status), [columns]);
@@ -79,7 +87,16 @@ export function TaskBoardClient({
     return isManagerOrAbove || t.reporterId === viewerId || t.assigneeId === viewerId;
   }
 
+  function restoreFocus(cardId: string) {
+    if (typeof window === "undefined") return;
+    window.requestAnimationFrame(() => {
+      const node = document.querySelector<HTMLElement>(`[data-card-id="${cardId}"]`);
+      node?.focus();
+    });
+  }
+
   function onDragStart(e: DragStartEvent) {
+    dragStartRef.current = tasks;
     setActiveId(String(e.active.id));
   }
 
@@ -109,14 +126,17 @@ export function TaskBoardClient({
   function onDragEnd(e: DragEndEvent) {
     setActiveId(null);
     const { active, over } = e;
-    if (!over) return;
+    if (!over) {
+      setTasks(dragStartRef.current);
+      return;
+    }
 
     const taskId = String(active.id);
     const overId = String(over.id);
     const task = tasks.find((t) => t.id === taskId);
     if (!task) return;
     if (!canMove(task)) {
-      setTasks(initialTasks);
+      setTasks(dragStartRef.current);
       toast("You can't move this task", "error");
       return;
     }
@@ -129,7 +149,10 @@ export function TaskBoardClient({
       toStatus = overId as TaskStatus;
     } else {
       const overCard = tasks.find((t) => t.id === overId);
-      if (!overCard) return;
+      if (!overCard) {
+        setTasks(dragStartRef.current);
+        return;
+      }
       toStatus = overCard.status;
       targetCardId = overId;
       placement = computePlacement(active, over);
@@ -141,26 +164,31 @@ export function TaskBoardClient({
       toast(`WIP limit exceeded in ${col.label} (${newColCount}/${col.wipLimit})`, "info");
     }
 
-    const previousTasks = tasks;
+    const previousTasks = dragStartRef.current;
 
     setTasks((curr) => {
-      const updated = curr.map((t) =>
-        t.id === taskId ? { ...t, status: toStatus } : t,
-      );
-      const colItems = updated
-        .filter((t) => t.status === toStatus)
+      const moved = curr.find((t) => t.id === taskId);
+      if (!moved) return curr;
+      const colItems = curr
+        .filter((t) => t.id !== taskId && t.status === toStatus)
         .sort((a, b) => a.orderIndex - b.orderIndex);
-      const fromIdx = colItems.findIndex((t) => t.id === taskId);
-      let toIdx = targetCardId
-        ? colItems.findIndex((t) => t.id === targetCardId) + (placement === "above" ? 0 : 1)
-        : colItems.length;
-      if (toIdx < 0) toIdx = colItems.length;
-      const reordered = arrayMove(colItems, fromIdx, Math.max(0, Math.min(toIdx, colItems.length - 1)));
-      const spread = new Map(reordered.map((t, i) => [t.id, i * 1024]));
-      return updated.map((t) =>
-        spread.has(t.id) ? { ...t, orderIndex: spread.get(t.id)! } : t,
-      );
+      let insertAt = colItems.length;
+      if (targetCardId) {
+        const ti = colItems.findIndex((t) => t.id === targetCardId);
+        if (ti >= 0) insertAt = ti + (placement === "above" ? 0 : 1);
+      }
+      const ordered = [
+        ...colItems.slice(0, insertAt),
+        { ...moved, status: toStatus },
+        ...colItems.slice(insertAt),
+      ];
+      const spread = new Map(ordered.map((t, i) => [t.id, i * ORDER_STEP]));
+      return curr.map((t) => {
+        if (t.id === taskId) return { ...t, status: toStatus, orderIndex: spread.get(t.id) ?? t.orderIndex };
+        return spread.has(t.id) ? { ...t, orderIndex: spread.get(t.id)! } : t;
+      });
     });
+    restoreFocus(taskId);
 
     const moveAt = ++lastMoveRef.current;
     start(async () => {
@@ -178,7 +206,7 @@ export function TaskBoardClient({
 
   function onDragCancel() {
     setActiveId(null);
-    setTasks((curr) => [...curr]);
+    setTasks(dragStartRef.current);
   }
 
   const announcements: Announcements = {
@@ -233,7 +261,7 @@ export function TaskBoardClient({
       <DragOverlay dropAnimation={{ duration: 200, easing: "cubic-bezier(0.18, 0.67, 0.6, 1.22)" }}>
         {activeTask ? (
           <div className="rotate-1 scale-[1.02] cursor-grabbing shadow-2xl">
-            <CardBody task={activeTask} />
+            <CardBody task={activeTask} overlay />
           </div>
         ) : null}
       </DragOverlay>
@@ -321,6 +349,7 @@ function EmptyHint({ isOver, isDragging }: { isOver: boolean; isDragging: boolea
 }
 
 function SortableCard({ task, canMove }: { task: TaskWithRelations; canMove: boolean }) {
+  const router = useRouter();
   const {
     attributes,
     listeners,
@@ -335,16 +364,28 @@ function SortableCard({ task, canMove }: { task: TaskWithRelations; canMove: boo
     transition,
   } as React.CSSProperties;
 
+  const href = task.project ? `/dashboard/projects/${task.project.id}` : null;
+
+  function handleKeyDown(e: React.KeyboardEvent) {
+    if (e.key === "Enter" && !isDragging && href) {
+      e.preventDefault();
+      router.push(href);
+      return;
+    }
+    listeners?.onKeyDown?.(e as unknown as KeyboardEvent);
+  }
+
   return (
     <div
       ref={setNodeRef}
+      data-card-id={task.id}
       style={style}
       {...attributes}
       {...listeners}
+      onKeyDown={handleKeyDown}
       className={cn(
-        "touch-none",
         canMove ? "cursor-grab active:cursor-grabbing" : "cursor-default",
-        isDragging && "opacity-30",
+        isDragging ? "touch-none opacity-30" : "touch-pan-y",
       )}
       aria-label={
         canMove
@@ -357,7 +398,15 @@ function SortableCard({ task, canMove }: { task: TaskWithRelations; canMove: boo
   );
 }
 
-function CardBody({ task, locked }: { task: TaskWithRelations; locked?: boolean }) {
+function CardBody({
+  task,
+  locked,
+  overlay,
+}: {
+  task: TaskWithRelations;
+  locked?: boolean;
+  overlay?: boolean;
+}) {
   const overdue = task.dueDate && new Date(task.dueDate) < new Date() && task.status !== "DONE";
   return (
     <div
@@ -374,15 +423,19 @@ function CardBody({ task, locked }: { task: TaskWithRelations; locked?: boolean 
           </span>
         )}
       </div>
-      {task.project && (
-        <Link
-          href={`/dashboard/projects/${task.project.id}`}
-          onPointerDown={(e) => e.stopPropagation()}
-          className="mt-1 inline-block text-[10px] text-neutral-500 hover:underline"
-        >
-          {task.project.title}
-        </Link>
-      )}
+      {task.project &&
+        (overlay ? (
+          <span className="mt-1 inline-block text-[10px] text-neutral-500">{task.project.title}</span>
+        ) : (
+          <Link
+            href={`/dashboard/projects/${task.project.id}`}
+            onPointerDown={(e) => e.stopPropagation()}
+            tabIndex={-1}
+            className="mt-1 inline-block text-[10px] text-neutral-500 hover:underline"
+          >
+            {task.project.title}
+          </Link>
+        ))}
       <div className="mt-2 flex items-center justify-between">
         <div className="flex items-center gap-1.5">
           {task.assignee ? (
