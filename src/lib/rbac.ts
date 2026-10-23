@@ -40,6 +40,18 @@ export function canEditProject(opts: {
   return opts.memberIds?.includes(opts.viewerId) ?? false;
 }
 
+export function canViewProject(opts: {
+  viewerRole: Role | undefined | null;
+  viewerId: string | undefined | null;
+  ownerId: string;
+  memberIds?: string[];
+}): boolean {
+  if (canViewAllProjects(opts.viewerRole)) return true;
+  if (!opts.viewerId) return false;
+  if (opts.viewerId === opts.ownerId) return true;
+  return opts.memberIds?.includes(opts.viewerId) ?? false;
+}
+
 export function canDeleteProject(opts: {
   viewerRole: Role | undefined | null;
   viewerId: string | undefined | null;

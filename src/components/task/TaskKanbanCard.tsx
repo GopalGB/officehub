@@ -3,7 +3,7 @@ import type { Task, User, Project } from "@prisma/client";
 import { Avatar } from "@/components/ui/avatar";
 import { PriorityBadge } from "@/components/project/StatusBadge";
 import { TaskStatusMenu } from "./TaskStatusMenu";
-import { formatDate } from "@/lib/utils";
+import { formatDate, isOverdueDate } from "@/lib/utils";
 
 export function TaskKanbanCard({
   task,
@@ -12,7 +12,7 @@ export function TaskKanbanCard({
   task: Task & { assignee: Pick<User, "id" | "name"> | null; project?: Pick<Project, "id" | "title"> };
   canEdit: boolean;
 }) {
-  const overdue = task.dueDate && new Date(task.dueDate) < new Date() && task.status !== "DONE";
+  const overdue = task.status !== "DONE" && isOverdueDate(task.dueDate);
   return (
     <div className="hover-lift rounded-md border border-slate-200 bg-white p-3 shadow-sm hover:border-slate-400 hover:shadow-md">
       <p className="text-sm font-semibold text-slate-900">{task.title}</p>

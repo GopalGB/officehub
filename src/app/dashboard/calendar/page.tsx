@@ -4,7 +4,7 @@ import { Flag, CheckSquare, ChevronLeft, ChevronRight } from "lucide-react";
 import { auth } from "../../../../auth";
 import { db } from "@/lib/db";
 import { isManagerOrAbove } from "@/lib/rbac";
-import { cn } from "@/lib/utils";
+import { cn, isOverdueDate } from "@/lib/utils";
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const MONTH_NAMES = [
@@ -94,7 +94,7 @@ export default async function CalendarPage({
       projectId: m.project.id,
       projectTitle: m.project.title,
       completed: m.completed,
-      overdue: !m.completed && new Date(m.dueDate) < now,
+      overdue: !m.completed && isOverdueDate(m.dueDate),
     });
     byDay.set(k, arr);
   }
@@ -109,7 +109,7 @@ export default async function CalendarPage({
       projectId: t.project.id,
       projectTitle: t.project.title,
       completed: t.status === "DONE",
-      overdue: t.status !== "DONE" && new Date(t.dueDate) < now,
+      overdue: t.status !== "DONE" && isOverdueDate(t.dueDate),
     });
     byDay.set(k, arr);
   }

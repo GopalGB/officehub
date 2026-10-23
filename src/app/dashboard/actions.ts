@@ -662,9 +662,23 @@ export async function createTask(projectId: string, formData: FormData) {
 }
 
 export async function updateTask(taskId: string, formData: FormData) {
-  await requireSession();
-  const task = await db.task.findUnique({ where: { id: taskId } });
+  const me = await requireSession();
+  // RBAC: project editor, or the task's reporter/assignee (mirrors moveTask).
+  // This action previously only checked the session, letting any signed-in
+  // user edit any task (OH-08).
+  const task = await db.task.findUnique({
+    where: { id: taskId },
+    include: { project: { include: { members: { select: { id: true } } } } },
+  });
   if (!task) throw new Error("Task not found");
+  const taskOwnership = task.reporterId === me.id || task.assigneeId === me.id;
+  const projectEditAllowed = canEditProject({
+    viewerRole: me.role,
+    viewerId: me.id,
+    ownerId: task.project.ownerId,
+    memberIds: task.project.members.map((m) => m.id),
+  });
+  if (!projectEditAllowed && !taskOwnership) throw new Error("Forbidden");
 
   const parsed = taskUpdateSchema.safeParse({
     title: formData.get("title") ?? undefined,
@@ -842,9 +856,21 @@ export async function moveTask(args: MoveTaskArgs) {
 }
 
 export async function quickAssignTask(taskId: string, assigneeId: string | null) {
-  await requireSession();
-  const task = await db.task.findUnique({ where: { id: taskId } });
+  const me = await requireSession();
+  // RBAC: project editor or the reporter — previously any signed-in user could
+  // reassign any task (IDOR).
+  const task = await db.task.findUnique({
+    where: { id: taskId },
+    include: { project: { include: { members: { select: { id: true } } } } },
+  });
   if (!task) throw new Error("Task not found");
+  const projectEditAllowed = canEditProject({
+    viewerRole: me.role,
+    viewerId: me.id,
+    ownerId: task.project.ownerId,
+    memberIds: task.project.members.map((m) => m.id),
+  });
+  if (!projectEditAllowed && task.reporterId !== me.id) throw new Error("Forbidden");
   await db.task.update({
     where: { id: taskId },
     data: { assigneeId: assigneeId || null },

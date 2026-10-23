@@ -48,11 +48,14 @@ export function Sidebar({ role }: { role: Role }) {
       items: [{ href: "/dashboard/pages", label: "Wiki", icon: BookOpen, show: true }],
     },
     {
+      // Personal/workspace settings belong to everyone; the Admin section is
+      // strictly admin-only so the heading no longer leaks to MEMBERs (OH-13).
+      heading: "Workspace",
+      items: [{ href: "/dashboard/settings", label: "Settings", icon: Settings, show: true }],
+    },
+    {
       heading: "Admin",
-      items: [
-        { href: "/dashboard/team", label: "Team", icon: Users2, show: isAdmin(role) },
-        { href: "/dashboard/settings", label: "Settings", icon: Settings, show: true },
-      ],
+      items: [{ href: "/dashboard/team", label: "Team", icon: Users2, show: isAdmin(role) }],
     },
   ];
 

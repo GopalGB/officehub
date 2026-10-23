@@ -31,7 +31,12 @@ export const authConfig = {
       const isAuthRoute = path.startsWith("/login") || path.startsWith("/signup");
       const isInviteRoute = path.startsWith("/invite/");
       const isProtected =
-        path.startsWith("/dashboard") || path.startsWith("/api/projects") || path.startsWith("/api/users");
+        path.startsWith("/dashboard") ||
+        path.startsWith("/api/projects") ||
+        path.startsWith("/api/users") ||
+        path.startsWith("/api/me") ||
+        path.startsWith("/api/search") ||
+        path.startsWith("/api/workspace");
       if (isInviteRoute) return true;
       if (isProtected) return isLoggedIn;
       if (isAuthRoute && isLoggedIn) {

@@ -3,7 +3,7 @@ import type { Project, User } from "@prisma/client";
 import { Avatar } from "@/components/ui/avatar";
 import { PriorityBadge } from "./StatusBadge";
 import { QuickStatusMenu } from "./QuickStatusMenu";
-import { formatDate, timeAgo } from "@/lib/utils";
+import { formatDate, isOverdueDate, timeAgo } from "@/lib/utils";
 
 export function KanbanCard({
   project,
@@ -13,9 +13,7 @@ export function KanbanCard({
   canEdit: boolean;
 }) {
   const overdue =
-    project.targetDate &&
-    new Date(project.targetDate) < new Date() &&
-    !["COMPLETED", "ARCHIVED"].includes(project.status);
+    isOverdueDate(project.targetDate) && !["COMPLETED", "ARCHIVED"].includes(project.status);
 
   return (
     <div className="hover-lift group relative rounded-md border border-slate-200 bg-white p-3 shadow-sm hover:border-slate-400 hover:shadow-md">

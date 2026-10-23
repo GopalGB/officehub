@@ -1,7 +1,7 @@
 import { db } from "@/lib/db";
 import { jsonError, jsonOk, requireApiAuth } from "@/lib/api";
 import { projectUpdateSchema } from "@/lib/validation";
-import { canDeleteProject, canEditProject } from "@/lib/rbac";
+import { canDeleteProject, canEditProject, canViewProject } from "@/lib/rbac";
 
 export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> }) {
   const { user, response } = await requireApiAuth();
@@ -12,6 +12,7 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
     where: { id },
     include: {
       owner: { select: { id: true, name: true, email: true } },
+      members: { select: { id: true } },
       milestones: true,
       enhancements: { include: { author: { select: { id: true, name: true } } } },
       updates: {
@@ -26,9 +27,16 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
   });
   if (!project) return jsonError("NOT_FOUND", "Project not found", 404);
 
-  // Members can only see their own projects via API
-  if (user!.role === "MEMBER" && project.ownerId !== user!.id) {
-    return jsonError("FORBIDDEN", "Members can only access their own projects", 403);
+  // Managers+ see everything; members see projects they own or belong to
+  if (
+    !canViewProject({
+      viewerRole: user!.role,
+      viewerId: user!.id,
+      ownerId: project.ownerId,
+      memberIds: project.members.map((m) => m.id),
+    })
+  ) {
+    return jsonError("FORBIDDEN", "Cannot access this project", 403);
   }
   return jsonOk(project);
 }
