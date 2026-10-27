@@ -37,7 +37,10 @@ import { computePlacement } from "@/components/board/dnd-helpers";
 
 const ORDER_STEP = 1024;
 
-type ProjectWithOwner = Project & { owner: Pick<User, "id" | "name"> };
+type ProjectWithOwner = Project & {
+  canEdit?: boolean;
+  owner: Pick<User, "id" | "name">;
+};
 type Column = {
   status: ProjectStatus;
   label: string;
@@ -84,7 +87,7 @@ export function ProjectBoardClient({
   }, [columns, projects]);
 
   function canMove(p: ProjectWithOwner): boolean {
-    return canEditByOwner || p.ownerId === viewerId;
+    return p.canEdit ?? (canEditByOwner || p.ownerId === viewerId);
   }
 
   function restoreFocus(cardId: string) {
@@ -374,7 +377,7 @@ function SortableCard({ project, canMove }: { project: ProjectWithOwner; canMove
       router.push(href);
       return;
     }
-    listeners?.onKeyDown?.(e as unknown as KeyboardEvent);
+    listeners?.onKeyDown?.(e);
   }
 
   return (

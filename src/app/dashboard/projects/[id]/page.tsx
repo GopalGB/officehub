@@ -29,7 +29,7 @@ import {
   toggleMilestone,
   updateEnhancement,
 } from "@/app/dashboard/actions";
-import { canEditProject, canDeleteProject } from "@/lib/rbac";
+import { canEditProject, canDeleteProject, canViewProject, projectAccessWhere, isManagerOrAbove, taskPermissions } from "@/lib/rbac";
 import { formatDate, timeAgo } from "@/lib/utils";
 
 export default async function ProjectDetailPage({
@@ -43,7 +43,7 @@ export default async function ProjectDetailPage({
 
   const [project, allTags, members] = await Promise.all([
     db.project.findUnique({
-      where: { id },
+      where: { id, AND: [projectAccessWhere(session.user)] },
       include: {
         owner: { select: { id: true, name: true, email: true } },
         members: { select: { id: true, name: true, email: true } },
@@ -82,6 +82,7 @@ export default async function ProjectDetailPage({
   if (!project) notFound();
 
   const memberIds = project.members.map((m) => m.id);
+  if (!canViewProject({ viewerRole: session.user.role, viewerId: session.user.id, ownerId: project.ownerId, memberIds })) notFound();
   const canEdit = canEditProject({
     viewerRole: session.user.role,
     viewerId: session.user.id,
@@ -148,7 +149,7 @@ export default async function ProjectDetailPage({
             ownerName={project.owner.name}
             allUsers={members.filter((m) => m.id !== project.ownerId)}
             selectedIds={memberIds}
-            canEdit={canEdit}
+            canEdit={project.ownerId === session.user.id || isManagerOrAbove(session.user.role)}
           />
         </CardContent>
       </Card>
@@ -197,7 +198,7 @@ export default async function ProjectDetailPage({
           <TaskQuickAdd projectId={project.id} assignees={members} />
         </div>
         <TaskTable
-          rows={project.tasks}
+          rows={project.tasks.map((task) => ({ ...task, ...taskPermissions(session.user, { ...task, project }) }))}
           assignees={members}
           viewerId={session.user.id}
           canManage={canEdit}

@@ -1,5 +1,6 @@
 "use server";
 
+import { formText } from "@/lib/utils";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import bcrypt from "bcryptjs";
@@ -16,7 +17,7 @@ import {
   moveTaskSchema,
   TaskStatusEnum,
   pageCreateSchema,
-  pageUpdateSchema,
+  pageSaveSchema,
   projectCreateSchema,
   projectStatusUpdateSchema,
   projectUpdateSchema,
@@ -28,6 +29,7 @@ import {
 } from "@/lib/validation";
 import { generateInviteToken, inviteExpiry, inviteUrl } from "@/lib/invitations";
 import { canDeleteProject, canEditProject, isAdmin, isManagerOrAbove } from "@/lib/rbac";
+import { requireProjectEditor, requirePageEditor } from "@/lib/access";
 import type { Prisma, ProjectStatus, TaskStatus } from "@prisma/client";
 
 // ---------------- Board ordering helpers ----------------
@@ -202,6 +204,7 @@ export async function deleteProject(projectId: string) {
 
 export async function addProjectUpdate(projectId: string, formData: FormData) {
   const user = await requireSession();
+  await requireProjectEditor(user, projectId);
   const project = await db.project.findUnique({ where: { id: projectId } });
   if (!project) throw new Error("Project not found");
 
@@ -224,6 +227,7 @@ export async function addProjectUpdate(projectId: string, formData: FormData) {
 
 export async function addEnhancement(projectId: string, formData: FormData) {
   const user = await requireSession();
+  await requireProjectEditor(user, projectId);
   const parsed = enhancementCreateSchema.safeParse({
     title: formData.get("title"),
     description: formData.get("description") || null,
@@ -239,7 +243,10 @@ export async function addEnhancement(projectId: string, formData: FormData) {
 }
 
 export async function updateEnhancement(id: string, projectId: string, formData: FormData) {
-  await requireSession();
+  const user = await requireSession();
+  const existing = await db.enhancement.findUnique({ where: { id } });
+  if (!existing || existing.projectId !== projectId) throw new Error("Not found");
+  await requireProjectEditor(user, existing.projectId);
   const parsed = enhancementUpdateSchema.safeParse({
     title: formData.get("title") ?? undefined,
     description: formData.get("description") ?? undefined,
@@ -255,7 +262,8 @@ export async function deleteEnhancement(id: string, projectId: string) {
   const user = await requireSession();
   const existing = await db.enhancement.findUnique({ where: { id } });
   if (!existing) return;
-  if (existing.authorId !== user.id && !isManagerOrAbove(user.role)) throw new Error("Forbidden");
+  if (existing.projectId !== projectId) throw new Error("Not found");
+  await requireProjectEditor(user, existing.projectId);
   await db.enhancement.delete({ where: { id } });
   revalidatePath(`/dashboard/projects/${projectId}`);
 }
@@ -263,7 +271,8 @@ export async function deleteEnhancement(id: string, projectId: string) {
 // ---------------- Milestones ----------------
 
 export async function addMilestone(projectId: string, formData: FormData) {
-  await requireSession();
+  const user = await requireSession();
+  await requireProjectEditor(user, projectId);
   const parsed = milestoneCreateSchema.safeParse({
     title: formData.get("title"),
     dueDate: formData.get("dueDate") || null,
@@ -283,7 +292,10 @@ export async function addMilestone(projectId: string, formData: FormData) {
 }
 
 export async function toggleMilestone(id: string, projectId: string, completed: boolean) {
-  await requireSession();
+  const user = await requireSession();
+  const existing = await db.milestone.findUnique({ where: { id } });
+  if (!existing || existing.projectId !== projectId) throw new Error("Not found");
+  await requireProjectEditor(user, existing.projectId);
   await db.milestone.update({
     where: { id },
     data: { completed, completedAt: completed ? new Date() : null },
@@ -292,7 +304,10 @@ export async function toggleMilestone(id: string, projectId: string, completed: 
 }
 
 export async function deleteMilestone(id: string, projectId: string) {
-  await requireSession();
+  const user = await requireSession();
+  const existing = await db.milestone.findUnique({ where: { id } });
+  if (!existing || existing.projectId !== projectId) throw new Error("Not found");
+  await requireProjectEditor(user, existing.projectId);
   await db.milestone.delete({ where: { id } });
   revalidatePath(`/dashboard/projects/${projectId}`);
 }
@@ -301,6 +316,7 @@ export async function deleteMilestone(id: string, projectId: string) {
 
 export async function addComment(projectId: string, formData: FormData) {
   const user = await requireSession();
+  await requireProjectEditor(user, projectId);
   const parsed = commentCreateSchema.safeParse({ content: formData.get("content") });
   if (!parsed.success) throw new Error(parsed.error.issues[0]?.message ?? "Invalid input");
 
@@ -314,7 +330,8 @@ export async function deleteComment(id: string, projectId: string) {
   const user = await requireSession();
   const existing = await db.comment.findUnique({ where: { id } });
   if (!existing) return;
-  if (existing.authorId !== user.id && !isManagerOrAbove(user.role)) throw new Error("Forbidden");
+  if (existing.projectId !== projectId) throw new Error("Not found");
+  await requireProjectEditor(user, existing.projectId);
   await db.comment.delete({ where: { id } });
   revalidatePath(`/dashboard/projects/${projectId}`);
 }
@@ -362,7 +379,19 @@ export async function updateUser(userId: string, formData: FormData) {
   if (parsed.data.role !== undefined) data.role = parsed.data.role;
   if (parsed.data.active !== undefined) data.active = parsed.data.active;
   if (parsed.data.password) data.passwordHash = await bcrypt.hash(parsed.data.password, 12);
-  await db.user.update({ where: { id: userId }, data });
+  if (userId === me.id && (parsed.data.role && parsed.data.role !== "ADMIN" || parsed.data.active === false)) {
+    throw new Error("You cannot demote or deactivate your own account");
+  }
+  await db.$transaction(async (tx) => {
+    const target = await tx.user.findUnique({ where: { id: userId } });
+    if (!target) throw new Error("User not found");
+    if (target.active && target.role === "ADMIN" &&
+        (parsed.data.active === false || parsed.data.role && parsed.data.role !== "ADMIN")) {
+      const admins = await tx.user.count({ where: { active: true, role: "ADMIN" } });
+      if (admins <= 1) throw new Error("Keep at least one active administrator");
+    }
+    await tx.user.update({ where: { id: userId }, data });
+  }, { isolationLevel: "Serializable" });
   revalidatePath("/dashboard/team");
 }
 
@@ -583,8 +612,8 @@ export async function moveProject(args: MoveProjectArgs) {
             tx.project.update({ where: { id: s.id }, data: { orderIndex: i * ORDER_STEP } }),
           ),
         );
-        const beforeIdx = before ? siblings.findIndex((s) => s.id === before!.id) : -1;
-        const afterIdx = after ? siblings.findIndex((s) => s.id === after!.id) : -1;
+        const beforeIdx = before ? siblings.findIndex((s) => s.id === before.id) : -1;
+        const afterIdx = after ? siblings.findIndex((s) => s.id === after.id) : -1;
         if (beforeIdx >= 0 && afterIdx >= 0) {
           newOrderIndex = ((beforeIdx * ORDER_STEP) + (afterIdx * ORDER_STEP)) / 2;
         } else if (beforeIdx >= 0) {
@@ -620,6 +649,7 @@ export async function moveProject(args: MoveProjectArgs) {
 
 export async function createTask(projectId: string, formData: FormData) {
   const user = await requireSession();
+  await requireProjectEditor(user, projectId);
   const parsed = taskCreateSchema.safeParse({
     title: formData.get("title"),
     description: formData.get("description") || null,
@@ -631,6 +661,11 @@ export async function createTask(projectId: string, formData: FormData) {
     parentId: formData.get("parentId") || null,
   });
   if (!parsed.success) throw new Error(parsed.error.issues[0]?.message ?? "Invalid input");
+
+  if (parsed.data.parentId) {
+    const parent = await db.task.findUnique({ where: { id: parsed.data.parentId } });
+    if (!parent || parent.projectId !== projectId) throw new Error("Invalid parent task");
+  }
 
   // Read-then-append in one transaction (TOCTOU guard, same as createProject).
   await db.$transaction(async (tx) => {
@@ -685,9 +720,9 @@ export async function updateTask(taskId: string, formData: FormData) {
     description: formData.get("description") ?? undefined,
     status: formData.get("status") ?? undefined,
     priority: formData.get("priority") ?? undefined,
-    storyPoints: formData.get("storyPoints") || undefined,
+    storyPoints: formData.has("storyPoints") ? formData.get("storyPoints") || null : undefined,
     dueDate: formData.get("dueDate") ?? undefined,
-    assigneeId: formData.get("assigneeId") || undefined,
+    assigneeId: formData.has("assigneeId") ? formData.get("assigneeId") || null : undefined,
   });
   if (!parsed.success) throw new Error(parsed.error.issues[0]?.message ?? "Invalid input");
 
@@ -813,8 +848,8 @@ export async function moveTask(args: MoveTaskArgs) {
             tx.task.update({ where: { id: s.id }, data: { orderIndex: i * ORDER_STEP } }),
           ),
         );
-        const beforeIdx = before ? siblings.findIndex((s) => s.id === before!.id) : -1;
-        const afterIdx = after ? siblings.findIndex((s) => s.id === after!.id) : -1;
+        const beforeIdx = before ? siblings.findIndex((s) => s.id === before.id) : -1;
+        const afterIdx = after ? siblings.findIndex((s) => s.id === after.id) : -1;
         if (beforeIdx >= 0 && afterIdx >= 0) {
           newOrderIndex = ((beforeIdx * ORDER_STEP) + (afterIdx * ORDER_STEP)) / 2;
         } else if (beforeIdx >= 0) {
@@ -836,9 +871,9 @@ export async function moveTask(args: MoveTaskArgs) {
         data.completedAt = null;
       }
       if (reassign) {
-        // Only manager+ or reporter can reassign on lane drop
-        if (!isManagerOrAbove(user.role) && task.reporterId !== user.id) {
-          throw new Error("Only the reporter or a manager can reassign this task");
+        // Project editors or the reporter may reassign on lane drop
+        if (!projectEditAllowed && task.reporterId !== user.id) {
+          throw new Error("Only the reporter or a project editor can reassign this task");
         }
         data.assignee = parsed.data.toAssigneeId
           ? { connect: { id: parsed.data.toAssigneeId } }
@@ -884,7 +919,7 @@ export async function deleteTask(taskId: string) {
   const me = await requireSession();
   const task = await db.task.findUnique({ where: { id: taskId } });
   if (!task) return;
-  if (task.reporterId !== me.id && !isManagerOrAbove(me.role)) throw new Error("Forbidden");
+  if (task.reporterId !== me.id && task.assigneeId !== me.id && !isManagerOrAbove(me.role)) throw new Error("Forbidden");
   await db.task.delete({ where: { id: taskId } });
   revalidatePath(`/dashboard/projects/${task.projectId}`);
   revalidatePath("/dashboard/tasks");
@@ -895,6 +930,7 @@ export async function deleteTask(taskId: string) {
 
 export async function toggleProjectFavorite(projectId: string) {
   const user = await requireSession();
+  await requireProjectEditor(user, projectId);
   const existing = await db.user.findUnique({
     where: { id: user.id },
     select: { favoriteProjects: { where: { id: projectId }, select: { id: true } } },
@@ -983,31 +1019,22 @@ export async function createPage(formData: FormData) {
   redirect(`/dashboard/pages/${page.id}`);
 }
 
-export async function updatePage(pageId: string, formData: FormData) {
-  await requireSession();
-  const parsed = pageUpdateSchema.safeParse({
-    title: formData.get("title") ?? undefined,
-    emoji: formData.get("emoji") ?? undefined,
-    parentId: formData.get("parentId") ?? undefined,
-    content: formData.get("content") ? parseJSON(formData.get("content")) ?? undefined : undefined,
+export async function savePage(pageId: string, input: unknown): Promise<{ updatedAt: string } | { error: string; conflict: boolean }> {
+  const user = await requireSession();
+  await requirePageEditor(user, pageId);
+  const parsed = pageSaveSchema.safeParse(input);
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Invalid page", conflict: false };
+  const { expectedUpdatedAt, ...data } = parsed.data;
+  const expected = new Date(expectedUpdatedAt);
+  const updatedAt = new Date(Math.max(Date.now(), expected.getTime() + 1));
+  const result = await db.page.updateMany({
+    where: { id: pageId, archived: false, updatedAt: expected,
+      ...(!isManagerOrAbove(user.role) && { authorId: user.id }) },
+    data: { ...data, content: data.content ?? [], updatedAt },
   });
-  if (!parsed.success) throw new Error(parsed.error.issues[0]?.message ?? "Invalid input");
-
-  const data: Record<string, unknown> = {};
-  if (parsed.data.title !== undefined) data.title = parsed.data.title;
-  if (parsed.data.emoji !== undefined) data.emoji = parsed.data.emoji ?? null;
-  if (parsed.data.parentId !== undefined) data.parentId = parsed.data.parentId ?? null;
-  if (parsed.data.content !== undefined) data.content = parsed.data.content ?? null;
-
-  await db.page.update({ where: { id: pageId }, data });
+  if (!result.count) return { error: "This page changed elsewhere. Reload before saving your draft.", conflict: true };
   revalidatePath("/dashboard/pages");
-  revalidatePath(`/dashboard/pages/${pageId}`);
-}
-
-export async function savePageContent(pageId: string, content: unknown) {
-  await requireSession();
-  await db.page.update({ where: { id: pageId }, data: { content: content as never } });
-  revalidatePath(`/dashboard/pages/${pageId}`);
+  return { updatedAt: updatedAt.toISOString() };
 }
 
 export async function archivePage(pageId: string) {
@@ -1022,8 +1049,8 @@ export async function archivePage(pageId: string) {
 
 export async function changeOwnPassword(formData: FormData) {
   const me = await requireSession();
-  const current = String(formData.get("current") ?? "");
-  const next = String(formData.get("next") ?? "");
+  const current = formText(formData, "current");
+  const next = formText(formData, "next");
   if (!current || !next) throw new Error("Both fields are required");
   if (next.length < 8) throw new Error("New password must be at least 8 characters");
   const user = await db.user.findUnique({ where: { id: me.id } });

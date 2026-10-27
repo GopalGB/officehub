@@ -15,8 +15,8 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
   if (!project) return jsonError("NOT_FOUND", "Project not found", 404);
   if (
     !canViewProject({
-      viewerRole: user!.role,
-      viewerId: user!.id,
+      viewerRole: user.role,
+      viewerId: user.id,
       ownerId: project.ownerId,
       memberIds: project.members.map((m) => m.id),
     })
@@ -44,8 +44,8 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
   if (!project) return jsonError("NOT_FOUND", "Project not found", 404);
   if (
     !canEditProject({
-      viewerRole: user!.role,
-      viewerId: user!.id,
+      viewerRole: user.role,
+      viewerId: user.id,
       ownerId: project.ownerId,
       memberIds: project.members.map((m) => m.id),
     })
@@ -53,12 +53,12 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
     return jsonError("FORBIDDEN", "Cannot add enhancements to this project", 403);
   }
 
-  const body = await req.json().catch(() => null);
+  const body: unknown = await req.json().catch(() => null);
   const parsed = enhancementCreateSchema.safeParse(body);
   if (!parsed.success) return jsonError("VALIDATION", "Invalid input", 422, parsed.error.flatten());
 
   const created = await db.enhancement.create({
-    data: { ...parsed.data, projectId: id, authorId: user!.id },
+    data: { ...parsed.data, projectId: id, authorId: user.id },
   });
   return jsonOk(created, 201);
 }

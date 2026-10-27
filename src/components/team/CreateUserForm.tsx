@@ -1,5 +1,6 @@
 "use client";
 
+import { formText } from "@/lib/utils";
 import { useRef, useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -36,7 +37,7 @@ export function CreateUserForm() {
       try {
         fd.set("password", password);
         await createUser(fd);
-        toast(`Account created for ${fd.get("email")}`, "success");
+        toast(`Account created for ${formText(fd, "email")}`, "success");
         ref.current?.reset();
         setPassword(suggestPassword());
       } catch (e) {

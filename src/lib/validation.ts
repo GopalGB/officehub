@@ -37,17 +37,21 @@ export const EnhancementStatusEnum = z.enum([
 ]);
 export const RoleEnum = z.enum(["ADMIN", "MANAGER", "MEMBER"]);
 
-const isoDate = z
-  .string()
-  .datetime({ offset: true })
-  .or(z.string().regex(/^\d{4}-\d{2}-\d{2}$/))
-  .optional()
-  .nullable();
+const isoDate = z.preprocess(
+  (value) => value === "" ? null : value,
+  z.union([z.iso.datetime({ offset: true }), z.iso.date()]).optional().nullable(),
+);
+
+export const blockDocumentSchema = z.array(z.json()).max(5000).refine(
+  (blocks) => blocks.every((block) => block !== null && typeof block === "object" &&
+    !Array.isArray(block) && typeof block.type === "string"),
+  "Expected editor blocks",
+);
 
 export const projectCreateSchema = z.object({
   title: z.string().min(2, "Title is too short").max(160),
   summary: z.string().max(500).optional().nullable(),
-  description: z.any().optional().nullable(),
+  description: blockDocumentSchema.optional().nullable(),
   status: ProjectStatusEnum.default("PLANNING"),
   priority: PriorityEnum.default("MEDIUM"),
   startDate: isoDate,
@@ -56,11 +60,11 @@ export const projectCreateSchema = z.object({
 });
 export type ProjectCreateInput = z.infer<typeof projectCreateSchema>;
 
-export const projectUpdateSchema = projectCreateSchema.partial();
+export const projectUpdateSchema = projectCreateSchema.partial().extend({ status: ProjectStatusEnum.optional(), priority: PriorityEnum.optional() });
 export type ProjectUpdateInput = z.infer<typeof projectUpdateSchema>;
 
 export const projectStatusUpdateSchema = z.object({
-  content: z.any(),
+  content: blockDocumentSchema,
 });
 
 export const enhancementCreateSchema = z.object({
@@ -69,7 +73,7 @@ export const enhancementCreateSchema = z.object({
   status: EnhancementStatusEnum.default("PROPOSED"),
   priority: PriorityEnum.default("MEDIUM"),
 });
-export const enhancementUpdateSchema = enhancementCreateSchema.partial();
+export const enhancementUpdateSchema = enhancementCreateSchema.partial().extend({ status: EnhancementStatusEnum.optional(), priority: PriorityEnum.optional() });
 
 export const milestoneCreateSchema = z.object({
   title: z.string().min(2).max(160),
@@ -130,17 +134,12 @@ export const taskCreateSchema = z.object({
   status: TaskStatusEnum.default("TODO"),
   priority: PriorityEnum.default("MEDIUM"),
   storyPoints: z.coerce.number().int().min(0).max(99).optional().nullable(),
-  dueDate: z
-    .string()
-    .datetime({ offset: true })
-    .or(z.string().regex(/^\d{4}-\d{2}-\d{2}$/))
-    .optional()
-    .nullable(),
+  dueDate: isoDate,
   assigneeId: z.string().cuid().optional().nullable(),
   parentId: z.string().cuid().optional().nullable(),
 });
 
-export const taskUpdateSchema = taskCreateSchema.partial();
+export const taskUpdateSchema = taskCreateSchema.partial().extend({ status: TaskStatusEnum.optional(), priority: PriorityEnum.optional() });
 
 // ---- Board drag-and-drop move payloads (client-supplied → must be validated) ----
 export const placementEnum = z.enum(["above", "below"]);
@@ -166,12 +165,19 @@ export const pageCreateSchema = z.object({
   title: z.string().min(1, "Title is required").max(200),
   emoji: z.string().max(8).optional().nullable(),
   parentId: z.string().cuid().optional().nullable(),
-  content: z.any().optional().nullable(),
+  content: blockDocumentSchema.optional().nullable(),
 });
 
 export const pageUpdateSchema = z.object({
   title: z.string().min(1).max(200).optional(),
   emoji: z.string().max(8).optional().nullable(),
   parentId: z.string().cuid().optional().nullable(),
-  content: z.any().optional().nullable(),
+  content: blockDocumentSchema.optional().nullable(),
+});
+
+export const pageSaveSchema = z.object({
+  title: z.string().trim().min(1, "Title is required").max(200),
+  emoji: z.string().max(8).nullable(),
+  content: blockDocumentSchema.nullable(),
+  expectedUpdatedAt: z.iso.datetime(),
 });

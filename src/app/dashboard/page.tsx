@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { auth } from "../../../auth";
+import { projectAccessWhere } from "@/lib/rbac";
 import { db } from "@/lib/db";
 import { Button } from "@/components/ui/button";
 import { ProjectCard } from "@/components/project/ProjectCard";
@@ -87,6 +88,7 @@ export default async function DashboardPage({
     db.project.findMany({
       where: {
         favoritedBy: { some: { id: session.user.id } },
+        ...projectAccessWhere(session.user),
         status: { not: "ARCHIVED" },
       },
       include: { owner: { select: { id: true, name: true } }, tags: true },

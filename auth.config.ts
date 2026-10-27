@@ -9,7 +9,7 @@ export const authConfig = {
   session: { strategy: "jwt" },
   trustHost: true,
   callbacks: {
-    async jwt({ token, user }) {
+    jwt({ token, user }) {
       if (user) {
         if (user.id) token.id = user.id;
         // role is set by the credentials authorize() callback
@@ -18,7 +18,7 @@ export const authConfig = {
       }
       return token;
     },
-    async session({ session, token }) {
+    session({ session, token }) {
       if (token && session.user) {
         session.user.id = token.id as string;
         session.user.role = token.role as never;
@@ -28,7 +28,6 @@ export const authConfig = {
     authorized({ auth, request }) {
       const isLoggedIn = !!auth?.user;
       const path = request.nextUrl.pathname;
-      const isAuthRoute = path.startsWith("/login") || path.startsWith("/signup");
       const isInviteRoute = path.startsWith("/invite/");
       const isProtected =
         path.startsWith("/dashboard") ||
@@ -39,9 +38,8 @@ export const authConfig = {
         path.startsWith("/api/workspace");
       if (isInviteRoute) return true;
       if (isProtected) return isLoggedIn;
-      if (isAuthRoute && isLoggedIn) {
-        return Response.redirect(new URL("/dashboard", request.nextUrl));
-      }
+      // Login/signup perform their own redirect after the Node auth callback
+      // checks current account state. An old edge JWT must not cause a loop.
       return true;
     },
   },

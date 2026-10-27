@@ -1,3 +1,4 @@
+import { projectStatusUpdateSchema } from "@/lib/validation";
 import { db } from "@/lib/db";
 import { jsonError, jsonOk, requireApiAuth } from "@/lib/api";
 import { canEditProject, canViewProject } from "@/lib/rbac";
@@ -14,8 +15,8 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
   if (!project) return jsonError("NOT_FOUND", "Project not found", 404);
   if (
     !canViewProject({
-      viewerRole: user!.role,
-      viewerId: user!.id,
+      viewerRole: user.role,
+      viewerId: user.id,
       ownerId: project.ownerId,
       memberIds: project.members.map((m) => m.id),
     })
@@ -44,8 +45,8 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
   if (!project) return jsonError("NOT_FOUND", "Project not found", 404);
   if (
     !canEditProject({
-      viewerRole: user!.role,
-      viewerId: user!.id,
+      viewerRole: user.role,
+      viewerId: user.id,
       ownerId: project.ownerId,
       memberIds: project.members.map((m) => m.id),
     })
@@ -53,11 +54,12 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
     return jsonError("FORBIDDEN", "Cannot add updates to this project", 403);
   }
 
-  const body = await req.json().catch(() => null);
-  if (!body?.content) return jsonError("VALIDATION", "content is required");
+  const body: unknown = await req.json().catch(() => null);
+  const parsed = projectStatusUpdateSchema.safeParse(body);
+  if (!parsed.success) return jsonError("VALIDATION", "Valid editor content is required", 422);
 
   const created = await db.projectUpdate.create({
-    data: { projectId: id, authorId: user!.id, content: body.content },
+    data: { projectId: id, authorId: user.id, content: parsed.data.content },
   });
   return jsonOk(created, 201);
 }

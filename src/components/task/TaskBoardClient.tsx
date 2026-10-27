@@ -38,6 +38,7 @@ import { computePlacement } from "@/components/board/dnd-helpers";
 const ORDER_STEP = 1024;
 
 type TaskWithRelations = Task & {
+  canEdit?: boolean;
   assignee: Pick<User, "id" | "name"> | null;
   project?: Pick<Project, "id" | "title">;
 };
@@ -84,7 +85,7 @@ export function TaskBoardClient({
   }, [columns, tasks]);
 
   function canMove(t: TaskWithRelations): boolean {
-    return isManagerOrAbove || t.reporterId === viewerId || t.assigneeId === viewerId;
+    return t.canEdit ?? (isManagerOrAbove || t.reporterId === viewerId || t.assigneeId === viewerId);
   }
 
   function restoreFocus(cardId: string) {
@@ -372,7 +373,7 @@ function SortableCard({ task, canMove }: { task: TaskWithRelations; canMove: boo
       router.push(href);
       return;
     }
-    listeners?.onKeyDown?.(e as unknown as KeyboardEvent);
+    listeners?.onKeyDown?.(e);
   }
 
   return (

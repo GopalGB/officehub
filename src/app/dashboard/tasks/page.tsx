@@ -1,12 +1,12 @@
 import Link from "next/link";
-import type { TaskStatus } from "@prisma/client";
 import { redirect } from "next/navigation";
 import { auth } from "../../../../auth";
 import { db } from "@/lib/db";
-import { isManagerOrAbove } from "@/lib/rbac";
+import { isManagerOrAbove, projectAccessWhere, taskPermissions } from "@/lib/rbac";
 import { TaskTable } from "@/components/task/TaskTable";
 import { Button } from "@/components/ui/button";
 import { TASK_STATUS_OPTIONS } from "@/components/project/StatusBadge";
+import { taskFilters } from "@/lib/filters";
 import { AutoSubmitSelect } from "@/components/ui/auto-submit-select";
 
 export default async function TasksPage({
@@ -17,17 +17,9 @@ export default async function TasksPage({
   const session = await auth();
   if (!session?.user) redirect("/login");
 
-  const { scope = "mine", status, project } = await searchParams;
-
-  const where: Record<string, unknown> = {};
-  if (scope === "mine") where.assigneeId = session.user.id;
-  else if (scope === "reported") where.reporterId = session.user.id;
-  // scope "all" — managers + admins only
-  if (scope === "all" && !isManagerOrAbove(session.user.role)) {
-    where.assigneeId = session.user.id;
-  }
-  if (status && status !== "ALL") where.status = status as TaskStatus;
-  if (project && project !== "ALL") where.projectId = project;
+  const params = await searchParams;
+  const { status, project } = params;
+  const { scope, where } = taskFilters(session.user, params);
 
   const [tasks, projects, members] = await Promise.all([
     db.task.findMany({
@@ -35,13 +27,13 @@ export default async function TasksPage({
       include: {
         assignee: { select: { id: true, name: true } },
         reporter: { select: { id: true, name: true } },
-        project: { select: { id: true, title: true } },
+        project: { select: { id: true, title: true, ownerId: true, members: { select: { id: true } } } },
       },
       orderBy: [{ status: "asc" }, { priority: "desc" }, { dueDate: "asc" }],
       take: 500,
     }),
     db.project.findMany({
-      where: { status: { not: "ARCHIVED" } },
+      where: { AND: [projectAccessWhere(session.user), { status: { not: "ARCHIVED" } }] },
       select: { id: true, title: true },
       orderBy: { title: "asc" },
     }),
@@ -68,15 +60,15 @@ export default async function TasksPage({
 
       <div className="flex flex-wrap items-center gap-2 rounded-md border border-slate-200 bg-white p-2">
         <div className="inline-flex rounded-md border border-slate-200 p-0.5 text-xs">
-          {(["mine", "reported", isManagerOrAbove(session.user.role) ? "all" : null] as const)
-            .filter((v): v is "mine" | "reported" | "all" => v !== null)
+          {(["mine", "reported", "projects", isManagerOrAbove(session.user.role) ? "all" : null] as const)
+            .filter((v): v is "mine" | "reported" | "projects" | "all" => v !== null)
             .map((s) => (
               <Link
                 key={s}
                 href={`?scope=${s}${status ? `&status=${status}` : ""}${project ? `&project=${project}` : ""}`}
                 className={`rounded px-3 py-1.5 capitalize ${scope === s ? "border-2 border-black bg-white text-black font-semibold" : "text-neutral-700 hover:bg-neutral-100"}`}
               >
-                {s === "mine" ? "Assigned to me" : s === "reported" ? "Reported by me" : "All"}
+                {s === "mine" ? "Assigned to me" : s === "reported" ? "Reported by me" : s === "projects" ? "My projects" : "All"}
               </Link>
             ))}
         </div>
@@ -102,7 +94,7 @@ export default async function TasksPage({
       </div>
 
       <TaskTable
-        rows={tasks}
+        rows={tasks.map((task) => ({ ...task, ...taskPermissions(session.user, task) }))}
         assignees={members}
         viewerId={session.user.id}
         canManage={isManagerOrAbove(session.user.role)}

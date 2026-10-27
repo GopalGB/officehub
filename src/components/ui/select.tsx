@@ -3,7 +3,7 @@ import { cn } from "@/lib/utils";
 
 // Lightweight native select wrapper — Radix Select is overkill for v1.
 // Keeps the form simple and degrades gracefully without JS.
-export interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElement> {}
+export type SelectProps = React.SelectHTMLAttributes<HTMLSelectElement>;
 
 export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(({ className, children, ...props }, ref) => (
   <select

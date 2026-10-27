@@ -15,14 +15,16 @@ import {
   Plus,
   CornerDownLeft,
 } from "lucide-react";
+import { z } from "zod";
 import { cn } from "@/lib/utils";
 
-interface SearchResults {
-  projects: { id: string; title: string; summary: string | null; status: string }[];
-  tasks: { id: string; title: string; status: string; projectId: string; project: { title: string } }[];
-  pages: { id: string; title: string; emoji: string | null }[];
-  users: { id: string; name: string; email: string; role: string }[];
-}
+const searchResultsSchema = z.object({
+  projects: z.array(z.object({ id: z.string(), title: z.string(), summary: z.string().nullable(), status: z.string() })),
+  tasks: z.array(z.object({ id: z.string(), title: z.string(), status: z.string(), projectId: z.string(), project: z.object({ title: z.string() }) })),
+  pages: z.array(z.object({ id: z.string(), title: z.string(), emoji: z.string().nullable() })),
+  users: z.array(z.object({ id: z.string(), name: z.string(), email: z.string(), role: z.string() })),
+});
+type SearchResults = z.infer<typeof searchResultsSchema>;
 
 interface Item {
   key: string;
@@ -44,7 +46,7 @@ const QUICK: Item[] = [
   { key: "settings", label: "Settings", icon: Settings, href: "/dashboard/settings", group: "Quick" },
 ];
 
-export function CommandPalette() {
+export function CommandPalette({ showPeople = false }: { showPeople?: boolean }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
@@ -92,7 +94,10 @@ export function CommandPalette() {
     const id = setTimeout(() => {
       fetch(`/api/search?q=${encodeURIComponent(q.trim())}`, { signal: ctrl.signal })
         .then((r) => r.json())
-        .then((j) => setResults(j.data ?? null))
+        .then((json: unknown) => {
+          const parsed = z.object({ data: searchResultsSchema }).safeParse(json);
+          setResults(parsed.success ? parsed.data.data : null);
+        })
         .catch(() => {});
     }, 150);
     return () => {
@@ -136,7 +141,7 @@ export function CommandPalette() {
         group: "Pages",
       }),
     );
-    r?.users.forEach((u) =>
+    (showPeople ? r?.users : [])?.forEach((u) =>
       out.push({
         key: `u-${u.id}`,
         label: u.name,
@@ -147,7 +152,7 @@ export function CommandPalette() {
       }),
     );
     return out;
-  }, [q, results]);
+  }, [q, results, showPeople]);
 
   useEffect(() => {
     if (active >= items.length) setActive(Math.max(0, items.length - 1));

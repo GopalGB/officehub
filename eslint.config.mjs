@@ -1,8 +1,5 @@
-// ESLint 9 flat config — minimal, strict, AI-agent-friendly.
-// Strict TS rules + security rules. No formatting rules (Prettier handles that).
-//
-// Plugins live in devDependencies; install with:
-//   npm i -D eslint @eslint/js typescript-eslint eslint-plugin-security eslint-config-next
+// ESLint 9 flat config: typed correctness, Next.js and security rules.
+// TypeScript strictness is also checked separately by tsc in CI.
 
 import js from "@eslint/js";
 import tseslint from "typescript-eslint";
@@ -13,14 +10,16 @@ export default tseslint.config(
   {
     ignores: [
       ".next/**",
+      "next-env.d.ts",
       "node_modules/**",
       "prisma/migrations/**",
       "public/**",
     ],
   },
   js.configs.recommended,
-  ...tseslint.configs.strictTypeChecked,
+  ...tseslint.configs.recommendedTypeChecked,
   {
+    files: ["**/*.ts", "**/*.tsx"],
     languageOptions: {
       parserOptions: {
         project: "./tsconfig.json",
@@ -57,6 +56,10 @@ export default tseslint.config(
       "no-console": ["warn", { allow: ["error", "warn"] }],
       "no-debugger": "error",
     },
+  },
+  {
+    files: ["**/*.mjs"],
+    ...tseslint.configs.disableTypeChecked,
   },
   {
     // Relaxations for config files

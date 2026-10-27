@@ -75,7 +75,7 @@ export function PendingInvites({ invites }: { invites: Invite[] }) {
                     type="button"
                     size="sm"
                     variant="outline"
-                    onClick={() => copy(i.id, i.url)}
+                    onClick={() => { void copy(i.id, i.url).catch(() => toast("Could not copy link", "error")); }}
                   >
                     {copiedId === i.id ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
                     <span className="ml-1 hidden sm:inline">{copiedId === i.id ? "Copied" : "Copy link"}</span>

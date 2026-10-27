@@ -1,5 +1,6 @@
 "use client";
 
+import { formText } from "@/lib/utils";
 import { useState, useTransition } from "react";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -26,7 +27,7 @@ export function TaskQuickAdd({
   const { toast } = useToast();
 
   function onSubmit(fd: FormData) {
-    if (!String(fd.get("title") ?? "").trim()) return;
+    if (!formText(fd, "title").trim()) return;
     start(async () => {
       try {
         await createTask(projectId, fd);

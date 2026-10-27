@@ -10,9 +10,10 @@ import { PriorityBadge } from "@/components/project/StatusBadge";
 import { Button } from "@/components/ui/button";
 import { deleteTask } from "@/app/dashboard/actions";
 import { useToast } from "@/components/ui/toast";
-import { formatDate } from "@/lib/utils";
+import { formatDate, isOverdueDate } from "@/lib/utils";
 
 type Row = Task & {
+  canEdit?: boolean; canAssign?: boolean; canDelete?: boolean;
   assignee: Pick<User, "id" | "name"> | null;
   reporter: Pick<User, "id" | "name">;
   project?: Pick<Project, "id" | "title">;
@@ -72,7 +73,7 @@ export function TaskTable({
         <tbody className="divide-y divide-slate-100">
           {rows.map((t) => {
             const overdue =
-              t.dueDate && new Date(t.dueDate) < new Date() && t.status !== "DONE";
+              isOverdueDate(t.dueDate) && t.status !== "DONE";
             const ownTask = t.reporterId === viewerId || t.assigneeId === viewerId;
             return (
               <tr key={t.id} className="hover:bg-slate-50">
@@ -97,14 +98,14 @@ export function TaskTable({
                   </td>
                 )}
                 <td className="px-3 py-2 align-middle">
-                  <TaskStatusMenu taskId={t.id} status={t.status} disabled={!canManage && !ownTask} />
+                  <TaskStatusMenu taskId={t.id} status={t.status} disabled={!(t.canEdit ?? (canManage || ownTask))} />
                 </td>
                 <td className="px-3 py-2 align-middle">
                   <AssigneeMenu
                     taskId={t.id}
                     assignee={t.assignee}
                     options={assignees}
-                    disabled={!canManage && !ownTask}
+                    disabled={!(t.canAssign ?? (canManage || ownTask))}
                   />
                 </td>
                 <td className="px-3 py-2 align-middle">
@@ -119,7 +120,7 @@ export function TaskTable({
                   {t.dueDate ? formatDate(t.dueDate) : "—"}
                 </td>
                 <td className="px-3 py-2 align-middle text-right">
-                  {(canManage || ownTask) && (
+                  {(t.canDelete ?? ownTask) && (
                     <Button
                       type="button"
                       size="sm"

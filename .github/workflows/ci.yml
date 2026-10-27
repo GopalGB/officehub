@@ -23,6 +23,8 @@ jobs:
       - run: npm ci --no-audit --no-fund
       - run: npx prisma generate
       - run: npx tsc --noEmit --noUnusedLocals --noUnusedParameters
+      - run: npm run lint
+      - run: npm test
 
   build:
     name: Build (Next.js)
@@ -50,6 +52,12 @@ jobs:
           cache: npm
       - run: npm ci --no-audit --no-fund
       - run: npx prisma db push --skip-generate --accept-data-loss
+      - name: Database permission regressions
+        env:
+          OFFICEHUB_TEST_DATABASE_URL: postgresql://officehub:officehub@localhost:5432/officehub?schema=officehub_test_ci
+        run: |
+          DATABASE_URL="$OFFICEHUB_TEST_DATABASE_URL" npx prisma db push --skip-generate
+          npm run test:integration
       - run: npm run build
 
   dependency-review:
