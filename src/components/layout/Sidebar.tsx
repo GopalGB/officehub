@@ -1,5 +1,6 @@
 "use client";
 
+import { BrandIdentity } from "@/components/layout/BrandIdentity";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -62,8 +63,8 @@ export function Sidebar({ role }: { role: Role }) {
   return (
     <aside className="hidden w-60 shrink-0 border-r border-slate-200 bg-white p-3 md:flex md:flex-col">
       <div className="mb-4 px-2 pt-1">
-        <Link href="/dashboard" className="text-base font-semibold tracking-tight">
-          OfficeHub
+        <Link href="/dashboard" aria-label="Catalyst Brands workspace">
+          <BrandIdentity />
         </Link>
       </div>
       <nav className="flex flex-col gap-4 overflow-y-auto">
@@ -87,7 +88,7 @@ export function Sidebar({ role }: { role: Role }) {
                       href={l.href}
                       className={cn(
                         "flex items-center gap-2 rounded-md px-2.5 py-1.5 text-sm transition-colors",
-                        active ? "border-2 border-black bg-white text-black font-semibold" : "text-black hover:bg-neutral-100",
+                        active ? "border-2 border-brand-orange/50 bg-brand-tint text-brand-navy font-semibold" : "text-brand-navy hover:bg-accent",
                       )}
                     >
                       <Icon className="h-4 w-4" />
@@ -101,7 +102,7 @@ export function Sidebar({ role }: { role: Role }) {
         })}
       </nav>
       <div className="mt-auto px-2 pt-4 text-xs text-slate-400">
-        <p>OfficeHub · v1.4</p>
+        <p className="font-medium text-brand-navy">Catalyst Brands · Workspace</p>
         <p className="mt-0.5">
           <kbd className="rounded border border-slate-200 bg-white px-1 text-[10px] font-semibold text-slate-500">
             ⌘K

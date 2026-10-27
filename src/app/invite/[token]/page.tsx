@@ -1,3 +1,4 @@
+import { BrandIdentity } from "@/components/layout/BrandIdentity";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "../../../../auth";
@@ -29,8 +30,9 @@ export default async function InviteAcceptPage({
   if (!invite) {
     return (
       <Wrap>
-        <Card className="w-full max-w-md">
+        <Card className="w-full max-w-md border-t-4 border-t-brand-orange">
           <CardHeader>
+            <BrandIdentity className="mb-3" />
             <CardTitle>Invitation not found</CardTitle>
             <CardDescription>This link may have been revoked or never existed.</CardDescription>
           </CardHeader>
@@ -47,8 +49,9 @@ export default async function InviteAcceptPage({
   if (invite.acceptedAt) {
     return (
       <Wrap>
-        <Card className="w-full max-w-md">
+        <Card className="w-full max-w-md border-t-4 border-t-brand-orange">
           <CardHeader>
+            <BrandIdentity className="mb-3" />
             <CardTitle>Already accepted</CardTitle>
             <CardDescription>This invitation has been used. Sign in below.</CardDescription>
           </CardHeader>
@@ -65,8 +68,9 @@ export default async function InviteAcceptPage({
   if (invite.expiresAt < new Date()) {
     return (
       <Wrap>
-        <Card className="w-full max-w-md">
+        <Card className="w-full max-w-md border-t-4 border-t-brand-orange">
           <CardHeader>
+            <BrandIdentity className="mb-3" />
             <CardTitle>Invitation expired</CardTitle>
             <CardDescription>Ask your admin for a fresh invite link.</CardDescription>
           </CardHeader>
@@ -85,9 +89,10 @@ export default async function InviteAcceptPage({
 
   return (
     <Wrap>
-      <Card className="w-full max-w-md">
+      <Card className="w-full max-w-md border-t-4 border-t-brand-orange">
         <CardHeader>
-          <CardTitle>You&apos;re invited to OfficeHub</CardTitle>
+            <BrandIdentity className="mb-3" />
+          <CardTitle>You&apos;re invited to Catalyst Brands</CardTitle>
           <CardDescription>
             {invite.invitedBy.name} invited <strong>{invite.email}</strong> as{" "}
             <Badge variant="muted" className="ml-1 align-middle">
@@ -126,5 +131,5 @@ export default async function InviteAcceptPage({
 }
 
 function Wrap({ children }: { children: React.ReactNode }) {
-  return <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4">{children}</div>;
+  return <div className="flex min-h-screen items-center justify-center bg-background px-4">{children}</div>;
 }

@@ -309,3 +309,11 @@ Last meaningful change: v1.5 (favorites + dark mode + Cmd+K + Calendar + Wiki te
   recovery when changing the editor. Never autosave an unchanged read-only page.
 - Zod 4 applies defaults inside partial objects. Update schemas explicitly override
   status/priority with optional enum schemas so partial edits cannot reset them.
+
+## Branding
+
+The app uses the Catalyst Brands theme. Keep logo rendering in `BrandIdentity` and
+the optional root `logo.png` behind `/brand/logo`; do not hard-code a remote image
+or require a file to exist for startup. Preserve `outputFileTracingIncludes` so a
+supplied logo reaches standalone/Docker builds. See `docs/BRANDING.md` for sources
+and deployment instructions. Use theme tokens for new controls and keep text contrast.

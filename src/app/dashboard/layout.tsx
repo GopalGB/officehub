@@ -14,7 +14,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
   return (
     <ToastProvider>
       <CommandPalette showPeople={isAdmin(session.user.role)} />
-      <div className="flex min-h-screen bg-slate-50 dark:bg-slate-950">
+      <div className="flex min-h-screen bg-background dark:bg-slate-950">
         <Sidebar role={session.user.role} />
         <div className="flex min-w-0 flex-1 flex-col">
           <Header

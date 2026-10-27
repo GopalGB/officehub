@@ -66,7 +66,7 @@ export default async function TasksPage({
               <Link
                 key={s}
                 href={`?scope=${s}${status ? `&status=${status}` : ""}${project ? `&project=${project}` : ""}`}
-                className={`rounded px-3 py-1.5 capitalize ${scope === s ? "border-2 border-black bg-white text-black font-semibold" : "text-neutral-700 hover:bg-neutral-100"}`}
+                className={`rounded px-3 py-1.5 capitalize ${scope === s ? "border-2 border-brand-orange/50 bg-brand-tint text-brand-navy font-semibold" : "text-neutral-700 hover:bg-neutral-100"}`}
               >
                 {s === "mine" ? "Assigned to me" : s === "reported" ? "Reported by me" : s === "projects" ? "My projects" : "All"}
               </Link>

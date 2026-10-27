@@ -59,7 +59,7 @@ export default async function TaskBoardPage({
           <div className="inline-flex rounded-md border border-slate-200 bg-white p-0.5 text-xs">
             <Link
               href={`?scope=mine${project ? `&project=${project}` : ""}`}
-              className={`rounded px-3 py-1.5 ${scope === "mine" ? "border-2 border-black bg-white text-black font-semibold" : "text-neutral-700 hover:bg-neutral-100"}`}
+              className={`rounded px-3 py-1.5 ${scope === "mine" ? "border-2 border-brand-orange/50 bg-brand-tint text-brand-navy font-semibold" : "text-neutral-700 hover:bg-neutral-100"}`}
             >
               Mine
             </Link>
@@ -67,7 +67,7 @@ export default async function TaskBoardPage({
             {isManagerOrAbove(session.user.role) && (
               <Link
                 href={`?scope=all${project ? `&project=${project}` : ""}`}
-                className={`rounded px-3 py-1.5 ${scope === "all" ? "border-2 border-black bg-white text-black font-semibold" : "text-neutral-700 hover:bg-neutral-100"}`}
+                className={`rounded px-3 py-1.5 ${scope === "all" ? "border-2 border-brand-orange/50 bg-brand-tint text-brand-navy font-semibold" : "text-neutral-700 hover:bg-neutral-100"}`}
               >
                 All
               </Link>

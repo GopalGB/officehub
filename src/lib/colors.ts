@@ -1,4 +1,4 @@
-// Pure-white palette — avatars use only light surfaces with black text.
+// Soft Catalyst palette keeps names legible without implying a role.
 function hash(str: string): number {
   let h = 0;
   for (let i = 0; i < str.length; i++) {
@@ -8,10 +8,10 @@ function hash(str: string): number {
 }
 
 const PALETTE = [
-  { bg: "bg-white", fg: "text-black", ring: "ring-black/15" },
-  { bg: "bg-neutral-50", fg: "text-black", ring: "ring-black/15" },
-  { bg: "bg-neutral-100", fg: "text-black", ring: "ring-black/20" },
-  { bg: "bg-neutral-200", fg: "text-black", ring: "ring-black/20" },
+  { bg: "bg-blue-50", fg: "text-brand-navy", ring: "ring-brand-blue/20" },
+  { bg: "bg-brand-tint", fg: "text-brand-navy", ring: "ring-brand-orange/25" },
+  { bg: "bg-secondary", fg: "text-brand-navy", ring: "ring-brand-navy/15" },
+  { bg: "bg-slate-100", fg: "text-brand-navy", ring: "ring-brand-navy/20" },
 ];
 
 export function colorFor(seed: string) {

@@ -1,5 +1,6 @@
 import { formText } from "@/lib/utils";
 import { redirect } from "next/navigation";
+import { BrandIdentity } from "@/components/layout/BrandIdentity";
 import Link from "next/link";
 import { auth, signIn } from "../../../auth";
 import { AuthError } from "next-auth";
@@ -34,10 +35,11 @@ export default async function LoginPage({
   const signupPolicy = process.env.SIGNUP_POLICY ?? "closed";
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4">
-      <Card className="w-full max-w-md">
+    <div className="flex min-h-screen items-center justify-center bg-background px-4">
+      <Card className="w-full max-w-md border-t-4 border-t-brand-orange">
         <CardHeader>
-          <CardTitle>Sign in to OfficeHub</CardTitle>
+            <BrandIdentity className="mb-3" />
+          <CardTitle>Sign in to Catalyst Brands</CardTitle>
           <CardDescription>Track your projects, timelines, and team status.</CardDescription>
         </CardHeader>
         <CardContent>
