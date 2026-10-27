@@ -1,8 +1,8 @@
 # OfficeHub
 
 A self-hosted Notion + Jira hybrid for small office teams. Track projects,
-tasks, timelines, and a built-in wiki — all on a single Linux server.
-Postgres + Next.js. One Docker Compose up. No SaaS, no telemetry, no per-seat
+reports, enhancements, weekly focus, fiscal deadlines, and a built-in wiki on a Windows or Linux server.
+Postgres + Next.js. Native Windows user-account deployment or Docker. No SaaS, no telemetry, no per-seat
 fees.
 
 **Live repo:** https://github.com/GopalGB/officehub · MIT licensed.
@@ -11,17 +11,18 @@ fees.
 
 ## What you get
 
-### Project management (Jira-style)
-- **Projects** — title, summary, rich (BlockNote) description, status, priority, start/target dates, tags, multi-member ownership
-- **Tasks** — full backlog with status workflow (TODO → IN_PROGRESS → IN_REVIEW → DONE/BLOCKED), priority, assignee, reporter, story points, due dates, subtask hierarchy
-- **Milestones** — checklist with due dates per project
-- **Enhancements** — improvement proposals with status workflow
-- **Status updates** — chronological log with Notion-style block editor
-- **Comments** — light discussion threads on every project
-- **Manager rollup** — single-page view across every project with overdue tile + filters
-- **Project Kanban board** — drag-free; click status pill to move
-- **Task Kanban board** — separate board for tasks (5 columns)
-- **Project Timeline** — vertical aligned timeline with milestones, updates, target date, today marker
+### Project tracking
+- **Projects** — owner and sub-owner, source-project lineage, deadlines, rich notes, success criteria, estimates, and expected time savings
+- **Project journey** — visual original-delivery and enhancement timeline, independent release dates, and milestone markers
+- **Reports** — deliverables with notes, HTTP(S) document links, owners, estimates, status, due dates, and a board; existing task data is preserved
+- **My week** — recurring weekdays within a weekly plan, daily overrides, skip/reset, overlap checks, and planning history
+- **Team overview** — management sees who is working on what, date-specific focus, weekly capacity, projects, and reports
+- **Request pool** — expiring shareable intake forms, saved requests, management review, and transactional owner assignment
+- **Version history** — immutable project detail versions, restore as a new version, and before/after audits for project work
+- **Fiscal calendar** — NRF 4-5-4 periods, fiscal weeks, quarters, 53-week years, and configurable year alignment
+- **Archive** — keep completed work and its history available
+
+Read the [workspace guide](docs/PROJECT-WORKSPACE.md) for permissions, daily planning, version boundaries, and request-link behavior.
 
 ### Knowledge (Notion-style)
 - **Wiki pages** — free-form BlockNote pages with nested children, emoji, autosave
@@ -29,12 +30,11 @@ fees.
 - **Page templates** — 7 starters: Meeting notes, SOP, Runbook, One-pager, 1:1, Onboarding, Blank
 
 ### Workflow polish
-- **⌘K command palette** — global search + quick-jump (projects, tasks, pages, people)
-- **Calendar** — month grid view, milestones + tasks color-coded by status
+- **⌘K command palette** — global search + quick-jump (projects, reports, pages, people)
+- **Fiscal calendar** — project, report, milestone, and enhancement deadlines
 - **Project favorites** — star pin to top of dashboard
-- **Dark mode** — toggle in header, persists, respects system pref
 - **Search bar** in header — opens ⌘K palette
-- **Dashboard widgets** — status tiles, "Due soon" (14 days), my open tasks, recent activity feed
+- **Dashboard widgets** — status tiles, "Due soon" (14 days), my open reports, recent activity feed
 - **Toast notifications** for every action
 - **Color avatars** — deterministic palette from name hash
 - **Subtle motion** — fade-ins, hover-lift cards (respects `prefers-reduced-motion`)
@@ -58,20 +58,19 @@ fees.
 
 ## Stack
 
-- Next.js 15.1.6 (App Router, React Server Components, Server Actions)
+- Next.js 15.5.28 (App Router, React Server Components, Server Actions)
 - TypeScript (strict mode)
 - Postgres 16 + Prisma 5
 - Auth.js v5 with credentials provider, bcrypt
-- BlockNote 0.31 (Notion-like block editor on ProseMirror)
+- BlockNote 0.56 (Notion-like block editor on ProseMirror)
 - TailwindCSS 3 with shadcn-style component layer
 - Docker + Docker Compose
-- ~28 routes, ~106KB shared JS
 
 ---
 
 ## Install — three ways
 
-Pick whichever fits your machine. All three end with a working OfficeHub at `http://localhost:3000` and admin credentials printed to your terminal.
+Pick the deployment that fits your machine. Existing Windows installations keep their database and login credentials; use port 8599 and the Windows update guide below.
 
 ### 1. Native install — macOS / Linux (no Docker needed)
 
@@ -87,20 +86,11 @@ cd ~/officehub
 npm run dev
 ```
 
-### 2. Native install — Windows (no Docker, no WSL)
+### 2. Native Windows — normal user, no Docker
 
-Requires Node 20+, git, and PostgreSQL. Install missing pieces via `winget` (instructions printed by the script).
+Use existing company-approved Git, Node.js, and PostgreSQL. The Windows updater backs up the database, preserves `.env` and root `logo.png`, pulls `main`, installs dependencies, applies additive schema changes, builds, and starts on port 8599. It does not change execution policy, firewall rules, services, system PATH, or database server settings.
 
-Open **PowerShell** (NOT cmd) and run:
-```powershell
-irm https://raw.githubusercontent.com/GopalGB/officehub/main/scripts/setup-native.ps1 | iex
-```
-
-Then:
-```powershell
-cd $HOME\officehub
-npm run dev
-```
+Follow the [Windows deployment and update guide](docs/WINDOWS.md). For an existing installation, stop the old app with Ctrl+C and use the update block in that guide. Keep the new terminal open.
 
 ### 3. Docker install (everything bundled — recommended for servers)
 

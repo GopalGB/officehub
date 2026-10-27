@@ -31,19 +31,27 @@ export function TaskQuickAdd({
     start(async () => {
       try {
         await createTask(projectId, fd);
-        toast("Task added", "success");
+        toast("Report added", "success");
         setOpen(false);
       } catch (e) {
-        toast(e instanceof Error ? e.message : "Could not create task", "error");
+        toast(
+          e instanceof Error ? e.message : "Could not create report",
+          "error",
+        );
       }
     });
   }
 
   if (!open) {
     return (
-      <Button type="button" variant="outline" size="sm" onClick={() => setOpen(true)}>
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        onClick={() => setOpen(true)}
+      >
         <Plus className="h-3.5 w-3.5" />
-        Add task
+        Add report
       </Button>
     );
   }
@@ -53,7 +61,12 @@ export function TaskQuickAdd({
       onReset={() => setOpen(false)}
       className="grid gap-2 rounded-md border border-slate-200 bg-white p-3 md:grid-cols-[1fr_140px_140px_140px_auto]"
     >
-      <Input name="title" autoFocus required placeholder="Task title (Enter to save)" />
+      <Input
+        name="title"
+        autoFocus
+        required
+        placeholder="Report title (Enter to save)"
+      />
       <Select name="priority" defaultValue="MEDIUM" className="h-9 text-xs">
         {PRIORITY_OPTIONS.map((o) => (
           <option key={o.value} value={o.value}>

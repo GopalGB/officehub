@@ -5,27 +5,48 @@ export type Viewer = { id: string; role: Role };
 
 /** Always combine this access predicate with caller-supplied filters using AND. */
 export function projectAccessWhere(viewer: Viewer): Prisma.ProjectWhereInput {
-  return isManagerOrAbove(viewer.role) ? {} : {
-    OR: [{ ownerId: viewer.id }, { members: { some: { id: viewer.id } } }],
-  };
+  return isManagerOrAbove(viewer.role)
+    ? {}
+    : {
+        OR: [
+          { ownerId: viewer.id },
+          { coOwnerId: viewer.id },
+          { members: { some: { id: viewer.id } } },
+        ],
+      };
 }
 
 export function canEditPage(viewer: Viewer, authorId: string): boolean {
   return viewer.id === authorId || isManagerOrAbove(viewer.role);
 }
 
-export function taskPermissions(viewer: Viewer, task: {
-  reporterId: string; assigneeId: string | null;
-  project: { ownerId: string; members: { id: string }[] };
-}) {
+export function taskPermissions(
+  viewer: Viewer,
+  task: {
+    reporterId: string;
+    assigneeId: string | null;
+    project: {
+      ownerId: string;
+      coOwnerId?: string | null;
+      members: { id: string }[];
+    };
+  },
+) {
   const editor = canEditProject({
-    viewerId: viewer.id, viewerRole: viewer.role, ownerId: task.project.ownerId,
+    viewerId: viewer.id,
+    viewerRole: viewer.role,
+    ownerId: task.project.ownerId,
+    coOwnerId: task.project.coOwnerId,
     memberIds: task.project.members.map((member) => member.id),
   });
   return {
-    canEdit: editor || task.reporterId === viewer.id || task.assigneeId === viewer.id,
+    canEdit:
+      editor || task.reporterId === viewer.id || task.assigneeId === viewer.id,
     canAssign: editor || task.reporterId === viewer.id,
-    canDelete: isManagerOrAbove(viewer.role) || task.reporterId === viewer.id || task.assigneeId === viewer.id,
+    canDelete:
+      isManagerOrAbove(viewer.role) ||
+      task.reporterId === viewer.id ||
+      task.assigneeId === viewer.id,
   };
 }
 
@@ -60,12 +81,14 @@ export function canEditProject(opts: {
   viewerRole: Role | undefined | null;
   viewerId: string | undefined | null;
   ownerId: string;
+  coOwnerId?: string | null;
   memberIds?: string[];
 }): boolean {
   if (!opts.viewerRole || !opts.viewerId) return false;
   if (isAdmin(opts.viewerRole)) return true;
   if (isManagerOrAbove(opts.viewerRole)) return true;
-  if (opts.viewerId === opts.ownerId) return true;
+  if (opts.viewerId === opts.ownerId || opts.viewerId === opts.coOwnerId)
+    return true;
   return opts.memberIds?.includes(opts.viewerId) ?? false;
 }
 
@@ -73,11 +96,13 @@ export function canViewProject(opts: {
   viewerRole: Role | undefined | null;
   viewerId: string | undefined | null;
   ownerId: string;
+  coOwnerId?: string | null;
   memberIds?: string[];
 }): boolean {
   if (canViewAllProjects(opts.viewerRole)) return true;
   if (!opts.viewerId) return false;
-  if (opts.viewerId === opts.ownerId) return true;
+  if (opts.viewerId === opts.ownerId || opts.viewerId === opts.coOwnerId)
+    return true;
   return opts.memberIds?.includes(opts.viewerId) ?? false;
 }
 

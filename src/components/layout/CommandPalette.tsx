@@ -19,10 +19,38 @@ import { z } from "zod";
 import { cn } from "@/lib/utils";
 
 const searchResultsSchema = z.object({
-  projects: z.array(z.object({ id: z.string(), title: z.string(), summary: z.string().nullable(), status: z.string() })),
-  tasks: z.array(z.object({ id: z.string(), title: z.string(), status: z.string(), projectId: z.string(), project: z.object({ title: z.string() }) })),
-  pages: z.array(z.object({ id: z.string(), title: z.string(), emoji: z.string().nullable() })),
-  users: z.array(z.object({ id: z.string(), name: z.string(), email: z.string(), role: z.string() })),
+  projects: z.array(
+    z.object({
+      id: z.string(),
+      title: z.string(),
+      summary: z.string().nullable(),
+      status: z.string(),
+    }),
+  ),
+  tasks: z.array(
+    z.object({
+      id: z.string(),
+      title: z.string(),
+      status: z.string(),
+      projectId: z.string(),
+      project: z.object({ title: z.string() }),
+    }),
+  ),
+  pages: z.array(
+    z.object({
+      id: z.string(),
+      title: z.string(),
+      emoji: z.string().nullable(),
+    }),
+  ),
+  users: z.array(
+    z.object({
+      id: z.string(),
+      name: z.string(),
+      email: z.string(),
+      role: z.string(),
+    }),
+  ),
 });
 type SearchResults = z.infer<typeof searchResultsSchema>;
 
@@ -32,21 +60,80 @@ interface Item {
   hint?: string;
   icon: typeof Search;
   href: string;
-  group: "Quick" | "Projects" | "Tasks" | "Pages" | "People";
+  group: "Quick" | "Projects" | "Reports" | "Pages" | "People";
 }
 
 const QUICK: Item[] = [
-  { key: "dash", label: "Dashboard", icon: LayoutDashboard, href: "/dashboard", group: "Quick" },
-  { key: "tasks", label: "Tasks", icon: CheckSquare, href: "/dashboard/tasks", group: "Quick" },
-  { key: "board", label: "Project board", icon: Columns3, href: "/dashboard/board", group: "Quick" },
-  { key: "tboard", label: "Task board", icon: Columns3, href: "/dashboard/tasks/board", group: "Quick" },
-  { key: "cal", label: "Calendar", icon: Calendar, href: "/dashboard/calendar", group: "Quick" },
-  { key: "wiki", label: "Wiki", icon: BookOpen, href: "/dashboard/pages", group: "Quick" },
-  { key: "new-p", label: "New project", icon: Plus, href: "/dashboard/projects/new", group: "Quick" },
-  { key: "settings", label: "Settings", icon: Settings, href: "/dashboard/settings", group: "Quick" },
+  {
+    key: "plan",
+    label: "My week",
+    icon: Calendar,
+    href: "/dashboard/planner",
+    group: "Quick",
+  },
+  {
+    key: "dash",
+    label: "My workspace",
+    icon: LayoutDashboard,
+    href: "/dashboard",
+    group: "Quick",
+  },
+  {
+    key: "tasks",
+    label: "Reports",
+    icon: CheckSquare,
+    href: "/dashboard/reports",
+    group: "Quick",
+  },
+  {
+    key: "board",
+    label: "Project board",
+    icon: Columns3,
+    href: "/dashboard/board",
+    group: "Quick",
+  },
+  {
+    key: "tboard",
+    label: "Report board",
+    icon: Columns3,
+    href: "/dashboard/reports/board",
+    group: "Quick",
+  },
+  {
+    key: "cal",
+    label: "Fiscal calendar",
+    icon: Calendar,
+    href: "/dashboard/calendar",
+    group: "Quick",
+  },
+  {
+    key: "wiki",
+    label: "Wiki",
+    icon: BookOpen,
+    href: "/dashboard/pages",
+    group: "Quick",
+  },
+  {
+    key: "new-p",
+    label: "New project",
+    icon: Plus,
+    href: "/dashboard/projects/new",
+    group: "Quick",
+  },
+  {
+    key: "settings",
+    label: "Settings",
+    icon: Settings,
+    href: "/dashboard/settings",
+    group: "Quick",
+  },
 ];
 
-export function CommandPalette({ showPeople = false }: { showPeople?: boolean }) {
+export function CommandPalette({
+  showPeople = false,
+}: {
+  showPeople?: boolean;
+}) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
@@ -92,10 +179,14 @@ export function CommandPalette({ showPeople = false }: { showPeople?: boolean })
     const ctrl = new AbortController();
     abortRef.current = ctrl;
     const id = setTimeout(() => {
-      fetch(`/api/search?q=${encodeURIComponent(q.trim())}`, { signal: ctrl.signal })
+      fetch(`/api/search?q=${encodeURIComponent(q.trim())}`, {
+        signal: ctrl.signal,
+      })
         .then((r) => r.json())
         .then((json: unknown) => {
-          const parsed = z.object({ data: searchResultsSchema }).safeParse(json);
+          const parsed = z
+            .object({ data: searchResultsSchema })
+            .safeParse(json);
           setResults(parsed.success ? parsed.data.data : null);
         })
         .catch(() => {});
@@ -129,7 +220,7 @@ export function CommandPalette({ showPeople = false }: { showPeople?: boolean })
         hint: `${t.project.title} · ${t.status.toLowerCase().replace("_", " ")}`,
         icon: CheckSquare,
         href: `/dashboard/projects/${t.projectId}`,
-        group: "Tasks",
+        group: "Reports",
       }),
     );
     r?.pages.forEach((p) =>
@@ -183,8 +274,15 @@ export function CommandPalette({ showPeople = false }: { showPeople?: boolean })
   let lastGroup = "";
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center pt-[10vh]" role="dialog" aria-modal="true">
-      <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm animate-fade-in-fast" onClick={close} />
+    <div
+      className="fixed inset-0 z-50 flex items-start justify-center pt-[10vh]"
+      role="dialog"
+      aria-modal="true"
+    >
+      <div
+        className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm animate-fade-in-fast"
+        onClick={close}
+      />
       <div className="relative z-10 w-full max-w-xl overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl animate-fade-in">
         <div className="flex items-center gap-2 border-b border-slate-200 px-3 py-2.5">
           <Search className="h-4 w-4 shrink-0 text-slate-400" />
@@ -196,7 +294,7 @@ export function CommandPalette({ showPeople = false }: { showPeople?: boolean })
               setActive(0);
             }}
             onKeyDown={onKeyDown}
-            placeholder="Search projects, tasks, pages, people…"
+            placeholder="Search projects, reports, pages, people…"
             className="flex-1 bg-transparent text-sm placeholder:text-slate-400 focus:outline-none"
           />
           <kbd className="rounded border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-[10px] font-semibold text-slate-500">
@@ -226,7 +324,9 @@ export function CommandPalette({ showPeople = false }: { showPeople?: boolean })
                     onClick={() => go(item)}
                     className={cn(
                       "flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors",
-                      active === idx ? "border-2 border-brand-orange/50 bg-brand-tint text-brand-navy font-semibold" : "text-brand-navy hover:bg-accent",
+                      active === idx
+                        ? "border-2 border-brand-orange/50 bg-brand-tint text-brand-navy font-semibold"
+                        : "text-brand-navy hover:bg-accent",
                     )}
                   >
                     <Icon className="h-4 w-4 shrink-0" />
@@ -241,7 +341,9 @@ export function CommandPalette({ showPeople = false }: { showPeople?: boolean })
                         {item.hint}
                       </span>
                     )}
-                    {active === idx && <CornerDownLeft className="h-3 w-3 shrink-0" />}
+                    {active === idx && (
+                      <CornerDownLeft className="h-3 w-3 shrink-0" />
+                    )}
                   </button>
                 </div>
               );
@@ -250,16 +352,28 @@ export function CommandPalette({ showPeople = false }: { showPeople?: boolean })
         </div>
         <div className="flex items-center gap-3 border-t border-slate-200 bg-slate-50 px-3 py-1.5 text-[10px] text-slate-500">
           <span className="flex items-center gap-1">
-            <kbd className="rounded border border-slate-200 bg-white px-1 font-semibold">↑↓</kbd> Navigate
+            <kbd className="rounded border border-slate-200 bg-white px-1 font-semibold">
+              ↑↓
+            </kbd>{" "}
+            Navigate
           </span>
           <span className="flex items-center gap-1">
-            <kbd className="rounded border border-slate-200 bg-white px-1 font-semibold">↵</kbd> Open
+            <kbd className="rounded border border-slate-200 bg-white px-1 font-semibold">
+              ↵
+            </kbd>{" "}
+            Open
           </span>
           <span className="flex items-center gap-1">
-            <kbd className="rounded border border-slate-200 bg-white px-1 font-semibold">esc</kbd> Close
+            <kbd className="rounded border border-slate-200 bg-white px-1 font-semibold">
+              esc
+            </kbd>{" "}
+            Close
           </span>
           <span className="ml-auto flex items-center gap-1">
-            <kbd className="rounded border border-slate-200 bg-white px-1 font-semibold">⌘K</kbd> anywhere
+            <kbd className="rounded border border-slate-200 bg-white px-1 font-semibold">
+              ⌘K
+            </kbd>{" "}
+            anywhere
           </span>
         </div>
       </div>

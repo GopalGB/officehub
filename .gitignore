@@ -64,3 +64,6 @@ prisma/dev.db-journal
 .claude/
 .max/
 .gstack/
+
+# Local deployment branding (preserved by Windows updater)
+/logo.png

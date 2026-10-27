@@ -14,7 +14,7 @@ officehub/
 
 There is no need to move it into `public` or edit a component. The public `/brand/logo` route reads that fixed root filename and uses `Cache-Control: no-store`, so a normal self-hosted process picks up replacements immediately. Keep the filename lowercase and ensure the app can read the file.
 
-The desktop sidebar, mobile navigation drawer, sign-in, sign-up, and invitation screens reserve a consistent logo area. The image keeps its original aspect ratio using `object-fit: contain`. The slot is navy; a transparent PNG with light artwork works best. A wide image at least 352 × 88 pixels is recommended, but other proportions are supported.
+The desktop sidebar, mobile navigation drawer, sign-in, sign-up, and invitation screens reserve a consistent logo area. The image keeps its original aspect ratio using `object-fit: contain`. The logo wrapper has no background color, border, shadow, or image filter. A transparent PNG displays directly on the surrounding page surface; use artwork with enough contrast on white. A wide image at least 352 × 88 pixels is recommended, but other proportions are supported.
 
 Until `logo.png` exists, the slot displays a plain Catalyst Brands text fallback. No official logo file is bundled or downloaded by the application.
 
@@ -41,7 +41,7 @@ The palette and typography were observed on [Catalyst Brands' official homepage]
 
 | Use | Color |
 | --- | --- |
-| Primary actions, headings, logo surface | Navy `#091F36` |
+| Primary actions and headings | Navy `#091F36` |
 | Focus, selected navigation, brand accents | Orange `#DD6328` |
 | Blue accents | Blue `#0084D4` |
 | Small interactive text | Darker blue `#006BA8`, adapted for contrast on white |

@@ -1,16 +1,24 @@
+import { recordAudit } from "@/lib/history";
 import { db } from "@/lib/db";
 import { jsonError, jsonOk, requireApiAuth } from "@/lib/api";
 import { milestoneCreateSchema } from "@/lib/validation";
 import { canEditProject, canViewProject } from "@/lib/rbac";
 
-export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> }) {
+export async function GET(
+  _req: Request,
+  ctx: { params: Promise<{ id: string }> },
+) {
   const { user, response } = await requireApiAuth();
   if (response) return response;
   const { id } = await ctx.params;
 
   const project = await db.project.findUnique({
     where: { id },
-    select: { ownerId: true, members: { select: { id: true } } },
+    select: {
+      ownerId: true,
+      coOwnerId: true,
+      members: { select: { id: true } },
+    },
   });
   if (!project) return jsonError("NOT_FOUND", "Project not found", 404);
   if (
@@ -18,6 +26,7 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
       viewerRole: user.role,
       viewerId: user.id,
       ownerId: project.ownerId,
+      coOwnerId: project.coOwnerId,
       memberIds: project.members.map((m) => m.id),
     })
   ) {
@@ -31,14 +40,21 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
   return jsonOk(items);
 }
 
-export async function POST(req: Request, ctx: { params: Promise<{ id: string }> }) {
+export async function POST(
+  req: Request,
+  ctx: { params: Promise<{ id: string }> },
+) {
   const { user, response } = await requireApiAuth();
   if (response) return response;
   const { id } = await ctx.params;
 
   const project = await db.project.findUnique({
     where: { id },
-    select: { ownerId: true, members: { select: { id: true } } },
+    select: {
+      ownerId: true,
+      coOwnerId: true,
+      members: { select: { id: true } },
+    },
   });
   if (!project) return jsonError("NOT_FOUND", "Project not found", 404);
   if (
@@ -46,6 +62,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
       viewerRole: user.role,
       viewerId: user.id,
       ownerId: project.ownerId,
+      coOwnerId: project.coOwnerId,
       memberIds: project.members.map((m) => m.id),
     })
   ) {
@@ -54,16 +71,35 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
 
   const body: unknown = await req.json().catch(() => null);
   const parsed = milestoneCreateSchema.safeParse(body);
-  if (!parsed.success) return jsonError("VALIDATION", "Invalid input", 422, parsed.error.flatten());
+  if (!parsed.success)
+    return jsonError(
+      "VALIDATION",
+      "Invalid input",
+      422,
+      parsed.error.flatten(),
+    );
 
   const count = await db.milestone.count({ where: { projectId: id } });
-  const created = await db.milestone.create({
-    data: {
-      projectId: id,
-      title: parsed.data.title,
-      dueDate: parsed.data.dueDate ? new Date(parsed.data.dueDate) : null,
-      orderIndex: count,
-    },
+  const created = await db.$transaction(async (tx) => {
+    const result = await tx.milestone.create({
+      data: {
+        projectId: id,
+        title: parsed.data.title,
+        dueDate: parsed.data.dueDate ? new Date(parsed.data.dueDate) : null,
+        orderIndex: count,
+      },
+    });
+    await recordAudit(
+      tx,
+      user,
+      "Milestone added through API",
+      "Milestone",
+      result.id,
+      id,
+      null,
+      result,
+    );
+    return result;
   });
   return jsonOk(created, 201);
 }

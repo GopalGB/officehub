@@ -31,32 +31,91 @@ export function Sidebar({ role }: { role: Role }) {
     {
       heading: "Home",
       items: [
-        { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, show: true, exact: true },
+        {
+          href: "/dashboard",
+          label: "My workspace",
+          icon: LayoutDashboard,
+          show: true,
+          exact: true,
+        },
       ],
     },
     {
       heading: "Work",
       items: [
-        { href: "/dashboard/projects/new", label: "New project", icon: Folders, show: true },
-        { href: "/dashboard/board", label: "Project board", icon: Columns3, show: true },
-        { href: "/dashboard/tasks", label: "Tasks", icon: CheckSquare, show: true },
-        { href: "/dashboard/calendar", label: "Calendar", icon: Calendar, show: true },
-        { href: "/dashboard/manager", label: "Manager view", icon: BarChart3, show: isManagerOrAbove(role) },
+        {
+          href: "/dashboard/projects",
+          label: "Projects",
+          icon: Folders,
+          show: true,
+        },
+        {
+          href: "/dashboard/planner",
+          label: "My week",
+          icon: Calendar,
+          show: true,
+        },
+        {
+          href: "/dashboard/board",
+          label: "Project board",
+          icon: Columns3,
+          show: true,
+        },
+        {
+          href: "/dashboard/reports",
+          label: "Reports",
+          icon: CheckSquare,
+          show: true,
+        },
+        {
+          href: "/dashboard/calendar",
+          label: "Fiscal calendar",
+          icon: Calendar,
+          show: true,
+        },
+        {
+          href: "/dashboard/requests",
+          label: "Request pool",
+          icon: Folders,
+          show: isManagerOrAbove(role),
+        },
+        {
+          href: "/dashboard/manager",
+          label: "Team overview",
+          icon: BarChart3,
+          show: isManagerOrAbove(role),
+        },
       ],
     },
     {
       heading: "Knowledge",
-      items: [{ href: "/dashboard/pages", label: "Wiki", icon: BookOpen, show: true }],
+      items: [
+        { href: "/dashboard/pages", label: "Wiki", icon: BookOpen, show: true },
+      ],
     },
     {
       // Personal/workspace settings belong to everyone; the Admin section is
       // strictly admin-only so the heading no longer leaks to MEMBERs (OH-13).
       heading: "Workspace",
-      items: [{ href: "/dashboard/settings", label: "Settings", icon: Settings, show: true }],
+      items: [
+        {
+          href: "/dashboard/settings",
+          label: "Settings",
+          icon: Settings,
+          show: true,
+        },
+      ],
     },
     {
       heading: "Admin",
-      items: [{ href: "/dashboard/team", label: "Team", icon: Users2, show: isAdmin(role) }],
+      items: [
+        {
+          href: "/dashboard/team",
+          label: "Team",
+          icon: Users2,
+          show: isAdmin(role),
+        },
+      ],
     },
   ];
 
@@ -88,7 +147,9 @@ export function Sidebar({ role }: { role: Role }) {
                       href={l.href}
                       className={cn(
                         "flex items-center gap-2 rounded-md px-2.5 py-1.5 text-sm transition-colors",
-                        active ? "border-2 border-brand-orange/50 bg-brand-tint text-brand-navy font-semibold" : "text-brand-navy hover:bg-accent",
+                        active
+                          ? "bg-brand-tint text-brand-navy font-semibold shadow-[inset_3px_0_0_#DD6328]"
+                          : "text-brand-navy hover:bg-accent",
                       )}
                     >
                       <Icon className="h-4 w-4" />
@@ -102,7 +163,9 @@ export function Sidebar({ role }: { role: Role }) {
         })}
       </nav>
       <div className="mt-auto px-2 pt-4 text-xs text-slate-400">
-        <p className="font-medium text-brand-navy">Catalyst Brands · Workspace</p>
+        <p className="font-medium text-brand-navy">
+          Catalyst Brands · Workspace
+        </p>
         <p className="mt-0.5">
           <kbd className="rounded border border-slate-200 bg-white px-1 text-[10px] font-semibold text-slate-500">
             ⌘K

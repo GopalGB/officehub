@@ -1,12 +1,10 @@
 "use client";
-
 import { useTransition } from "react";
 import type { Milestone } from "@prisma/client";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { ActionForm } from "@/components/ui/action-form";
+import { updateMilestone } from "@/app/dashboard/actions";
 import { formatDate } from "@/lib/utils";
-
+import { useToast } from "@/components/ui/toast";
 export function MilestoneList({
   projectId,
   items,
@@ -18,68 +16,137 @@ export function MilestoneList({
   projectId: string;
   items: Milestone[];
   onAdd: (projectId: string, fd: FormData) => Promise<void>;
-  onToggle: (id: string, projectId: string, completed: boolean) => Promise<void>;
+  onToggle: (
+    id: string,
+    projectId: string,
+    completed: boolean,
+  ) => Promise<void>;
   onDelete: (id: string, projectId: string) => Promise<void>;
   canManage: boolean;
 }) {
-  const [pending, start] = useTransition();
-
+  const [pending, start] = useTransition(),
+    { toast } = useToast();
   return (
     <div className="space-y-4">
       {canManage && (
-        <form
-          action={(fd) => start(() => onAdd(projectId, fd))}
-          className="grid gap-3 rounded-md border border-slate-200 bg-white p-4 md:grid-cols-[1fr_180px_auto]"
-        >
-          <div className="space-y-1">
-            <Label htmlFor="m-title">Milestone</Label>
-            <Input id="m-title" name="title" required placeholder="e.g. Beta with 5 office users" />
+        <details className="rounded-lg border p-4">
+          <summary className="cursor-pointer text-sm font-medium">
+            + Add milestone
+          </summary>
+          <div className="mt-4">
+            <ActionForm
+              action={onAdd.bind(null, projectId)}
+              label="Add milestone"
+              successMessage="Milestone added."
+            >
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="field">
+                  Milestone
+                  <input
+                    name="title"
+                    required
+                    minLength={2}
+                    maxLength={160}
+                    placeholder="e.g. Leadership sign-off"
+                  />
+                </label>
+                <label className="field">
+                  Deadline
+                  <input name="dueDate" type="date" />
+                </label>
+              </div>
+            </ActionForm>
           </div>
-          <div className="space-y-1">
-            <Label htmlFor="m-due">Due</Label>
-            <Input id="m-due" name="dueDate" type="date" />
-          </div>
-          <div className="self-end">
-            <Button type="submit" size="sm" disabled={pending}>
-              {pending ? "Adding…" : "Add"}
-            </Button>
-          </div>
-        </form>
+        </details>
       )}
-
-      <ul className="divide-y divide-slate-200 rounded-md border border-slate-200 bg-white">
-        {items.length === 0 && (
-          <li className="px-4 py-6 text-center text-sm text-slate-400">No milestones yet.</li>
-        )}
+      <ul className="divide-y rounded-lg border bg-card">
         {items.map((m) => (
-          <li key={m.id} className="flex items-center justify-between px-4 py-3">
+          <li key={m.id} className="px-4 py-4">
             <div className="flex items-center gap-3">
               <input
                 type="checkbox"
+                aria-label={`Complete milestone: ${m.title}`}
                 checked={m.completed}
                 disabled={!canManage || pending}
-                onChange={(ev) => start(() => onToggle(m.id, projectId, ev.target.checked))}
-                className="h-4 w-4 rounded border-slate-300"
+                onChange={(e) => {
+                  const completed = e.target.checked;
+                  start(async () => {
+                    try {
+                      await onToggle(m.id, projectId, completed);
+                    } catch (cause) {
+                      toast(
+                        cause instanceof Error
+                          ? cause.message
+                          : "Could not update milestone",
+                        "error",
+                      );
+                    }
+                  });
+                }}
+                className="h-4 w-4 rounded border-slate-300 accent-brand-navy"
               />
-              <div>
-                <p className={`text-sm ${m.completed ? "text-slate-400 line-through" : "text-slate-900"}`}>
+              <div className="min-w-0">
+                <p
+                  className={`text-sm font-medium ${m.completed ? "text-muted-foreground line-through" : ""}`}
+                >
                   {m.title}
                 </p>
-                <p className="text-xs text-slate-400">
-                  {m.dueDate ? `Due ${formatDate(m.dueDate)}` : "No due date"}
-                  {m.completed && m.completedAt ? ` · Completed ${formatDate(m.completedAt)}` : ""}
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Due {formatDate(m.dueDate)}
+                  {m.completedAt
+                    ? ` · Completed ${formatDate(m.completedAt)}`
+                    : ""}
                 </p>
               </div>
             </div>
             {canManage && (
-              <form action={() => start(() => onDelete(m.id, projectId))}>
-                <Button type="submit" variant="ghost" size="sm">
-                  Remove
-                </Button>
-              </form>
+              <details className="ml-7 mt-3">
+                <summary className="cursor-pointer text-xs text-brand-link">
+                  Edit deadline or title
+                </summary>
+                <div className="mt-3">
+                  <ActionForm
+                    action={updateMilestone.bind(null, m.id, projectId)}
+                    successMessage="Milestone updated."
+                  >
+                    <label className="field">
+                      Title
+                      <input
+                        name="title"
+                        defaultValue={m.title}
+                        required
+                        minLength={2}
+                        maxLength={160}
+                      />
+                    </label>
+                    <label className="field">
+                      Deadline
+                      <input
+                        name="dueDate"
+                        type="date"
+                        defaultValue={
+                          m.dueDate
+                            ? new Date(m.dueDate).toISOString().slice(0, 10)
+                            : ""
+                        }
+                      />
+                    </label>
+                  </ActionForm>
+                  <ActionForm
+                    className="mt-3"
+                    action={onDelete.bind(null, m.id, projectId)}
+                    label="Remove milestone"
+                  />
+                </div>
+              </details>
             )}
           </li>
         ))}
+        {!items.length && (
+          <li className="px-4 py-6 text-center text-sm text-muted-foreground">
+            No milestones yet.
+          </li>
+        )}
       </ul>
     </div>
   );
