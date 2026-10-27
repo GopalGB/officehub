@@ -17,9 +17,9 @@ A self-hosted Notion + Jira hybrid for offices. Track projects, tasks, pages,
 timelines. Built so a small team can run their whole operation on a single
 Linux server.
 
-**Stack:** Next.js 15.1.6 (App Router, server components, server actions) ·
+**Stack:** Next.js 15.5.28 (App Router, server components, server actions) ·
 React 19 · TypeScript (strict) · Postgres 16 · Prisma 5 · Auth.js v5 ·
-BlockNote 0.31 · TailwindCSS · Docker Compose.
+BlockNote 0.56 · TailwindCSS · Docker Compose.
 
 ---
 
@@ -217,7 +217,10 @@ Same shape as existing endpoints. Use `requireApiAuth`.
 
 ## Test loop
 
-We don't have a Jest/Vitest setup yet (planned). Until then, your safety net is:
+Regression tests use Node’s test runner through tsx. Run `npm test` for unit checks.
+For database permission tests, initialize a separate `officehub_test_*` schema, set
+`OFFICEHUB_TEST_DATABASE_URL` to it, and run `npm run test:integration`.
+Never point these tests at office data. CI runs both suites. Additional checks:
 
 1. `npx tsc --noEmit --noUnusedLocals --noUnusedParameters` — must be zero
 2. `npm run build` — must finish without error
@@ -292,3 +295,17 @@ This file moves with the code. Update it when:
 - A new convention is locked in via PR feedback
 
 Last meaningful change: v1.5 (favorites + dark mode + Cmd+K + Calendar + Wiki templates).
+
+## Authorization and wiki saving
+
+- Node auth refreshes role and active state on every session access. JWTs carry a
+  credential fingerprint so password changes revoke earlier sessions. Edge middleware
+  is only the initial route gate; all sensitive work must use the Node auth instance.
+- Project child mutations use `requireProjectEditor` from `src/lib/access.ts`.
+  Check a child's real project before editing it. Combine client filters with
+  `projectAccessWhere` using AND; unknown scopes must never remove authorization.
+- Wiki saves use the single `savePage` action, author/manager permissions, and an
+  `expectedUpdatedAt` timestamp. Preserve optimistic conflict checks and local draft
+  recovery when changing the editor. Never autosave an unchanged read-only page.
+- Zod 4 applies defaults inside partial objects. Update schemas explicitly override
+  status/priority with optional enum schemas so partial edits cannot reset them.

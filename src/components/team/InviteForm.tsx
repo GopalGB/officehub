@@ -89,7 +89,7 @@ export function InviteForm() {
             <code className="flex-1 truncate rounded border border-black/15 bg-white px-2 py-1.5 text-xs text-black dark:border-white/20 dark:bg-neutral-950 dark:text-white">
               {result.url}
             </code>
-            <Button type="button" size="sm" variant={copied ? "secondary" : "default"} onClick={copy}>
+            <Button type="button" size="sm" variant={copied ? "secondary" : "default"} onClick={() => { void copy().catch(() => toast("Could not copy link", "error")); }}>
               {copied ? (
                 <>
                   <Check className="h-3.5 w-3.5" /> Copied

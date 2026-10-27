@@ -3,9 +3,10 @@ import type { TaskStatus } from "@prisma/client";
 import { redirect } from "next/navigation";
 import { auth } from "../../../../../auth";
 import { db } from "@/lib/db";
-import { isManagerOrAbove } from "@/lib/rbac";
+import { isManagerOrAbove, projectAccessWhere, taskPermissions } from "@/lib/rbac";
 import { TaskBoardClient } from "@/components/task/TaskBoardClient";
 import { Button } from "@/components/ui/button";
+import { taskFilters } from "@/lib/filters";
 import { AutoSubmitSelect } from "@/components/ui/auto-submit-select";
 
 const COLUMNS: { status: TaskStatus; label: string; tone: string; wipLimit?: number }[] = [
@@ -24,27 +25,22 @@ export default async function TaskBoardPage({
   const session = await auth();
   if (!session?.user) redirect("/login");
 
-  const { scope = "mine", project } = await searchParams;
-
-  const where: Record<string, unknown> = {};
-  if (scope === "mine") where.assigneeId = session.user.id;
-  if (scope === "all" && !isManagerOrAbove(session.user.role)) {
-    where.assigneeId = session.user.id;
-  }
-  if (project && project !== "ALL") where.projectId = project;
+  const params = await searchParams;
+  const { project } = params;
+  const { scope, where } = taskFilters(session.user, params);
 
   const [tasks, projects] = await Promise.all([
     db.task.findMany({
       where,
       include: {
         assignee: { select: { id: true, name: true } },
-        project: { select: { id: true, title: true } },
+        project: { select: { id: true, title: true, ownerId: true, members: { select: { id: true } } } },
       },
       orderBy: [{ orderIndex: "asc" }, { priority: "desc" }, { dueDate: "asc" }],
       take: 500,
     }),
     db.project.findMany({
-      where: { status: { not: "ARCHIVED" } },
+      where: { AND: [projectAccessWhere(session.user), { status: { not: "ARCHIVED" } }] },
       select: { id: true, title: true },
       orderBy: { title: "asc" },
     }),
@@ -67,6 +63,7 @@ export default async function TaskBoardPage({
             >
               Mine
             </Link>
+            <Link href="?scope=projects" className="rounded px-3 py-1.5">My projects</Link>
             {isManagerOrAbove(session.user.role) && (
               <Link
                 href={`?scope=all${project ? `&project=${project}` : ""}`}
@@ -95,7 +92,7 @@ export default async function TaskBoardPage({
 
       <TaskBoardClient
         columns={COLUMNS}
-        initialTasks={tasks}
+        initialTasks={tasks.map((task) => ({ ...task, ...taskPermissions(session.user, task) }))}
         viewerId={session.user.id}
         isManagerOrAbove={isManagerOrAbove(session.user.role)}
       />

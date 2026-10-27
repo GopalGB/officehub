@@ -4,7 +4,7 @@ import type { Block } from "@blocknote/core";
 import { auth } from "../../../../../auth";
 import { db } from "@/lib/db";
 import { PageEditor } from "@/components/pages/PageEditor";
-import { isManagerOrAbove } from "@/lib/rbac";
+import { canEditPage } from "@/lib/rbac";
 
 interface Crumb {
   id: string;
@@ -15,7 +15,9 @@ interface Crumb {
 async function trail(pageId: string | null): Promise<Crumb[]> {
   const crumbs: Crumb[] = [];
   let cursor = pageId;
-  while (cursor) {
+  const visited = new Set<string>();
+  while (cursor && !visited.has(cursor)) {
+    visited.add(cursor);
     const p: { id: string; title: string; emoji: string | null; parentId: string | null } | null =
       await db.page.findUnique({
         where: { id: cursor },
@@ -44,7 +46,7 @@ export default async function PageDetail({
   if (!page || page.archived) notFound();
 
   const crumbs = await trail(page.parentId);
-  const canDelete = page.authorId === session.user.id || isManagerOrAbove(session.user.role);
+  const canDelete = canEditPage(session.user, page.authorId);
 
   return (
     <div className="space-y-4">
@@ -65,6 +67,9 @@ export default async function PageDetail({
         </nav>
       )}
       <PageEditor
+        key={page.id}
+        viewerId={session.user.id}
+        canEdit={canDelete}
         pageId={page.id}
         initialTitle={page.title}
         initialEmoji={page.emoji}

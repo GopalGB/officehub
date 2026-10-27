@@ -1,7 +1,7 @@
 import { db } from "@/lib/db";
 import { jsonError, jsonOk, requireApiAuth } from "@/lib/api";
-import { projectCreateSchema } from "@/lib/validation";
-import { isManagerOrAbove } from "@/lib/rbac";
+import { projectCreateSchema, ProjectStatusEnum } from "@/lib/validation";
+import { isManagerOrAbove, projectAccessWhere } from "@/lib/rbac";
 
 export async function GET(req: Request) {
   const { user, response } = await requireApiAuth();
@@ -16,15 +16,18 @@ export async function GET(req: Request) {
   const limit = Number.isFinite(rawLimit) ? Math.min(Math.max(Math.trunc(rawLimit), 1), 100) : 50;
 
   const where: Record<string, unknown> = {};
-  if (status) where.status = status;
+  if (status) {
+    if (!ProjectStatusEnum.safeParse(status).success) return jsonError("VALIDATION", "Invalid status", 422);
+    where.status = status;
+  }
   if (scope === "mine") {
     // scope=mine must lock the filter to the caller: a ?owner=<id> query param
     // must not be able to overwrite it and leak other users' projects (OH-03).
-    where.ownerId = user!.id;
+    Object.assign(where, projectAccessWhere({ id: user.id, role: "MEMBER" }));
   } else {
     // Any non-"mine" scope (including unknown values) lists other people's
     // projects, so gate it to manager+ (OH-03).
-    if (!isManagerOrAbove(user!.role)) {
+    if (!isManagerOrAbove(user.role)) {
       return jsonError("FORBIDDEN", "Members can only list their own projects", 403);
     }
     if (ownerId) where.ownerId = ownerId;
@@ -43,7 +46,7 @@ export async function POST(req: Request) {
   const { user, response } = await requireApiAuth();
   if (response) return response;
 
-  const body = await req.json().catch(() => null);
+  const body: unknown = await req.json().catch(() => null);
   if (!body) return jsonError("INVALID_JSON", "Body must be valid JSON");
   const parsed = projectCreateSchema.safeParse(body);
   if (!parsed.success) return jsonError("VALIDATION", "Invalid input", 422, parsed.error.flatten());
@@ -60,7 +63,7 @@ export async function POST(req: Request) {
       // Only manager+ may create a project owned by someone else; a MEMBER
       // passing ownerId previously forged ownership (OH-02).
       ownerId:
-        parsed.data.ownerId && isManagerOrAbove(user!.role) ? parsed.data.ownerId : user!.id,
+        parsed.data.ownerId && isManagerOrAbove(user.role) ? parsed.data.ownerId : user.id,
     },
   });
   return jsonOk(project, 201);

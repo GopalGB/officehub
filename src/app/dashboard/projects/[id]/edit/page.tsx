@@ -4,7 +4,7 @@ import { auth } from "../../../../../../auth";
 import { db } from "@/lib/db";
 import { ProjectForm } from "@/components/project/ProjectForm";
 import { updateProject } from "@/app/dashboard/actions";
-import { canEditProject } from "@/lib/rbac";
+import { canEditProject, projectAccessWhere } from "@/lib/rbac";
 
 export default async function EditProjectPage({
   params,
@@ -16,7 +16,7 @@ export default async function EditProjectPage({
   if (!session?.user) redirect("/login");
 
   const project = await db.project.findUnique({
-    where: { id },
+    where: { id, AND: [projectAccessWhere(session.user)] },
     include: { members: { select: { id: true } } },
   });
   if (!project) notFound();

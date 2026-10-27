@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "../../../../auth";
 import { db } from "@/lib/db";
-import { isManagerOrAbove } from "@/lib/rbac";
+import { isManagerOrAbove, projectAccessWhere } from "@/lib/rbac";
 
 export const dynamic = "force-dynamic";
 
@@ -32,7 +32,7 @@ export async function GET(req: Request) {
     ? { OR: [{ title: ci }, { description: ci }] }
     : {
         AND: [
-          { OR: [{ assigneeId: userId }, { reporterId: userId }] },
+          { project: projectAccessWhere(session.user) },
           { OR: [{ title: ci }, { description: ci }] },
         ],
       };

@@ -7,7 +7,7 @@ import { userCreateSchema } from "@/lib/validation";
 export async function GET() {
   const { user, response } = await requireApiAuth();
   if (response) return response;
-  if (!isManagerOrAbove(user!.role)) return jsonError("FORBIDDEN", "Manager+ only", 403);
+  if (!isManagerOrAbove(user.role)) return jsonError("FORBIDDEN", "Manager+ only", 403);
 
   const users = await db.user.findMany({
     select: { id: true, email: true, name: true, role: true, active: true, createdAt: true },
@@ -19,9 +19,9 @@ export async function GET() {
 export async function POST(req: Request) {
   const { user, response } = await requireApiAuth();
   if (response) return response;
-  if (!isAdmin(user!.role)) return jsonError("FORBIDDEN", "Admin only", 403);
+  if (!isAdmin(user.role)) return jsonError("FORBIDDEN", "Admin only", 403);
 
-  const body = await req.json().catch(() => null);
+  const body: unknown = await req.json().catch(() => null);
   const parsed = userCreateSchema.safeParse(body);
   if (!parsed.success) return jsonError("VALIDATION", "Invalid input", 422, parsed.error.flatten());
 

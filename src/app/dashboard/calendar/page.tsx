@@ -3,7 +3,8 @@ import { redirect } from "next/navigation";
 import { Flag, CheckSquare, ChevronLeft, ChevronRight } from "lucide-react";
 import { auth } from "../../../../auth";
 import { db } from "@/lib/db";
-import { isManagerOrAbove } from "@/lib/rbac";
+import { isManagerOrAbove, projectAccessWhere } from "@/lib/rbac";
+import { calendarPeriod } from "@/lib/filters";
 import { cn, isOverdueDate } from "@/lib/utils";
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -13,19 +14,19 @@ const MONTH_NAMES = [
 ];
 
 function startOfMonth(year: number, month: number) {
-  return new Date(year, month, 1);
+  return new Date(Date.UTC(year, month, 1));
 }
 function endOfMonth(year: number, month: number) {
-  return new Date(year, month + 1, 0, 23, 59, 59, 999);
+  return new Date(Date.UTC(year, month + 1, 0, 23, 59, 59, 999));
 }
 function startOfGrid(year: number, month: number) {
   const first = startOfMonth(year, month);
   const start = new Date(first);
-  start.setDate(first.getDate() - first.getDay());
+  start.setUTCDate(first.getUTCDate() - first.getUTCDay());
   return start;
 }
 function sameDay(a: Date, b: Date) {
-  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+  return a.getUTCFullYear() === b.getUTCFullYear() && a.getUTCMonth() === b.getUTCMonth() && a.getUTCDate() === b.getUTCDate();
 }
 
 export default async function CalendarPage({
@@ -38,8 +39,7 @@ export default async function CalendarPage({
 
   const { y, m, scope = "mine" } = await searchParams;
   const now = new Date();
-  const year = y ? parseInt(y, 10) : now.getFullYear();
-  const month = m !== undefined ? parseInt(m, 10) : now.getMonth();
+  const { year, month } = calendarPeriod(y, m, now);
   const monthStart = startOfMonth(year, month);
   const monthEnd = endOfMonth(year, month);
   const safeScope = session.user.role === "MEMBER" ? "mine" : scope;
@@ -51,8 +51,9 @@ export default async function CalendarPage({
     dueDate: { gte: monthStart, lte: monthEnd },
   };
   if (safeScope === "mine") {
-    milestonesWhere.project = { ownerId: session.user.id };
-    tasksWhere.assigneeId = session.user.id;
+    milestonesWhere.project = { OR: [{ ownerId: session.user.id }, { members: { some: { id: session.user.id } } }] };
+    tasksWhere.project = projectAccessWhere(session.user);
+    if (isManagerOrAbove(session.user.role)) tasksWhere.assigneeId = session.user.id;
   }
 
   const [milestones, tasks] = await Promise.all([
@@ -82,7 +83,7 @@ export default async function CalendarPage({
     overdue?: boolean;
   };
   const byDay = new Map<string, Event[]>();
-  const key = (d: Date) => `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+  const key = (d: Date) => `${d.getUTCFullYear()}-${d.getUTCMonth()}-${d.getUTCDate()}`;
   for (const m of milestones) {
     if (!m.dueDate) continue;
     const k = key(new Date(m.dueDate));
@@ -119,12 +120,12 @@ export default async function CalendarPage({
   const cells: Date[] = [];
   for (let i = 0; i < 42; i++) {
     const d = new Date(gridStart);
-    d.setDate(gridStart.getDate() + i);
+    d.setUTCDate(gridStart.getUTCDate() + i);
     cells.push(d);
   }
 
-  const prev = new Date(year, month - 1, 1);
-  const next = new Date(year, month + 1, 1);
+  const prev = new Date(Date.UTC(year, month - 1, 1));
+  const next = new Date(Date.UTC(year, month + 1, 1));
 
   return (
     <div className="space-y-4">
@@ -152,7 +153,7 @@ export default async function CalendarPage({
           )}
           <div className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white p-0.5">
             <Link
-              href={`?y=${prev.getFullYear()}&m=${prev.getMonth()}&scope=${safeScope}`}
+              href={`?y=${prev.getUTCFullYear()}&m=${prev.getUTCMonth()}&scope=${safeScope}`}
               className="inline-flex h-7 w-7 items-center justify-center rounded text-neutral-700 hover:bg-neutral-100"
               aria-label="Previous month"
             >
@@ -168,7 +169,7 @@ export default async function CalendarPage({
               {MONTH_NAMES[month]} {year}
             </span>
             <Link
-              href={`?y=${next.getFullYear()}&m=${next.getMonth()}&scope=${safeScope}`}
+              href={`?y=${next.getUTCFullYear()}&m=${next.getUTCMonth()}&scope=${safeScope}`}
               className="inline-flex h-7 w-7 items-center justify-center rounded text-neutral-700 hover:bg-neutral-100"
               aria-label="Next month"
             >
@@ -188,7 +189,7 @@ export default async function CalendarPage({
         </div>
         <div className="grid grid-cols-7">
           {cells.map((d, i) => {
-            const inMonth = d.getMonth() === month;
+            const inMonth = d.getUTCMonth() === month;
             const today = sameDay(d, now);
             const events = byDay.get(key(d)) ?? [];
             return (
@@ -211,7 +212,7 @@ export default async function CalendarPage({
                         : "text-slate-400",
                     )}
                   >
-                    {d.getDate()}
+                    {d.getUTCDate()}
                   </span>
                 </div>
                 <div className="space-y-1">

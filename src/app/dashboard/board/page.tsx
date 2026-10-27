@@ -1,9 +1,9 @@
 import Link from "next/link";
-import type { ProjectStatus, Role } from "@prisma/client";
+import type { ProjectStatus } from "@prisma/client";
 import { redirect } from "next/navigation";
 import { auth } from "../../../../auth";
 import { db } from "@/lib/db";
-import { isManagerOrAbove } from "@/lib/rbac";
+import { isManagerOrAbove, canEditProject } from "@/lib/rbac";
 import { ProjectBoardClient } from "@/components/project/ProjectBoardClient";
 import { Button } from "@/components/ui/button";
 import { AutoSubmitSelect } from "@/components/ui/auto-submit-select";
@@ -43,11 +43,11 @@ export default async function BoardPage({
   const [projects, owners] = await Promise.all([
     db.project.findMany({
       where,
-      include: { owner: { select: { id: true, name: true } } },
+      include: { owner: { select: { id: true, name: true } }, members: { select: { id: true } } },
       orderBy: [{ orderIndex: "asc" }, { priority: "desc" }, { targetDate: "asc" }, { updatedAt: "desc" }],
       take: 500,
     }),
-    isManagerOrAbove(session.user.role as Role)
+    isManagerOrAbove(session.user.role)
       ? db.user.findMany({
           where: { active: true },
           select: { id: true, name: true },
@@ -103,7 +103,7 @@ export default async function BoardPage({
 
       <ProjectBoardClient
         columns={COLUMNS}
-        initialProjects={projects}
+        initialProjects={projects.map((project) => ({ ...project, canEdit: canEditProject({ viewerId: session.user.id, viewerRole: session.user.role, ownerId: project.ownerId, memberIds: project.members.map((member) => member.id) }) }))}
         viewerId={session.user.id}
         canEditByOwner={isManagerOrAbove(session.user.role)}
       />

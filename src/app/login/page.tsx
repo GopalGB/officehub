@@ -1,3 +1,4 @@
+import { formText } from "@/lib/utils";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { auth, signIn } from "../../../auth";
@@ -18,8 +19,8 @@ export default async function LoginPage({
 
   async function loginAction(formData: FormData) {
     "use server";
-    const email = String(formData.get("email") ?? "");
-    const password = String(formData.get("password") ?? "");
+    const email = formText(formData, "email");
+    const password = formText(formData, "password");
     try {
       await signIn("credentials", { email, password, redirectTo: "/dashboard" });
     } catch (e) {

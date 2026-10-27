@@ -30,8 +30,8 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
   // Managers+ see everything; members see projects they own or belong to
   if (
     !canViewProject({
-      viewerRole: user!.role,
-      viewerId: user!.id,
+      viewerRole: user.role,
+      viewerId: user.id,
       ownerId: project.ownerId,
       memberIds: project.members.map((m) => m.id),
     })
@@ -53,8 +53,8 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
   if (!existing) return jsonError("NOT_FOUND", "Project not found", 404);
   if (
     !canEditProject({
-      viewerRole: user!.role,
-      viewerId: user!.id,
+      viewerRole: user.role,
+      viewerId: user.id,
       ownerId: existing.ownerId,
       memberIds: existing.members.map((m) => m.id),
     })
@@ -62,7 +62,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
     return jsonError("FORBIDDEN", "Cannot edit this project", 403);
   }
 
-  const body = await req.json().catch(() => null);
+  const body: unknown = await req.json().catch(() => null);
   if (!body) return jsonError("INVALID_JSON", "Body must be valid JSON");
   const parsed = projectUpdateSchema.safeParse(body);
   if (!parsed.success) return jsonError("VALIDATION", "Invalid input", 422, parsed.error.flatten());
@@ -87,7 +87,7 @@ export async function DELETE(_req: Request, ctx: { params: Promise<{ id: string 
 
   const existing = await db.project.findUnique({ where: { id } });
   if (!existing) return jsonError("NOT_FOUND", "Project not found", 404);
-  if (!canDeleteProject({ viewerRole: user!.role, viewerId: user!.id, ownerId: existing.ownerId })) {
+  if (!canDeleteProject({ viewerRole: user.role, viewerId: user.id, ownerId: existing.ownerId })) {
     return jsonError("FORBIDDEN", "Cannot delete this project", 403);
   }
   await db.project.delete({ where: { id } });

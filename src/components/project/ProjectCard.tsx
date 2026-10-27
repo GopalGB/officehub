@@ -5,7 +5,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { PriorityBadge, ProjectStatusBadge } from "./StatusBadge";
 import { TagPills } from "./TagPills";
 import { FavoriteButton } from "./FavoriteButton";
-import { formatDate, timeAgo } from "@/lib/utils";
+import { formatDate, timeAgo, isOverdueDate } from "@/lib/utils";
 
 export function ProjectCard({
   project,
@@ -15,8 +15,7 @@ export function ProjectCard({
   isFavorite?: boolean;
 }) {
   const overdue =
-    project.targetDate &&
-    new Date(project.targetDate) < new Date() &&
+    isOverdueDate(project.targetDate) &&
     !["COMPLETED", "ARCHIVED"].includes(project.status);
   return (
     <Link href={`/dashboard/projects/${project.id}`} className="block">

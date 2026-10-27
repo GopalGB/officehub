@@ -1,3 +1,4 @@
+import { isAdmin } from "@/lib/rbac";
 import { redirect } from "next/navigation";
 import { auth } from "../../../auth";
 import { Sidebar } from "@/components/layout/Sidebar";
@@ -12,7 +13,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   return (
     <ToastProvider>
-      <CommandPalette />
+      <CommandPalette showPeople={isAdmin(session.user.role)} />
       <div className="flex min-h-screen bg-slate-50 dark:bg-slate-950">
         <Sidebar role={session.user.role} />
         <div className="flex min-w-0 flex-1 flex-col">

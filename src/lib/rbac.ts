@@ -1,4 +1,33 @@
-import { Role } from "@prisma/client";
+import type { Role } from "@prisma/client";
+import { type Prisma } from "@prisma/client";
+
+export type Viewer = { id: string; role: Role };
+
+/** Always combine this access predicate with caller-supplied filters using AND. */
+export function projectAccessWhere(viewer: Viewer): Prisma.ProjectWhereInput {
+  return isManagerOrAbove(viewer.role) ? {} : {
+    OR: [{ ownerId: viewer.id }, { members: { some: { id: viewer.id } } }],
+  };
+}
+
+export function canEditPage(viewer: Viewer, authorId: string): boolean {
+  return viewer.id === authorId || isManagerOrAbove(viewer.role);
+}
+
+export function taskPermissions(viewer: Viewer, task: {
+  reporterId: string; assigneeId: string | null;
+  project: { ownerId: string; members: { id: string }[] };
+}) {
+  const editor = canEditProject({
+    viewerId: viewer.id, viewerRole: viewer.role, ownerId: task.project.ownerId,
+    memberIds: task.project.members.map((member) => member.id),
+  });
+  return {
+    canEdit: editor || task.reporterId === viewer.id || task.assigneeId === viewer.id,
+    canAssign: editor || task.reporterId === viewer.id,
+    canDelete: isManagerOrAbove(viewer.role) || task.reporterId === viewer.id || task.assigneeId === viewer.id,
+  };
+}
 
 export const ROLE_RANK: Record<Role, number> = {
   MEMBER: 1,

@@ -24,7 +24,10 @@ export function isOverdueDate(due: Date | string | null | undefined): boolean {
 
 export function formatDate(d: Date | string | null | undefined, fallback = "—") {
   if (!d) return fallback;
-  return format(new Date(d), "dd MMM yyyy");
+  const date = new Date(d);
+  if (Number.isNaN(date.getTime())) return fallback;
+  // Deadlines are date-only values stored at UTC midnight.
+  return format(new Date(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()), "dd MMM yyyy");
 }
 
 export function formatDateTime(d: Date | string | null | undefined, fallback = "—") {
@@ -44,4 +47,9 @@ export function initials(name: string) {
     .slice(0, 2)
     .map((s) => s[0]?.toUpperCase() ?? "")
     .join("");
+}
+
+export function formText(form: FormData, name: string): string {
+  const value = form.get(name);
+  return typeof value === "string" ? value : "";
 }

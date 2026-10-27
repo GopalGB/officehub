@@ -19,7 +19,7 @@ interface Props {
 
 function EditorInner({ initialContent, onChange, editable = true }: Props) {
   const editor = useCreateBlockNote({
-    initialContent: initialContent && initialContent.length ? (initialContent as Block[]) : undefined,
+    initialContent: initialContent && initialContent.length ? (initialContent) : undefined,
   });
 
   return (
@@ -27,7 +27,7 @@ function EditorInner({ initialContent, onChange, editable = true }: Props) {
       editor={editor}
       editable={editable}
       theme="light"
-      onChange={() => onChange?.(editor.document as BlockDoc)}
+      onChange={() => onChange?.(editor.document)}
     />
   );
 }

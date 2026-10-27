@@ -1,6 +1,6 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import type { Block } from "@blocknote/core";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,15 +33,22 @@ function toInputDate(d: Date | null | undefined) {
 
 export function ProjectForm({ action, initial, submitLabel = "Save project" }: Props) {
   const [pending, start] = useTransition();
+  const [error, setError] = useState<string | null>(null);
 
   return (
     <form
-      action={(fd) => start(() => action(fd))}
+      action={(fd) => start(async () => {
+        setError(null);
+        try { await action(fd); } catch (cause) {
+          // Next handles successful action redirects before resolving this call.
+          setError(cause instanceof Error ? cause.message : "Could not save project");
+        }
+      })}
       className="space-y-6"
     >
       <div className="space-y-2">
         <Label htmlFor="title">Title *</Label>
-        <Input id="title" name="title" required defaultValue={initial?.title ?? ""} maxLength={160} />
+        <Input id="title" name="title" required minLength={2} defaultValue={initial?.title ?? ""} maxLength={160} />
       </div>
 
       <div className="space-y-2">
@@ -97,6 +104,7 @@ export function ProjectForm({ action, initial, submitLabel = "Save project" }: P
         <p className="text-xs text-slate-500">Rich notes — formatting, lists, headings. Type / for blocks.</p>
       </div>
 
+      {error && <p role="alert" className="text-sm text-red-700 dark:text-red-300">{error}</p>}
       <div className="flex justify-end gap-2">
         <Button type="submit" disabled={pending}>
           {pending ? "Saving…" : submitLabel}
