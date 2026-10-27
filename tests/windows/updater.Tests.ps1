@@ -95,3 +95,6 @@ if (-not $Failed -or ([IO.File]::ReadAllText($TracePath)).Contains('npm start') 
 
 Set-Location $Repo
 Remove-Item -LiteralPath $Root -Recurse -Force
+# The failure above was expected and asserted. Do not pass the simulated native
+# exit status to GitHub Actions' PowerShell wrapper after the suite succeeds.
+$global:LASTEXITCODE = 0
