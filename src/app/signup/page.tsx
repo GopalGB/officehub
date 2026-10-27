@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { BrandIdentity } from "@/components/layout/BrandIdentity";
 import Link from "next/link";
 import bcrypt from "bcryptjs";
 import { auth, signIn } from "../../../auth";
@@ -17,9 +18,10 @@ export default async function SignupPage({
   const policy = process.env.SIGNUP_POLICY ?? "closed";
   if (policy !== "open") {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4">
-        <Card className="w-full max-w-md">
+      <div className="flex min-h-screen items-center justify-center bg-background px-4">
+        <Card className="w-full max-w-md border-t-4 border-t-brand-orange">
           <CardHeader>
+            <BrandIdentity className="mb-3" />
             <CardTitle>Signup is closed</CardTitle>
             <CardDescription>Ask your admin to create an account for you.</CardDescription>
           </CardHeader>
@@ -64,10 +66,11 @@ export default async function SignupPage({
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4">
-      <Card className="w-full max-w-md">
+    <div className="flex min-h-screen items-center justify-center bg-background px-4">
+      <Card className="w-full max-w-md border-t-4 border-t-brand-orange">
         <CardHeader>
-          <CardTitle>Create your OfficeHub account</CardTitle>
+            <BrandIdentity className="mb-3" />
+          <CardTitle>Create your Catalyst Brands account</CardTitle>
           <CardDescription>Open signup is enabled.</CardDescription>
         </CardHeader>
         <CardContent>

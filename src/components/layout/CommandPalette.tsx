@@ -226,7 +226,7 @@ export function CommandPalette({ showPeople = false }: { showPeople?: boolean })
                     onClick={() => go(item)}
                     className={cn(
                       "flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors",
-                      active === idx ? "border-2 border-black bg-white text-black font-semibold" : "text-black hover:bg-neutral-100",
+                      active === idx ? "border-2 border-brand-orange/50 bg-brand-tint text-brand-navy font-semibold" : "text-brand-navy hover:bg-accent",
                     )}
                   >
                     <Icon className="h-4 w-4 shrink-0" />

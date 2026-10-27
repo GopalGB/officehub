@@ -2,6 +2,8 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  // Include an optional root logo in standalone/Docker builds when it exists.
+  outputFileTracingIncludes: { "/brand/logo": ["./logo.png"] },
   // The dedicated CI lint command checks the complete repository.
   eslint: { ignoreDuringBuilds: true },
   // "standalone" is for `next build` (Docker). Skip in dev — it triggers the

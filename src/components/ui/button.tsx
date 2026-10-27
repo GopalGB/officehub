@@ -3,23 +3,23 @@ import { Slot } from "@radix-ui/react-slot";
 import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
-// Pure-white theme — primary buttons are bordered white, not filled black.
+// Catalyst Brands navy actions with orange focus and warm hover surfaces.
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/30 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
   {
     variants: {
       variant: {
         default:
-          "border border-black bg-white text-black hover:bg-neutral-50 active:bg-neutral-100 dark:border-white dark:bg-black dark:text-white dark:hover:bg-neutral-900",
+          "border border-primary bg-primary text-primary-foreground hover:bg-brand-navy/90 active:bg-brand-navy/80 dark:border-primary dark:bg-primary dark:text-primary-foreground",
         destructive:
-          "border-2 border-black bg-white text-black underline decoration-2 underline-offset-2 hover:bg-neutral-50 dark:border-white dark:bg-black dark:text-white",
+          "border border-destructive bg-destructive text-destructive-foreground hover:bg-destructive/90 dark:border-red-400 dark:bg-red-700 dark:text-white",
         outline:
-          "border border-black/15 bg-transparent text-black hover:bg-neutral-50 dark:border-white/20 dark:text-white dark:hover:bg-neutral-900",
+          "border border-input bg-card text-foreground hover:border-brand-orange hover:bg-accent dark:border-slate-600 dark:bg-slate-900 dark:text-white",
         secondary:
-          "border border-transparent bg-neutral-100 text-black hover:bg-neutral-200 dark:bg-neutral-900 dark:text-white dark:hover:bg-neutral-800",
+          "border border-transparent bg-secondary text-secondary-foreground hover:bg-accent dark:bg-neutral-900 dark:text-white dark:hover:bg-neutral-800",
         ghost:
-          "border border-transparent text-black hover:bg-neutral-100 dark:text-white dark:hover:bg-neutral-900",
-        link: "text-black underline-offset-4 hover:underline dark:text-white",
+          "border border-transparent text-foreground hover:bg-accent dark:text-white dark:hover:bg-neutral-900",
+        link: "text-brand-link underline-offset-4 hover:underline dark:text-white",
       },
       size: {
         default: "h-10 px-4 py-2",

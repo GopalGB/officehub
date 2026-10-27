@@ -139,13 +139,13 @@ export default async function CalendarPage({
             <div className="inline-flex rounded-md border border-slate-200 bg-white p-0.5 text-xs">
               <Link
                 href={`?y=${year}&m=${month}&scope=mine`}
-                className={`rounded px-3 py-1.5 ${safeScope === "mine" ? "border-2 border-black bg-white text-black font-semibold" : "text-neutral-700 hover:bg-neutral-100"}`}
+                className={`rounded px-3 py-1.5 ${safeScope === "mine" ? "border-2 border-brand-orange/50 bg-brand-tint text-brand-navy font-semibold" : "text-neutral-700 hover:bg-neutral-100"}`}
               >
                 Mine
               </Link>
               <Link
                 href={`?y=${year}&m=${month}&scope=all`}
-                className={`rounded px-3 py-1.5 ${safeScope === "all" ? "border-2 border-black bg-white text-black font-semibold" : "text-neutral-700 hover:bg-neutral-100"}`}
+                className={`rounded px-3 py-1.5 ${safeScope === "all" ? "border-2 border-brand-orange/50 bg-brand-tint text-brand-navy font-semibold" : "text-neutral-700 hover:bg-neutral-100"}`}
               >
                 All
               </Link>
@@ -161,7 +161,7 @@ export default async function CalendarPage({
             </Link>
             <Link
               href={`?scope=${safeScope}`}
-              className="rounded px-2 py-1 text-xs font-medium text-black hover:bg-neutral-100"
+              className="rounded px-2 py-1 text-xs font-medium text-brand-navy hover:bg-accent"
             >
               Today
             </Link>
@@ -206,7 +206,7 @@ export default async function CalendarPage({
                     className={cn(
                       "inline-flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-semibold",
                       today
-                        ? "border-2 border-black bg-white text-black font-semibold"
+                        ? "border-2 border-brand-orange/50 bg-brand-tint text-brand-navy font-semibold"
                         : inMonth
                         ? "text-black"
                         : "text-slate-400",
@@ -223,7 +223,7 @@ export default async function CalendarPage({
                       className={cn(
                         "block truncate rounded px-1.5 py-0.5 text-[11px] font-medium transition-colors hover:opacity-90",
                         e.completed
-                          ? "border-2 border-black bg-white text-black font-semibold"
+                          ? "border-2 border-brand-orange/50 bg-brand-tint text-brand-navy font-semibold"
                           : e.overdue
                           ? "bg-white text-black border border-black underline decoration-2 underline-offset-2"
                           : e.kind === "milestone"

@@ -18,7 +18,17 @@ const config: Config = {
       screens: { "2xl": "1400px" },
     },
     extend: {
+      fontFamily: {
+        sans: ["Helvetica Neue", "Helvetica", "Arial", "sans-serif"],
+      },
       colors: {
+        brand: {
+          navy: "#091F36",
+          orange: "#DD6328",
+          blue: "#0084D4",
+          link: "#006BA8",
+          tint: "#FFF3EB",
+        },
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",

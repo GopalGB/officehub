@@ -2,15 +2,15 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "OfficeHub — Projects & Status",
+  title: "Catalyst Brands — Workspace",
   description:
-    "Self-hosted office workspace: track projects, timelines, enhancements, and roll up status for managers.",
+    "Catalyst Brands workspace for projects, tasks, timelines, and team knowledge.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className="min-h-screen bg-white text-black">{children}</body>
+      <body className="min-h-screen bg-background text-foreground">{children}</body>
     </html>
   );
 }

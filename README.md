@@ -319,6 +319,14 @@ is not a backup.
 
 ## Configuration
 
+### Catalyst Brands logo and theme
+
+The workspace uses Catalyst Brands' navy, orange, blue, and white styling.
+Add your logo as **`logo.png` at the repository root**; it appears in the sidebar,
+mobile menu, and account screens. A text fallback fills the slot until the file
+exists. Add the file before building Docker images, or mount it at `/app/logo.png`.
+See [the branding guide](docs/BRANDING.md) for dimensions, Docker mounting, and theme tokens.
+
 See `.env.example` for the full list. Critical fields to change:
 
 | Var | Purpose |

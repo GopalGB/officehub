@@ -17,7 +17,7 @@ export function Header({
   mobileNav?: React.ReactNode;
 }) {
   return (
-    <header className="flex h-14 items-center gap-3 border-b border-slate-200 bg-white px-4 md:px-6">
+    <header className="flex h-14 items-center gap-3 border-b border-t-2 border-border border-t-brand-orange bg-white px-4 md:px-6">
       {mobileNav}
       <div className="min-w-0 flex-1">
         <SearchBar />

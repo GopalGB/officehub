@@ -49,7 +49,7 @@ function TreeRow({
       <div
         className={cn(
           "group flex items-center gap-1 rounded px-1 py-1 text-sm hover:bg-neutral-100",
-          active && "border-2 border-black bg-white text-black font-semibold hover:bg-slate-900",
+          active && "border-2 border-brand-orange/50 bg-brand-tint text-brand-navy font-semibold hover:bg-accent",
         )}
         style={{ paddingLeft: `${depth * 12 + 4}px` }}
       >

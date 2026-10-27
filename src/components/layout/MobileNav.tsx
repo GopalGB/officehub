@@ -1,5 +1,6 @@
 "use client";
 
+import { BrandIdentity } from "@/components/layout/BrandIdentity";
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -56,7 +57,7 @@ export function MobileNav({ role }: { role: Role }) {
           />
           <aside className="relative ml-auto flex h-full w-72 flex-col border-l border-slate-200 bg-white p-4">
             <div className="mb-4 flex items-center justify-between">
-              <span className="text-base font-semibold">OfficeHub</span>
+              <Link href="/dashboard" aria-label="Catalyst Brands workspace" onClick={() => setOpen(false)}><BrandIdentity className="h-14 w-48" /></Link>
               <button
                 type="button"
                 onClick={() => setOpen(false)}
@@ -78,7 +79,7 @@ export function MobileNav({ role }: { role: Role }) {
                     onClick={() => setOpen(false)}
                     className={cn(
                       "flex items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors",
-                      active ? "border-2 border-black bg-white text-black font-semibold" : "text-black hover:bg-neutral-100",
+                      active ? "border-2 border-brand-orange/50 bg-brand-tint text-brand-navy font-semibold" : "text-brand-navy hover:bg-accent",
                     )}
                   >
                     <Icon className="h-4 w-4" />
