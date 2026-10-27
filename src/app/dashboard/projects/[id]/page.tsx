@@ -192,11 +192,11 @@ export default async function ProjectDetailPage({
           })
         : null,
     ]);
-  const names = Object.fromEntries([
-    ...members.map((m) => [m.id, m.name]),
-    ...allTags.map((t) => [t.id, t.name]),
-    ...project.derivedProjects.map((p) => [p.id, p.title]),
-    ...(source ? [[source.id, source.title]] : []),
+  const names = Object.fromEntries<string>([
+    ...members.map((m) => [m.id, m.name] as const),
+    ...allTags.map((t) => [t.id, t.name] as const),
+    ...project.derivedProjects.map((p) => [p.id, p.title] as const),
+    ...(source ? [[source.id, source.title] as const] : []),
   ]);
   const stages = [
     {
