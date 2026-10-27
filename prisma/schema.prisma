@@ -64,19 +64,22 @@ model User {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
-  accounts      Account[]
-  sessions      Session[]
+  accounts Account[]
+  sessions Session[]
 
-  ownedProjects   Project[]       @relation("ProjectOwner")
-  memberProjects  Project[]       @relation("ProjectMembers")
-  authoredUpdates ProjectUpdate[] @relation("UpdateAuthor")
-  authoredComments Comment[]      @relation("CommentAuthor")
-  authoredEnhancements Enhancement[] @relation("EnhancementAuthor")
-  invitationsCreated Invitation[] @relation("InvitationsCreated")
-  assignedTasks   Task[]          @relation("TaskAssignee")
-  reportedTasks   Task[]          @relation("TaskReporter")
-  authoredPages   Page[]          @relation("PageAuthor")
-  favoriteProjects Project[]      @relation("ProjectFavorites")
+  ownedProjects        Project[]       @relation("ProjectOwner")
+  memberProjects       Project[]       @relation("ProjectMembers")
+  authoredUpdates      ProjectUpdate[] @relation("UpdateAuthor")
+  authoredComments     Comment[]       @relation("CommentAuthor")
+  authoredEnhancements Enhancement[]   @relation("EnhancementAuthor")
+  invitationsCreated   Invitation[]    @relation("InvitationsCreated")
+  assignedTasks        Task[]          @relation("TaskAssignee")
+  reportedTasks        Task[]          @relation("TaskReporter")
+  authoredPages        Page[]          @relation("PageAuthor")
+  favoriteProjects     Project[]       @relation("ProjectFavorites")
+  coOwnedProjects      Project[]       @relation("ProjectCoOwner")
+  workPlans            WorkPlan[]
+  requestLinks         RequestLink[]
 
   @@index([email])
   @@index([role])
@@ -118,31 +121,48 @@ model VerificationToken {
 // ============ DOMAIN ============
 
 model Project {
-  id          String        @id @default(cuid())
-  title       String
-  summary     String?       // one-line elevator
-  description Json?         // BlockNote JSON document
-  status      ProjectStatus @default(PLANNING)
-  priority    Priority      @default(MEDIUM)
-  startDate   DateTime?
-  targetDate  DateTime?
-  actualEndDate DateTime?
-  ownerId     String
-  owner       User          @relation("ProjectOwner", fields: [ownerId], references: [id])
-  members     User[]        @relation("ProjectMembers")
-  favoritedBy User[]        @relation("ProjectFavorites")
-  orderIndex  Float         @default(0)
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
+  id                 String        @id @default(cuid())
+  title              String
+  summary            String? // one-line elevator
+  description        Json? // BlockNote JSON document
+  status             ProjectStatus @default(PLANNING)
+  priority           Priority      @default(MEDIUM)
+  startDate          DateTime?
+  targetDate         DateTime?
+  actualEndDate      DateTime?
+  ownerId            String
+  owner              User          @relation("ProjectOwner", fields: [ownerId], references: [id])
+  coOwnerId          String?
+  coOwner            User?         @relation("ProjectCoOwner", fields: [coOwnerId], references: [id], onDelete: SetNull)
+  projectType        String        @default("NEW_PROJECT")
+  sourceProjectId    String?
+  sourceProject      Project?      @relation("ProjectLineage", fields: [sourceProjectId], references: [id], onDelete: SetNull)
+  derivedProjects    Project[]     @relation("ProjectLineage")
+  estimatedHours     Float?
+  savedHours         Float?
+  department         String?
+  acceptanceCriteria String?
+  version            Int           @default(1)
+  members            User[]        @relation("ProjectMembers")
+  favoritedBy        User[]        @relation("ProjectFavorites")
+  orderIndex         Float         @default(0)
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
 
-  updates      ProjectUpdate[]
-  enhancements Enhancement[]
-  milestones   Milestone[]
-  comments     Comment[]
-  tasks        Task[]
-  tags         Tag[]         @relation("ProjectTags")
+  updates        ProjectUpdate[]
+  enhancements   Enhancement[]
+  milestones     Milestone[]
+  comments       Comment[]
+  tasks          Task[]
+  tags           Tag[]             @relation("ProjectTags")
+  revisions      ProjectRevision[]
+  workPlans      WorkPlan[]
+  dailyOverrides DailyOverride[]
+  requests       ProjectRequest[]
 
   @@index([ownerId])
+  @@index([coOwnerId])
+  @@index([sourceProjectId])
   @@index([status])
   @@index([targetDate])
   @@index([status, orderIndex])
@@ -154,7 +174,7 @@ model ProjectUpdate {
   project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
   authorId  String
   author    User     @relation("UpdateAuthor", fields: [authorId], references: [id])
-  content   Json     // BlockNote JSON
+  content   Json // BlockNote JSON
   createdAt DateTime @default(now())
 
   @@index([projectId])
@@ -162,20 +182,28 @@ model ProjectUpdate {
 }
 
 model Enhancement {
-  id          String            @id @default(cuid())
-  projectId   String
-  project     Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  authorId    String
-  author      User              @relation("EnhancementAuthor", fields: [authorId], references: [id])
-  title       String
-  description String?
-  status      EnhancementStatus @default(PROPOSED)
-  priority    Priority          @default(MEDIUM)
-  createdAt   DateTime          @default(now())
-  updatedAt   DateTime          @updatedAt
+  id             String            @id @default(cuid())
+  projectId      String
+  project        Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  authorId       String
+  author         User              @relation("EnhancementAuthor", fields: [authorId], references: [id])
+  title          String
+  description    String?
+  status         EnhancementStatus @default(PROPOSED)
+  priority       Priority          @default(MEDIUM)
+  startDate      DateTime?
+  targetDate     DateTime?
+  completedAt    DateTime?
+  releaseLabel   String?
+  estimatedHours Float?
+  savedHours     Float?
+  version        Int               @default(1)
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
 
   @@index([projectId])
   @@index([status])
+  @@index([targetDate])
 }
 
 model Milestone {
@@ -215,26 +243,30 @@ model Tag {
 // ============ TASKS (Jira-side) ============
 
 model Task {
-  id           String     @id @default(cuid())
-  projectId    String
-  project      Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  title        String
-  description  String?
-  status       TaskStatus @default(TODO)
-  priority     Priority   @default(MEDIUM)
-  storyPoints  Int?
-  dueDate      DateTime?
-  assigneeId   String?
-  assignee     User?      @relation("TaskAssignee", fields: [assigneeId], references: [id])
-  reporterId   String
-  reporter     User       @relation("TaskReporter", fields: [reporterId], references: [id])
-  parentId     String?
-  parent       Task?      @relation("TaskSubtasks", fields: [parentId], references: [id], onDelete: SetNull)
-  subtasks     Task[]     @relation("TaskSubtasks")
-  orderIndex   Float      @default(0)
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
-  completedAt  DateTime?
+  id             String     @id @default(cuid())
+  projectId      String
+  project        Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  title          String
+  description    String?
+  status         TaskStatus @default(TODO)
+  priority       Priority   @default(MEDIUM)
+  storyPoints    Int?
+  dueDate        DateTime?
+  assigneeId     String?
+  assignee       User?      @relation("TaskAssignee", fields: [assigneeId], references: [id])
+  reporterId     String
+  reporter       User       @relation("TaskReporter", fields: [reporterId], references: [id])
+  parentId       String?
+  parent         Task?      @relation("TaskSubtasks", fields: [parentId], references: [id], onDelete: SetNull)
+  subtasks       Task[]     @relation("TaskSubtasks")
+  orderIndex     Float      @default(0)
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+  completedAt    DateTime?
+  // Kept in the existing table so upgrades preserve earlier work as reports.
+  version        Int        @default(1)
+  reportUrl      String?
+  estimatedHours Float?
 
   @@index([projectId])
   @@index([assigneeId])
@@ -248,19 +280,19 @@ model Task {
 // ============ PAGES (Notion-side wiki) ============
 
 model Page {
-  id        String   @id @default(cuid())
-  title     String
-  content   Json?    // BlockNote document
-  emoji     String?
-  parentId  String?
-  parent    Page?    @relation("PageTree", fields: [parentId], references: [id], onDelete: SetNull)
-  children  Page[]   @relation("PageTree")
-  authorId  String
-  author    User     @relation("PageAuthor", fields: [authorId], references: [id])
-  orderIndex Int     @default(0)
-  archived  Boolean  @default(false)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id         String   @id @default(cuid())
+  title      String
+  content    Json? // BlockNote document
+  emoji      String?
+  parentId   String?
+  parent     Page?    @relation("PageTree", fields: [parentId], references: [id], onDelete: SetNull)
+  children   Page[]   @relation("PageTree")
+  authorId   String
+  author     User     @relation("PageAuthor", fields: [authorId], references: [id])
+  orderIndex Int      @default(0)
+  archived   Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
   @@index([parentId])
   @@index([authorId])
@@ -270,16 +302,16 @@ model Page {
 // ============ INVITATIONS ============
 
 model Invitation {
-  id              String    @id @default(cuid())
-  email           String
-  role            Role      @default(MEMBER)
-  token           String    @unique
-  invitedById     String
-  invitedBy       User      @relation("InvitationsCreated", fields: [invitedById], references: [id])
-  expiresAt       DateTime
-  acceptedAt      DateTime?
-  acceptedUserId  String?
-  createdAt       DateTime  @default(now())
+  id             String    @id @default(cuid())
+  email          String
+  role           Role      @default(MEMBER)
+  token          String    @unique
+  invitedById    String
+  invitedBy      User      @relation("InvitationsCreated", fields: [invitedById], references: [id])
+  expiresAt      DateTime
+  acceptedAt     DateTime?
+  acceptedUserId String?
+  createdAt      DateTime  @default(now())
 
   @@index([email])
   @@index([token])
@@ -294,10 +326,112 @@ model AuditLog {
   action    String
   entity    String
   entityId  String?
+  projectId String?
   meta      Json?
   createdAt DateTime @default(now())
 
   @@index([userId])
   @@index([entity, entityId])
   @@index([createdAt])
+  @@index([projectId, createdAt])
+}
+
+// Immutable project snapshots. Restoring creates a new revision.
+model ProjectRevision {
+  id         String   @id @default(cuid())
+  projectId  String
+  project    Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  version    Int
+  authorId   String
+  authorName String
+  reason     String
+  snapshot   Json
+  createdAt  DateTime @default(now())
+
+  @@unique([projectId, version])
+}
+
+model WorkPlan {
+  id        String          @id @default(cuid())
+  userId    String
+  user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  projectId String
+  project   Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  weekStart DateTime        @db.Date
+  title     String
+  weekdays  Int[] // UTC weekday: Sunday=0. Fiscal weeks start Sunday.
+  hours     Float           @default(2)
+  startTime String          @default("09:00")
+  version   Int             @default(1)
+  overrides DailyOverride[]
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+
+  @@index([userId, weekStart])
+  @@index([weekStart])
+}
+
+model DailyOverride {
+  id        String   @id @default(cuid())
+  planId    String
+  plan      WorkPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+  date      DateTime @db.Date
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  title     String
+  hours     Float
+  startTime String
+  skipped   Boolean  @default(false)
+  note      String?
+  updatedAt DateTime @updatedAt
+
+  @@unique([planId, date])
+}
+
+model RequestLink {
+  id             String           @id @default(cuid())
+  token          String           @unique
+  label          String
+  managerId      String
+  manager        User             @relation(fields: [managerId], references: [id])
+  recipientEmail String?
+  expiresAt      DateTime
+  revokedAt      DateTime?
+  createdAt      DateTime         @default(now())
+  requests       ProjectRequest[]
+
+  @@index([managerId])
+}
+
+model ProjectRequest {
+  id              String      @id @default(cuid())
+  linkId          String
+  link            RequestLink @relation(fields: [linkId], references: [id])
+  submitterName   String
+  submitterEmail  String
+  title           String
+  description     String
+  projectType     String
+  existingProject String?
+  estimatedHours  Float
+  savedHours      Float?
+  requestedDate   DateTime?
+  priority        Priority    @default(MEDIUM)
+  status          String      @default("PENDING")
+  managerNotes    String?
+  projectId       String?
+  project         Project?    @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  version         Int         @default(1)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  @@index([status, createdAt])
+  @@index([linkId, createdAt])
+}
+
+model FiscalYearConfig {
+  year      Int      @id
+  startDate DateTime @db.Date
+  weeks     Int      @default(52)
+  updatedAt DateTime @updatedAt
 }

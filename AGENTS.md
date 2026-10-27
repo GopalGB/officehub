@@ -317,3 +317,16 @@ the optional root `logo.png` behind `/brand/logo`; do not hard-code a remote ima
 or require a file to exist for startup. Preserve `outputFileTracingIncludes` so a
 supplied logo reaches standalone/Docker builds. See `docs/BRANDING.md` for sources
 and deployment instructions. Use theme tokens for new controls and keep text contrast.
+
+
+## Project workspace (2026-10-28)
+
+- User-facing work items are Reports (`/dashboard/reports`); the Prisma `Task` model and legacy redirects preserve existing data. Do not drop or rename that table during upgrades.
+- Projects have `coOwnerId`; include it in all RBAC checks and selectors alongside owners and explicit collaborators. Use `projectAccessWhere` for reads.
+- Project mutations use `reviseProject` from `src/lib/history.ts` in the write transaction. It preserves a baseline, increments the version, saves the immutable snapshot, and audits changes. Child mutations use `recordAudit` in the same transaction. Never audit password hashes, credentials, or tokens.
+- Project restores create a new version and are owner/manager-only. They restore project details/roster/tags, not child work. Reports and enhancements have independent version checks.
+- Weekly plans belong to the user; `DailyOverride` applies only inside that plan's selected week and weekdays. Use `plannedDay` / `dayLoad` instead of materializing daily tasks.
+- Retail dates use `src/lib/fiscal.ts`: Sunday nearest February 1, 4-5-4, extra week in P12. Custom year overrides are supported.
+- Public `/request/[token]` pages validate unguessable expiring/revocable links without granting workspace access. Re-check manager active state and role at submission. Manager decisions are transactional and version-checked. No outbound messaging occurs.
+- Windows updates use `scripts/update-windows.ps1`. Preserve the no-admin workflow: no execution-policy, firewall, service, PATH, certificate-store, or PostgreSQL-server changes; no schema data-loss flags; a database backup precedes schema application.
+- Keep the logo wrapper transparent. The root `logo.png` is local deployment content and ignored by Git.

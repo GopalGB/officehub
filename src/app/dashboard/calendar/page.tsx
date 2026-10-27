@@ -1,271 +1,312 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
-import { Flag, CheckSquare, ChevronLeft, ChevronRight } from "lucide-react";
 import { auth } from "../../../../auth";
 import { db } from "@/lib/db";
-import { isManagerOrAbove, projectAccessWhere } from "@/lib/rbac";
-import { calendarPeriod } from "@/lib/filters";
-import { cn, isOverdueDate } from "@/lib/utils";
-
-const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-const MONTH_NAMES = [
-  "January", "February", "March", "April", "May", "June",
-  "July", "August", "September", "October", "November", "December",
-];
-
-function startOfMonth(year: number, month: number) {
-  return new Date(Date.UTC(year, month, 1));
-}
-function endOfMonth(year: number, month: number) {
-  return new Date(Date.UTC(year, month + 1, 0, 23, 59, 59, 999));
-}
-function startOfGrid(year: number, month: number) {
-  const first = startOfMonth(year, month);
-  const start = new Date(first);
-  start.setUTCDate(first.getUTCDate() - first.getUTCDay());
-  return start;
-}
-function sameDay(a: Date, b: Date) {
-  return a.getUTCFullYear() === b.getUTCFullYear() && a.getUTCMonth() === b.getUTCMonth() && a.getUTCDate() === b.getUTCDate();
-}
-
-export default async function CalendarPage({
+import { projectAccessWhere, isManagerOrAbove } from "@/lib/rbac";
+import {
+  fiscalWeeks,
+  localToday,
+  fiscalPeriod,
+  dateKey,
+  addDays,
+} from "@/lib/fiscal";
+import { formatDate, isOverdueDate } from "@/lib/utils";
+import { saveFiscalConfig } from "@/app/dashboard/actions";
+import { ActionForm } from "@/components/ui/action-form";
+export default async function FiscalCalendar({
   searchParams,
 }: {
-  searchParams: Promise<{ y?: string; m?: string; scope?: string }>;
+  searchParams: Promise<{ year?: string; period?: string; scope?: string }>;
 }) {
   const session = await auth();
-  if (!session?.user) redirect("/login");
-
-  const { y, m, scope = "mine" } = await searchParams;
-  const now = new Date();
-  const { year, month } = calendarPeriod(y, m, now);
-  const monthStart = startOfMonth(year, month);
-  const monthEnd = endOfMonth(year, month);
-  const safeScope = session.user.role === "MEMBER" ? "mine" : scope;
-
-  const milestonesWhere: Record<string, unknown> = {
-    dueDate: { gte: monthStart, lte: monthEnd },
+  if (!session?.user) return null;
+  const params = await searchParams;
+  const configs = await db.fiscalYearConfig.findMany();
+  const today = fiscalPeriod(localToday(), configs);
+  const rawYear = Number(params.year),
+    rawPeriod = Number(params.period);
+  const year =
+    Number.isInteger(rawYear) && rawYear >= 2000 && rawYear <= 2100
+      ? rawYear
+      : (today?.year ?? new Date().getUTCFullYear());
+  const period =
+    Number.isInteger(rawPeriod) && rawPeriod >= 1 && rawPeriod <= 12
+      ? rawPeriod
+      : year === today?.year
+        ? today.month
+        : 1;
+  const weeks = fiscalWeeks(year, configs),
+    selected = weeks.filter((w) => w.month === period);
+  const manager = isManagerOrAbove(session.user.role),
+    scope = manager && params.scope !== "mine" ? "all" : "mine";
+  const access = projectAccessWhere({
+    id: session.user.id,
+    role: scope === "all" ? session.user.role : "MEMBER",
+  });
+  const range = {
+    gte: weeks[0].start,
+    lt: addDays(weeks[weeks.length - 1].end, 1),
   };
-  const tasksWhere: Record<string, unknown> = {
-    dueDate: { gte: monthStart, lte: monthEnd },
-  };
-  if (safeScope === "mine") {
-    milestonesWhere.project = { OR: [{ ownerId: session.user.id }, { members: { some: { id: session.user.id } } }] };
-    tasksWhere.project = projectAccessWhere(session.user);
-    if (isManagerOrAbove(session.user.role)) tasksWhere.assigneeId = session.user.id;
-  }
-
-  const [milestones, tasks] = await Promise.all([
+  const [projects, milestones, reports, enhancements] = await Promise.all([
+    db.project.findMany({
+      where: { AND: [access], targetDate: range },
+      select: { id: true, title: true, targetDate: true, status: true },
+    }),
     db.milestone.findMany({
-      where: milestonesWhere,
-      include: { project: { select: { id: true, title: true } } },
-      orderBy: { dueDate: "asc" },
+      where: { project: access, dueDate: range },
+      include: { project: { select: { title: true } } },
     }),
     db.task.findMany({
-      where: tasksWhere,
-      include: {
-        project: { select: { id: true, title: true } },
-        assignee: { select: { name: true } },
+      where: { project: access, dueDate: range },
+      select: {
+        id: true,
+        title: true,
+        projectId: true,
+        dueDate: true,
+        status: true,
       },
-      orderBy: [{ priority: "desc" }, { dueDate: "asc" }],
+    }),
+    db.enhancement.findMany({
+      where: { project: access, targetDate: range },
+      select: {
+        id: true,
+        title: true,
+        projectId: true,
+        targetDate: true,
+        status: true,
+      },
     }),
   ]);
-
-  // Build map: dateKey → events
-  type Event = {
-    id: string;
-    kind: "milestone" | "task";
-    title: string;
-    projectId: string;
-    projectTitle: string;
-    completed?: boolean;
-    overdue?: boolean;
-  };
-  const byDay = new Map<string, Event[]>();
-  const key = (d: Date) => `${d.getUTCFullYear()}-${d.getUTCMonth()}-${d.getUTCDate()}`;
-  for (const m of milestones) {
-    if (!m.dueDate) continue;
-    const k = key(new Date(m.dueDate));
-    const arr = byDay.get(k) ?? [];
-    arr.push({
+  const events = [
+    ...projects.map((p) => ({
+      id: p.id,
+      title: p.title,
+      date: p.targetDate!,
+      href: `/dashboard/projects/${p.id}`,
+      kind: "Project",
+      done: ["COMPLETED", "ARCHIVED"].includes(p.status),
+    })),
+    ...milestones.map((m) => ({
       id: m.id,
-      kind: "milestone",
       title: m.title,
-      projectId: m.project.id,
-      projectTitle: m.project.title,
-      completed: m.completed,
-      overdue: !m.completed && isOverdueDate(m.dueDate),
-    });
-    byDay.set(k, arr);
-  }
-  for (const t of tasks) {
-    if (!t.dueDate) continue;
-    const k = key(new Date(t.dueDate));
-    const arr = byDay.get(k) ?? [];
-    arr.push({
-      id: t.id,
-      kind: "task",
-      title: t.title,
-      projectId: t.project.id,
-      projectTitle: t.project.title,
-      completed: t.status === "DONE",
-      overdue: t.status !== "DONE" && isOverdueDate(t.dueDate),
-    });
-    byDay.set(k, arr);
-  }
-
-  const gridStart = startOfGrid(year, month);
-  // 42 cells = 6 weeks
-  const cells: Date[] = [];
-  for (let i = 0; i < 42; i++) {
-    const d = new Date(gridStart);
-    d.setUTCDate(gridStart.getUTCDate() + i);
-    cells.push(d);
-  }
-
-  const prev = new Date(Date.UTC(year, month - 1, 1));
-  const next = new Date(Date.UTC(year, month + 1, 1));
-
+      date: m.dueDate!,
+      href: `/dashboard/projects/${m.projectId}`,
+      kind: "Milestone",
+      done: m.completed,
+    })),
+    ...reports.map((r) => ({
+      id: r.id,
+      title: r.title,
+      date: r.dueDate!,
+      href: `/dashboard/reports/${r.id}`,
+      kind: "Report",
+      done: r.status === "DONE",
+    })),
+    ...enhancements.map((e) => ({
+      id: e.id,
+      title: e.title,
+      date: e.targetDate!,
+      href: `/dashboard/projects/${e.projectId}?tab=enhancements`,
+      kind: "Enhancement",
+      done: e.status === "DONE",
+    })),
+  ];
+  const query = (fy: number, p = period) =>
+    `?year=${fy}&period=${p}&scope=${scope}`;
   return (
-    <div className="space-y-4">
-      <header className="flex flex-wrap items-center justify-between gap-2">
+    <div className="mx-auto max-w-6xl space-y-6">
+      <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Calendar</h1>
-          <p className="text-sm text-slate-500">Milestones + tasks across the month.</p>
+          <p className="eyebrow">Retail planning / NRF 4-5-4</p>
+          <h1 className="page-title">Fiscal calendar</h1>
+          <p className="page-subtitle">
+            FY{year} · {weeks.length} weeks · Sunday–Saturday. Delivery dates,
+            reports, and enhancements in your fiscal rhythm.
+          </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {isManagerOrAbove(session.user.role) && (
-            <div className="inline-flex rounded-md border border-slate-200 bg-white p-0.5 text-xs">
-              <Link
-                href={`?y=${year}&m=${month}&scope=mine`}
-                className={`rounded px-3 py-1.5 ${safeScope === "mine" ? "border-2 border-brand-orange/50 bg-brand-tint text-brand-navy font-semibold" : "text-neutral-700 hover:bg-neutral-100"}`}
-              >
-                Mine
-              </Link>
-              <Link
-                href={`?y=${year}&m=${month}&scope=all`}
-                className={`rounded px-3 py-1.5 ${safeScope === "all" ? "border-2 border-brand-orange/50 bg-brand-tint text-brand-navy font-semibold" : "text-neutral-700 hover:bg-neutral-100"}`}
-              >
-                All
-              </Link>
-            </div>
-          )}
-          <div className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white p-0.5">
-            <Link
-              href={`?y=${prev.getUTCFullYear()}&m=${prev.getUTCMonth()}&scope=${safeScope}`}
-              className="inline-flex h-7 w-7 items-center justify-center rounded text-neutral-700 hover:bg-neutral-100"
-              aria-label="Previous month"
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </Link>
-            <Link
-              href={`?scope=${safeScope}`}
-              className="rounded px-2 py-1 text-xs font-medium text-brand-navy hover:bg-accent"
-            >
-              Today
-            </Link>
-            <span className="px-2 text-sm font-semibold">
-              {MONTH_NAMES[month]} {year}
-            </span>
-            <Link
-              href={`?y=${next.getUTCFullYear()}&m=${next.getUTCMonth()}&scope=${safeScope}`}
-              className="inline-flex h-7 w-7 items-center justify-center rounded text-neutral-700 hover:bg-neutral-100"
-              aria-label="Next month"
-            >
-              <ChevronRight className="h-4 w-4" />
-            </Link>
-          </div>
+        <div className="flex flex-wrap items-center gap-3 text-sm">
+          <Link className="text-link" href={query(year - 1)}>
+            ← FY{year - 1}
+          </Link>
+          <Link className="text-link" href="/dashboard/calendar">
+            Current year
+          </Link>
+          <Link className="text-link" href={query(year + 1)}>
+            FY{year + 1} →
+          </Link>
         </div>
       </header>
-
-      <div className="overflow-hidden rounded-md border border-slate-200 bg-white">
-        <div className="grid grid-cols-7 border-b border-slate-200 bg-slate-50 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-          {WEEKDAYS.map((d) => (
-            <div key={d} className="px-2 py-2 text-center">
-              {d}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-xs text-muted-foreground">
+          Fiscal year: {formatDate(weeks[0].start)} –{" "}
+          {formatDate(weeks[weeks.length - 1].end)}
+          {configs.some((c) => c.year === year)
+            ? " · Custom year alignment"
+            : " · NRF year alignment"}
+        </p>
+        {manager && (
+          <div className="flex gap-3 text-sm">
+            <Link
+              className="text-link"
+              href={`?year=${year}&period=${period}&scope=mine`}
+            >
+              My projects
+            </Link>
+            <Link
+              className="text-link"
+              href={`?year=${year}&period=${period}&scope=all`}
+            >
+              All projects
+            </Link>
+          </div>
+        )}
+      </div>
+      <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-6">
+        {Array.from({ length: 12 }, (_, i) => {
+          const list = weeks.filter((w) => w.month === i + 1),
+            count = events.filter(
+              (e) =>
+                e.date >= list[0].start &&
+                e.date < addDays(list[list.length - 1].end, 1),
+            ).length;
+          return (
+            <Link
+              key={i}
+              className={`rounded-lg border bg-card p-3 ${period === i + 1 ? "border-brand-orange ring-1 ring-brand-orange" : "border-border"}`}
+              href={query(year, i + 1)}
+            >
+              <p className="text-xs font-semibold">
+                P{i + 1}{" "}
+                <span className="ml-1 font-normal text-muted-foreground">
+                  Q{Math.floor(i / 3) + 1}
+                </span>
+              </p>
+              <p className="mt-1 text-[10px] text-muted-foreground">
+                {list.length} weeks · FW{list[0].week}–
+                {list[list.length - 1].week}
+              </p>
+              <p className="mt-2 text-xs">{count} deadlines</p>
+            </Link>
+          );
+        })}
+      </div>
+      <section className="surface space-y-5">
+        <div>
+          <h2 className="section-title">
+            Period {period} · Quarter {Math.ceil(period / 3)}
+          </h2>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {formatDate(selected[0].start)} –{" "}
+            {formatDate(selected[selected.length - 1].end)}
+          </p>
+        </div>
+        <div className="overflow-x-auto">
+          <div className="min-w-[700px]">
+            <div className="grid grid-cols-[70px_repeat(7,minmax(0,1fr))] gap-1 border-b pb-2 text-center text-[11px] text-muted-foreground">
+              <span>Fiscal week</span>
+              {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (
+                <span key={d}>{d}</span>
+              ))}
             </div>
-          ))}
-        </div>
-        <div className="grid grid-cols-7">
-          {cells.map((d, i) => {
-            const inMonth = d.getUTCMonth() === month;
-            const today = sameDay(d, now);
-            const events = byDay.get(key(d)) ?? [];
-            return (
+            {selected.map((w) => (
               <div
-                key={i}
-                className={cn(
-                  "min-h-[88px] border-b border-r border-slate-100 p-1.5 last:border-r-0",
-                  i >= 35 && "border-b-0",
-                  !inMonth && "bg-slate-50/60",
-                )}
+                key={w.week}
+                className="grid grid-cols-[70px_repeat(7,minmax(0,1fr))] border-b"
               >
-                <div className="mb-1 flex items-center justify-between">
-                  <span
-                    className={cn(
-                      "inline-flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-semibold",
-                      today
-                        ? "border-2 border-brand-orange/50 bg-brand-tint text-brand-navy font-semibold"
-                        : inMonth
-                        ? "text-black"
-                        : "text-slate-400",
-                    )}
-                  >
-                    {d.getUTCDate()}
-                  </span>
-                </div>
-                <div className="space-y-1">
-                  {events.slice(0, 3).map((e) => (
-                    <Link
-                      key={`${e.kind}-${e.id}`}
-                      href={`/dashboard/projects/${e.projectId}`}
-                      className={cn(
-                        "block truncate rounded px-1.5 py-0.5 text-[11px] font-medium transition-colors hover:opacity-90",
-                        e.completed
-                          ? "border-2 border-brand-orange/50 bg-brand-tint text-brand-navy font-semibold"
-                          : e.overdue
-                          ? "bg-white text-black border border-black underline decoration-2 underline-offset-2"
-                          : e.kind === "milestone"
-                          ? "bg-neutral-100 text-black border border-black/20"
-                          : "bg-neutral-50 text-black border border-black/15",
-                      )}
-                      title={`${e.title} — ${e.projectTitle}`}
+                <Link
+                  className="py-4 text-xs font-semibold text-brand-link"
+                  href={`/dashboard/planner?week=${dateKey(w.start)}`}
+                >
+                  FW{String(w.week).padStart(2, "0")}
+                </Link>
+                {Array.from({ length: 7 }, (_, i) => {
+                  const date = addDays(w.start, i),
+                    key = dateKey(date),
+                    entries = events.filter((e) => dateKey(e.date) === key);
+                  return (
+                    <div
+                      key={i}
+                      className={`min-h-28 border-l p-2 ${key === dateKey(localToday()) ? "bg-brand-tint dark:bg-slate-800" : ""}`}
                     >
-                      <span className="inline-flex items-center gap-1">
-                        {e.kind === "milestone" ? (
-                          <Flag className="h-2.5 w-2.5 shrink-0" />
-                        ) : (
-                          <CheckSquare className="h-2.5 w-2.5 shrink-0" />
-                        )}
-                        <span className="truncate">{e.title}</span>
-                      </span>
-                    </Link>
-                  ))}
-                  {events.length > 3 && (
-                    <p className="px-1 text-[10px] text-slate-500">+{events.length - 3} more</p>
-                  )}
-                </div>
+                      <p className="text-xs font-medium">
+                        {date.getUTCDate()}{" "}
+                        <span className="text-[9px] text-muted-foreground">
+                          {date.toLocaleString("en", {
+                            month: "short",
+                            timeZone: "UTC",
+                          })}
+                        </span>
+                      </p>
+                      <div className="mt-2 space-y-1">
+                        {entries.map((e) => (
+                          <Link
+                            key={e.kind + e.id}
+                            className={`block rounded-md border px-1.5 py-1 text-[10px] ${e.done ? "bg-emerald-50 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200" : isOverdueDate(e.date) ? "bg-orange-50 text-orange-900 dark:bg-orange-950 dark:text-orange-200" : "bg-secondary text-foreground"}`}
+                            href={e.href}
+                          >
+                            <span className="block text-[8px] uppercase tracking-wide">
+                              {e.kind}
+                              {e.done ? " · Done" : ""}
+                            </span>
+                            <span className="line-clamp-2">{e.title}</span>
+                          </Link>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
-            );
-          })}
+            ))}
+          </div>
         </div>
-      </div>
-
-      <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500">
-        <span className="inline-flex items-center gap-1">
-          <span className="inline-block h-2 w-2 rounded-sm bg-neutral-200 border border-black/20" /> Milestone
-        </span>
-        <span className="inline-flex items-center gap-1">
-          <span className="inline-block h-2 w-2 rounded-sm bg-neutral-50 border border-black/15" /> Task
-        </span>
-        <span className="inline-flex items-center gap-1">
-          <span className="inline-block h-2 w-2 rounded-sm bg-black" /> Completed
-        </span>
-        <span className="inline-flex items-center gap-1">
-          <span className="inline-block h-2 w-2 rounded-sm bg-white border border-black" /> Overdue
-        </span>
-      </div>
+      </section>
+      {manager && (
+        <details className="surface">
+          <summary className="cursor-pointer text-sm font-semibold">
+            Align a fiscal year with your company calendar
+          </summary>
+          <p className="page-subtitle">
+            NRF 4-5-4 is the default. Enter an official Sunday start and 52 or
+            53 weeks to override this year. A 53rd week is added to Period 12.
+          </p>
+          <div className="mt-4">
+            <ActionForm
+              action={saveFiscalConfig}
+              label="Save fiscal alignment"
+              successMessage="Fiscal calendar updated."
+            >
+              <div className="grid gap-3 sm:grid-cols-3">
+                <label className="field">
+                  Fiscal year
+                  <input
+                    name="year"
+                    type="number"
+                    min="2000"
+                    max="2100"
+                    defaultValue={year}
+                    required
+                  />
+                </label>
+                <label className="field">
+                  Start date (Sunday)
+                  <input
+                    name="startDate"
+                    type="date"
+                    defaultValue={dateKey(weeks[0].start)}
+                    required
+                  />
+                </label>
+                <label className="field">
+                  Weeks
+                  <select name="weeks" defaultValue={weeks.length}>
+                    <option value="52">52</option>
+                    <option value="53">53</option>
+                  </select>
+                </label>
+              </div>
+            </ActionForm>
+          </div>
+        </details>
+      )}
     </div>
   );
 }

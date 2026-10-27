@@ -1,3 +1,4 @@
+import { TodayFocus } from "@/components/dashboard/TodayFocus";
 import Link from "next/link";
 import { auth } from "../../../auth";
 import { projectAccessWhere } from "@/lib/rbac";
@@ -20,12 +21,10 @@ export default async function DashboardPage({
   const { q } = await searchParams;
 
   // Members see projects they own AND projects they've been added to.
-  const accessFilter = {
-    OR: [
-      { ownerId: session.user.id },
-      { members: { some: { id: session.user.id } } },
-    ],
-  };
+  const accessFilter = projectAccessWhere({
+    id: session.user.id,
+    role: "MEMBER",
+  });
   const where: Record<string, unknown> = {
     AND: [accessFilter, { status: { not: "ARCHIVED" } }],
   };
@@ -41,7 +40,16 @@ export default async function DashboardPage({
   const fourteenDays = new Date();
   fourteenDays.setDate(fourteenDays.getDate() + 14);
 
-  const [mine, recentUpdates, recentComments, recentEnhancements, dueSoon, myTasks, favorites, counts] = await Promise.all([
+  const [
+    mine,
+    recentUpdates,
+    recentComments,
+    recentEnhancements,
+    dueSoon,
+    myTasks,
+    favorites,
+    counts,
+  ] = await Promise.all([
     db.project.findMany({
       where,
       include: { owner: { select: { id: true, name: true } } },
@@ -52,19 +60,28 @@ export default async function DashboardPage({
       where: { project: accessFilter },
       orderBy: { createdAt: "desc" },
       take: 5,
-      include: { author: { select: { name: true } }, project: { select: { id: true, title: true } } },
+      include: {
+        author: { select: { name: true } },
+        project: { select: { id: true, title: true } },
+      },
     }),
     db.comment.findMany({
       where: { project: accessFilter },
       orderBy: { createdAt: "desc" },
       take: 5,
-      include: { author: { select: { name: true } }, project: { select: { id: true, title: true } } },
+      include: {
+        author: { select: { name: true } },
+        project: { select: { id: true, title: true } },
+      },
     }),
     db.enhancement.findMany({
       where: { project: accessFilter },
       orderBy: { createdAt: "desc" },
       take: 5,
-      include: { author: { select: { name: true } }, project: { select: { id: true, title: true } } },
+      include: {
+        author: { select: { name: true } },
+        project: { select: { id: true, title: true } },
+      },
     }),
     db.milestone.findMany({
       where: {
@@ -103,7 +120,9 @@ export default async function DashboardPage({
   ]);
   const favoriteIds = new Set(favorites.map((p) => p.id));
 
-  const byStatus = Object.fromEntries(counts.map((c) => [c.status, c._count.status]));
+  const byStatus = Object.fromEntries(
+    counts.map((c) => [c.status, c._count.status]),
+  );
   const activity = [
     ...recentUpdates.map((u) => ({
       id: u.id,
@@ -141,10 +160,14 @@ export default async function DashboardPage({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">
-            {q ? `Search: "${q}"` : `Welcome back, ${session.user.name.split(" ")[0]}`}
+            {q
+              ? `Search: "${q}"`
+              : `Welcome back, ${session.user.name.split(" ")[0]}`}
           </h1>
           <p className="text-sm text-slate-500">
-            {q ? `Your projects matching "${q}"` : "Your projects, statuses, and recent activity."}
+            {q
+              ? `Your projects matching "${q}"`
+              : "One place for your projects, weekly focus, and delivery updates."}
           </p>
         </div>
         <Button asChild>
@@ -152,6 +175,7 @@ export default async function DashboardPage({
         </Button>
       </div>
 
+      {!q && <TodayFocus viewer={session.user} />}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
         {[
           { label: "Planning", key: "PLANNING" },
@@ -162,7 +186,9 @@ export default async function DashboardPage({
         ].map((s) => (
           <Card key={s.key}>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-slate-500">{s.label}</CardTitle>
+              <CardTitle className="text-sm font-medium text-slate-500">
+                {s.label}
+              </CardTitle>
             </CardHeader>
             <CardContent className="pt-0">
               <p className="text-2xl font-semibold">{byStatus[s.key] ?? 0}</p>
@@ -207,7 +233,11 @@ export default async function DashboardPage({
         ) : (
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
             {mine.map((p) => (
-              <ProjectCard key={p.id} project={p} isFavorite={favoriteIds.has(p.id)} />
+              <ProjectCard
+                key={p.id}
+                project={p}
+                isFavorite={favoriteIds.has(p.id)}
+              />
             ))}
           </div>
         )}
@@ -216,9 +246,12 @@ export default async function DashboardPage({
       <section>
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
-            My open tasks
+            My open reports
           </h2>
-          <Link href="/dashboard/tasks" className="text-xs font-medium text-slate-500 hover:underline">
+          <Link
+            href="/dashboard/reports"
+            className="text-xs font-medium text-slate-500 hover:underline"
+          >
             View all →
           </Link>
         </div>
@@ -265,7 +298,10 @@ export default async function DashboardPage({
 
 function extractFirstLine(content: unknown): string {
   if (!content || typeof content !== "object") return "";
-  const blocks = content as Array<{ type?: string; content?: Array<{ text?: string }> }>;
+  const blocks = content as Array<{
+    type?: string;
+    content?: Array<{ text?: string }>;
+  }>;
   for (const b of blocks) {
     const text = b.content?.map((c) => c.text ?? "").join("") ?? "";
     if (text.trim()) return text.slice(0, 140);

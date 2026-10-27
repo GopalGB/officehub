@@ -1,5 +1,10 @@
 import { db } from "@/lib/db";
-import { canEditPage, canEditProject, projectAccessWhere, type Viewer } from "@/lib/rbac";
+import {
+  canEditPage,
+  canEditProject,
+  projectAccessWhere,
+  type Viewer,
+} from "@/lib/rbac";
 
 export async function requireProjectEditor(viewer: Viewer, projectId: string) {
   const project = await db.project.findUnique({
@@ -7,10 +12,16 @@ export async function requireProjectEditor(viewer: Viewer, projectId: string) {
     include: { members: { select: { id: true } } },
   });
   if (!project) throw new Error("Forbidden");
-  if (!canEditProject({
-    viewerRole: viewer.role, viewerId: viewer.id, ownerId: project.ownerId,
-    memberIds: project.members.map((member) => member.id),
-  })) throw new Error("Forbidden");
+  if (
+    !canEditProject({
+      viewerRole: viewer.role,
+      viewerId: viewer.id,
+      ownerId: project.ownerId,
+      coOwnerId: project.coOwnerId,
+      memberIds: project.members.map((member) => member.id),
+    })
+  )
+    throw new Error("Forbidden");
   return project;
 }
 

@@ -13,7 +13,9 @@ import { useToast } from "@/components/ui/toast";
 import { formatDate, isOverdueDate } from "@/lib/utils";
 
 type Row = Task & {
-  canEdit?: boolean; canAssign?: boolean; canDelete?: boolean;
+  canEdit?: boolean;
+  canAssign?: boolean;
+  canDelete?: boolean;
   assignee: Pick<User, "id" | "name"> | null;
   reporter: Pick<User, "id" | "name">;
   project?: Pick<Project, "id" | "title">;
@@ -40,9 +42,12 @@ export function TaskTable({
     start(async () => {
       try {
         await deleteTask(taskId);
-        toast("Task deleted", "info");
+        toast("Report deleted", "info");
       } catch (e) {
-        toast(e instanceof Error ? e.message : "Could not delete task", "error");
+        toast(
+          e instanceof Error ? e.message : "Could not delete report",
+          "error",
+        );
       }
     });
   }
@@ -50,7 +55,7 @@ export function TaskTable({
   if (rows.length === 0) {
     return (
       <div className="rounded-md border border-dashed border-slate-200 bg-white p-8 text-center">
-        <p className="text-sm text-slate-500">No tasks yet.</p>
+        <p className="text-sm text-slate-500">No reports yet.</p>
       </div>
     );
   }
@@ -60,27 +65,34 @@ export function TaskTable({
       <table className="min-w-full text-sm">
         <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
           <tr>
-            <th className="px-3 py-2.5">Task</th>
+            <th className="px-3 py-2.5">Report</th>
             {showProject && <th className="px-3 py-2.5">Project</th>}
             <th className="px-3 py-2.5">Status</th>
             <th className="px-3 py-2.5">Assignee</th>
             <th className="px-3 py-2.5">Priority</th>
-            <th className="px-3 py-2.5">SP</th>
+            <th className="px-3 py-2.5">Hours</th>
             <th className="px-3 py-2.5">Due</th>
             <th className="px-3 py-2.5"></th>
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-100">
           {rows.map((t) => {
-            const overdue =
-              isOverdueDate(t.dueDate) && t.status !== "DONE";
-            const ownTask = t.reporterId === viewerId || t.assigneeId === viewerId;
+            const overdue = isOverdueDate(t.dueDate) && t.status !== "DONE";
+            const ownTask =
+              t.reporterId === viewerId || t.assigneeId === viewerId;
             return (
               <tr key={t.id} className="hover:bg-slate-50">
                 <td className="px-3 py-2 align-middle">
-                  <p className="font-medium text-slate-900">{t.title}</p>
+                  <Link
+                    href={`/dashboard/reports/${t.id}`}
+                    className="font-medium text-slate-900 hover:underline"
+                  >
+                    {t.title}
+                  </Link>
                   {t.description && (
-                    <p className="line-clamp-1 text-xs text-slate-500">{t.description}</p>
+                    <p className="line-clamp-1 text-xs text-slate-500">
+                      {t.description}
+                    </p>
                   )}
                 </td>
                 {showProject && (
@@ -98,7 +110,11 @@ export function TaskTable({
                   </td>
                 )}
                 <td className="px-3 py-2 align-middle">
-                  <TaskStatusMenu taskId={t.id} status={t.status} disabled={!(t.canEdit ?? (canManage || ownTask))} />
+                  <TaskStatusMenu
+                    taskId={t.id}
+                    status={t.status}
+                    disabled={!(t.canEdit ?? (canManage || ownTask))}
+                  />
                 </td>
                 <td className="px-3 py-2 align-middle">
                   <AssigneeMenu
@@ -112,7 +128,7 @@ export function TaskTable({
                   <PriorityBadge priority={t.priority} />
                 </td>
                 <td className="px-3 py-2 align-middle text-xs text-slate-600">
-                  {t.storyPoints ?? "—"}
+                  {t.estimatedHours ?? "—"}
                 </td>
                 <td
                   className={`px-3 py-2 align-middle text-xs ${overdue ? "font-semibold text-black underline decoration-2 underline-offset-2 dark:text-white" : "text-neutral-600 dark:text-neutral-400"}`}

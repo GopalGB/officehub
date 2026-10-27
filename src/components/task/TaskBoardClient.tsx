@@ -70,10 +70,16 @@ export function TaskBoardClient({
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
-    useSensor(TouchSensor, { activationConstraint: { delay: 300, tolerance: 8 } }),
+    useSensor(TouchSensor, {
+      activationConstraint: { delay: 300, tolerance: 8 },
+    }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
-      keyboardCodes: { start: [KeyboardCode.Space], cancel: [KeyboardCode.Esc], end: [KeyboardCode.Space] },
+      keyboardCodes: {
+        start: [KeyboardCode.Space],
+        cancel: [KeyboardCode.Esc],
+        end: [KeyboardCode.Space],
+      },
     }),
   );
 
@@ -81,17 +87,27 @@ export function TaskBoardClient({
 
   const byStatus = useMemo(() => {
     const sorted = [...tasks].sort((a, b) => a.orderIndex - b.orderIndex);
-    return columns.map((c) => ({ ...c, items: sorted.filter((t) => t.status === c.status) }));
+    return columns.map((c) => ({
+      ...c,
+      items: sorted.filter((t) => t.status === c.status),
+    }));
   }, [columns, tasks]);
 
   function canMove(t: TaskWithRelations): boolean {
-    return t.canEdit ?? (isManagerOrAbove || t.reporterId === viewerId || t.assigneeId === viewerId);
+    return (
+      t.canEdit ??
+      (isManagerOrAbove ||
+        t.reporterId === viewerId ||
+        t.assigneeId === viewerId)
+    );
   }
 
   function restoreFocus(cardId: string) {
     if (typeof window === "undefined") return;
     window.requestAnimationFrame(() => {
-      const node = document.querySelector<HTMLElement>(`[data-card-id="${cardId}"]`);
+      const node = document.querySelector<HTMLElement>(
+        `[data-card-id="${cardId}"]`,
+      );
       node?.focus();
     });
   }
@@ -120,7 +136,9 @@ export function TaskBoardClient({
       }
 
       if (active.status === targetStatus) return curr;
-      return curr.map((t) => (t.id === activeIdStr ? { ...t, status: targetStatus } : t));
+      return curr.map((t) =>
+        t.id === activeIdStr ? { ...t, status: targetStatus } : t,
+      );
     });
   }
 
@@ -138,7 +156,7 @@ export function TaskBoardClient({
     if (!task) return;
     if (!canMove(task)) {
       setTasks(dragStartRef.current);
-      toast("You can't move this task", "error");
+      toast("You can't move this report", "error");
       return;
     }
 
@@ -160,9 +178,13 @@ export function TaskBoardClient({
     }
 
     const col = columns.find((c) => c.status === toStatus);
-    const newColCount = tasks.filter((t) => t.status === toStatus && t.id !== taskId).length + 1;
+    const newColCount =
+      tasks.filter((t) => t.status === toStatus && t.id !== taskId).length + 1;
     if (col?.wipLimit && newColCount > col.wipLimit) {
-      toast(`WIP limit exceeded in ${col.label} (${newColCount}/${col.wipLimit})`, "info");
+      toast(
+        `WIP limit exceeded in ${col.label} (${newColCount}/${col.wipLimit})`,
+        "info",
+      );
     }
 
     const previousTasks = dragStartRef.current;
@@ -185,7 +207,12 @@ export function TaskBoardClient({
       ];
       const spread = new Map(ordered.map((t, i) => [t.id, i * ORDER_STEP]));
       return curr.map((t) => {
-        if (t.id === taskId) return { ...t, status: toStatus, orderIndex: spread.get(t.id) ?? t.orderIndex };
+        if (t.id === taskId)
+          return {
+            ...t,
+            status: toStatus,
+            orderIndex: spread.get(t.id) ?? t.orderIndex,
+          };
         return spread.has(t.id) ? { ...t, orderIndex: spread.get(t.id)! } : t;
       });
     });
@@ -200,7 +227,10 @@ export function TaskBoardClient({
         }
       } catch (err) {
         setTasks(previousTasks);
-        toast(err instanceof Error ? err.message : "Could not move task", "error");
+        toast(
+          err instanceof Error ? err.message : "Could not move task",
+          "error",
+        );
       }
     });
   }
@@ -213,27 +243,30 @@ export function TaskBoardClient({
   const announcements: Announcements = {
     onDragStart({ active }) {
       const t = tasks.find((x) => x.id === active.id);
-      return t ? `Picked up task ${t.title}. Use arrow keys to move, space to drop.` : `Picked up task.`;
+      return t
+        ? `Picked up report ${t.title}. Use arrow keys to move, space to drop.`
+        : `Picked up report.`;
     },
     onDragOver({ active, over }) {
       if (!over) return undefined;
       const t = tasks.find((x) => x.id === active.id);
       if ((knownStatuses as readonly string[]).includes(String(over.id))) {
         const col = columns.find((c) => c.status === (over.id as TaskStatus));
-        return `Task ${t?.title ?? ""} over column ${col?.label ?? over.id}.`;
+        return `Report ${t?.title ?? ""} over column ${col?.label ?? over.id}.`;
       }
       const overCard = tasks.find((x) => x.id === over.id);
-      return `Task ${t?.title ?? ""} over ${overCard?.title ?? "another task"}.`;
+      return `Report ${t?.title ?? ""} over ${overCard?.title ?? "another report"}.`;
     },
     onDragEnd({ active, over }) {
-      if (!over) return `Task drop cancelled — returned to its starting column.`;
+      if (!over)
+        return `Report drop cancelled — returned to its starting column.`;
       const t = tasks.find((x) => x.id === active.id);
       const col = columns.find((c) => c.status === t?.status);
-      return `Task ${t?.title ?? ""} dropped into ${col?.label ?? t?.status ?? ""}.`;
+      return `Report ${t?.title ?? ""} dropped into ${col?.label ?? t?.status ?? ""}.`;
     },
     onDragCancel({ active }) {
       const t = tasks.find((x) => x.id === active.id);
-      return `Drag cancelled. Task ${t?.title ?? ""} returned to its starting position.`;
+      return `Drag cancelled. Report ${t?.title ?? ""} returned to its starting position.`;
     },
   };
 
@@ -259,7 +292,12 @@ export function TaskBoardClient({
           />
         ))}
       </div>
-      <DragOverlay dropAnimation={{ duration: 200, easing: "cubic-bezier(0.18, 0.67, 0.6, 1.22)" }}>
+      <DragOverlay
+        dropAnimation={{
+          duration: 200,
+          easing: "cubic-bezier(0.18, 0.67, 0.6, 1.22)",
+        }}
+      >
         {activeTask ? (
           <div className="rotate-1 scale-[1.02] cursor-grabbing shadow-2xl">
             <CardBody task={activeTask} overlay />
@@ -293,7 +331,7 @@ function BoardColumn({
         isOver && "ring-2 ring-black/60",
       )}
       role="group"
-      aria-label={`${column.label} column — ${column.items.length} tasks`}
+      aria-label={`${column.label} column — ${column.items.length} reports`}
     >
       <div className="flex items-center justify-between gap-2 px-1 pt-1">
         <h2 className="text-xs font-semibold uppercase tracking-wide text-neutral-700">
@@ -335,12 +373,20 @@ function BoardColumn({
   );
 }
 
-function EmptyHint({ isOver, isDragging }: { isOver: boolean; isDragging: boolean }) {
+function EmptyHint({
+  isOver,
+  isDragging,
+}: {
+  isOver: boolean;
+  isDragging: boolean;
+}) {
   return (
     <div
       className={cn(
         "flex flex-1 items-center justify-center rounded border border-dashed py-10 text-center text-xs",
-        isOver ? "border-black text-black" : "border-neutral-200 text-neutral-400",
+        isOver
+          ? "border-black text-black"
+          : "border-neutral-200 text-neutral-400",
         !isDragging && "opacity-60",
       )}
     >
@@ -349,7 +395,13 @@ function EmptyHint({ isOver, isDragging }: { isOver: boolean; isDragging: boolea
   );
 }
 
-function SortableCard({ task, canMove }: { task: TaskWithRelations; canMove: boolean }) {
+function SortableCard({
+  task,
+  canMove,
+}: {
+  task: TaskWithRelations;
+  canMove: boolean;
+}) {
   const router = useRouter();
   const {
     attributes,
@@ -365,7 +417,7 @@ function SortableCard({ task, canMove }: { task: TaskWithRelations; canMove: boo
     transition,
   } as React.CSSProperties;
 
-  const href = task.project ? `/dashboard/projects/${task.project.id}` : null;
+  const href = `/dashboard/reports/${task.id}`;
 
   function handleKeyDown(e: React.KeyboardEvent) {
     if (e.key === "Enter" && !isDragging && href) {
@@ -390,8 +442,8 @@ function SortableCard({ task, canMove }: { task: TaskWithRelations; canMove: boo
       )}
       aria-label={
         canMove
-          ? `Task ${task.title}, status ${task.status}. Press space to grab.`
-          : `Task ${task.title}, status ${task.status}. Drag locked — you're not the reporter or assignee.`
+          ? `Report ${task.title}, status ${task.status}. Press space to grab.`
+          : `Report ${task.title}, status ${task.status}. Drag locked — you're not the reporter or assignee.`
       }
     >
       <CardBody task={task} locked={!canMove} />
@@ -408,7 +460,10 @@ function CardBody({
   locked?: boolean;
   overlay?: boolean;
 }) {
-  const overdue = task.dueDate && new Date(task.dueDate) < new Date() && task.status !== "DONE";
+  const overdue =
+    task.dueDate &&
+    new Date(task.dueDate) < new Date() &&
+    task.status !== "DONE";
   return (
     <div
       className={cn(
@@ -426,7 +481,9 @@ function CardBody({
       </div>
       {task.project &&
         (overlay ? (
-          <span className="mt-1 inline-block text-[10px] text-neutral-500">{task.project.title}</span>
+          <span className="mt-1 inline-block text-[10px] text-neutral-500">
+            {task.project.title}
+          </span>
         ) : (
           <Link
             href={`/dashboard/projects/${task.project.id}`}
@@ -447,9 +504,9 @@ function CardBody({
             </span>
           )}
           <PriorityBadge priority={task.priority} />
-          {task.storyPoints != null && (
+          {task.estimatedHours != null && (
             <span className="rounded bg-neutral-100 px-1.5 py-0.5 text-[10px] font-semibold text-neutral-700">
-              {task.storyPoints}
+              {task.estimatedHours}
             </span>
           )}
         </div>
@@ -458,7 +515,9 @@ function CardBody({
         {task.dueDate ? (
           <span
             className={
-              overdue ? "font-semibold text-black underline decoration-2 underline-offset-2" : ""
+              overdue
+                ? "font-semibold text-black underline decoration-2 underline-offset-2"
+                : ""
             }
           >
             Due {formatDate(task.dueDate)}

@@ -8,12 +8,26 @@ import { ProjectBoardClient } from "@/components/project/ProjectBoardClient";
 import { Button } from "@/components/ui/button";
 import { AutoSubmitSelect } from "@/components/ui/auto-submit-select";
 
-const COLUMNS: { status: ProjectStatus; label: string; tone: string; wipLimit?: number }[] = [
+const COLUMNS: {
+  status: ProjectStatus;
+  label: string;
+  tone: string;
+  wipLimit?: number;
+}[] = [
   { status: "PLANNING", label: "Planning", tone: "bg-white ring-black/10" },
-  { status: "IN_PROGRESS", label: "In Progress", tone: "bg-neutral-50 ring-black/15", wipLimit: 8 },
+  {
+    status: "IN_PROGRESS",
+    label: "In Progress",
+    tone: "bg-neutral-50 ring-black/15",
+    wipLimit: 8,
+  },
   { status: "BLOCKED", label: "Blocked", tone: "bg-white ring-black" },
   { status: "ON_HOLD", label: "On Hold", tone: "bg-neutral-50 ring-black/10" },
-  { status: "COMPLETED", label: "Completed", tone: "bg-neutral-50 ring-black/30" },
+  {
+    status: "COMPLETED",
+    label: "Completed",
+    tone: "bg-neutral-50 ring-black/30",
+  },
 ];
 
 export default async function BoardPage({
@@ -23,7 +37,10 @@ export default async function BoardPage({
 }) {
   const session = await auth();
   if (!session?.user) redirect("/login");
-  const { scope = isManagerOrAbove(session.user.role) ? "all" : "mine", owner } = await searchParams;
+  const {
+    scope = isManagerOrAbove(session.user.role) ? "all" : "mine",
+    owner,
+  } = await searchParams;
 
   // Members can only see their own
   const safeScope = session.user.role === "MEMBER" ? "mine" : scope;
@@ -43,8 +60,16 @@ export default async function BoardPage({
   const [projects, owners] = await Promise.all([
     db.project.findMany({
       where,
-      include: { owner: { select: { id: true, name: true } }, members: { select: { id: true } } },
-      orderBy: [{ orderIndex: "asc" }, { priority: "desc" }, { targetDate: "asc" }, { updatedAt: "desc" }],
+      include: {
+        owner: { select: { id: true, name: true } },
+        members: { select: { id: true } },
+      },
+      orderBy: [
+        { orderIndex: "asc" },
+        { priority: "desc" },
+        { targetDate: "asc" },
+        { updatedAt: "desc" },
+      ],
       take: 500,
     }),
     isManagerOrAbove(session.user.role)
@@ -62,7 +87,9 @@ export default async function BoardPage({
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Board</h1>
           <p className="text-sm text-slate-500">
-            Drag a project card across columns or reorder it within a column. Keyboard: Tab to focus, Space to grab, arrows to move, Space to drop, Esc to cancel.
+            Drag a project card across columns or reorder it within a column.
+            Keyboard: Tab to focus, Space to grab, arrows to move, Space to
+            drop, Esc to cancel.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -103,12 +130,22 @@ export default async function BoardPage({
 
       <ProjectBoardClient
         columns={COLUMNS}
-        initialProjects={projects.map((project) => ({ ...project, canEdit: canEditProject({ viewerId: session.user.id, viewerRole: session.user.role, ownerId: project.ownerId, memberIds: project.members.map((member) => member.id) }) }))}
+        initialProjects={projects.map((project) => ({
+          ...project,
+          canEdit: canEditProject({
+            viewerId: session.user.id,
+            viewerRole: session.user.role,
+            ownerId: project.ownerId,
+            coOwnerId: project.coOwnerId,
+            memberIds: project.members.map((member) => member.id),
+          }),
+        }))}
         viewerId={session.user.id}
         canEditByOwner={isManagerOrAbove(session.user.role)}
       />
       <p className="text-xs text-neutral-400">
-        Drag freely across columns or reorder within. Cards you don&apos;t own show a lock icon.
+        Drag freely across columns or reorder within. Cards you don&apos;t own
+        show a lock icon.
       </p>
     </div>
   );

@@ -1,6 +1,6 @@
 {
   "name": "officehub",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "Self-hosted Notion-like office workspace: projects, timelines, enhancements, manager rollup view.",
   "scripts": {
@@ -63,7 +63,7 @@
     "eslint-plugin-security": "^3.0.1"
   },
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=20.19.0"
   },
   "overrides": {
     "postcss": "$postcss"

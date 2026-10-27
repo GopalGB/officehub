@@ -26,15 +26,67 @@ export function MobileNav({ role }: { role: Role }) {
   const pathname = usePathname();
 
   const links = [
-    { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, show: true },
-    { href: "/dashboard/tasks", label: "Tasks", icon: CheckSquare, show: true },
-    { href: "/dashboard/calendar", label: "Calendar", icon: Calendar, show: true },
-    { href: "/dashboard/board", label: "Project board", icon: Columns3, show: true },
-    { href: "/dashboard/projects/new", label: "New project", icon: Folders, show: true },
+    {
+      href: "/dashboard/planner",
+      label: "My week",
+      icon: Calendar,
+      show: true,
+    },
+    {
+      href: "/dashboard/projects",
+      label: "Projects",
+      icon: Folders,
+      show: true,
+    },
+    {
+      href: "/dashboard/requests",
+      label: "Request pool",
+      icon: Folders,
+      show: isManagerOrAbove(role),
+    },
+    {
+      href: "/dashboard",
+      label: "My workspace",
+      icon: LayoutDashboard,
+      show: true,
+    },
+    {
+      href: "/dashboard/reports",
+      label: "Reports",
+      icon: CheckSquare,
+      show: true,
+    },
+    {
+      href: "/dashboard/calendar",
+      label: "Fiscal calendar",
+      icon: Calendar,
+      show: true,
+    },
+    {
+      href: "/dashboard/board",
+      label: "Project board",
+      icon: Columns3,
+      show: true,
+    },
     { href: "/dashboard/pages", label: "Wiki", icon: BookOpen, show: true },
-    { href: "/dashboard/manager", label: "Manager", icon: BarChart3, show: isManagerOrAbove(role) },
-    { href: "/dashboard/team", label: "Team", icon: Users2, show: isAdmin(role) },
-    { href: "/dashboard/settings", label: "Settings", icon: Settings, show: true },
+    {
+      href: "/dashboard/manager",
+      label: "Manager",
+      icon: BarChart3,
+      show: isManagerOrAbove(role),
+    },
+    {
+      href: "/dashboard/team",
+      label: "Team",
+      icon: Users2,
+      show: isAdmin(role),
+    },
+    {
+      href: "/dashboard/settings",
+      label: "Settings",
+      icon: Settings,
+      show: true,
+    },
   ].filter((l) => l.show);
 
   return (
@@ -49,7 +101,11 @@ export function MobileNav({ role }: { role: Role }) {
       </button>
 
       {open && (
-        <div className="fixed inset-0 z-50 md:hidden" role="dialog" aria-modal="true">
+        <div
+          className="fixed inset-0 z-50 md:hidden"
+          role="dialog"
+          aria-modal="true"
+        >
           <div
             className="absolute inset-0 bg-black/40"
             onClick={() => setOpen(false)}
@@ -57,7 +113,13 @@ export function MobileNav({ role }: { role: Role }) {
           />
           <aside className="relative ml-auto flex h-full w-72 flex-col border-l border-slate-200 bg-white p-4">
             <div className="mb-4 flex items-center justify-between">
-              <Link href="/dashboard" aria-label="Catalyst Brands workspace" onClick={() => setOpen(false)}><BrandIdentity className="h-14 w-48" /></Link>
+              <Link
+                href="/dashboard"
+                aria-label="Catalyst Brands workspace"
+                onClick={() => setOpen(false)}
+              >
+                <BrandIdentity className="h-14 w-48" />
+              </Link>
               <button
                 type="button"
                 onClick={() => setOpen(false)}
@@ -70,7 +132,8 @@ export function MobileNav({ role }: { role: Role }) {
             <nav className="flex flex-col gap-1 overflow-y-auto">
               {links.map((l) => {
                 const active =
-                  pathname === l.href || (l.href !== "/dashboard" && pathname.startsWith(l.href));
+                  pathname === l.href ||
+                  (l.href !== "/dashboard" && pathname.startsWith(l.href));
                 const Icon = l.icon;
                 return (
                   <Link
@@ -79,7 +142,9 @@ export function MobileNav({ role }: { role: Role }) {
                     onClick={() => setOpen(false)}
                     className={cn(
                       "flex items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors",
-                      active ? "border-2 border-brand-orange/50 bg-brand-tint text-brand-navy font-semibold" : "text-brand-navy hover:bg-accent",
+                      active
+                        ? "border-2 border-brand-orange/50 bg-brand-tint text-brand-navy font-semibold"
+                        : "text-brand-navy hover:bg-accent",
                     )}
                   >
                     <Icon className="h-4 w-4" />

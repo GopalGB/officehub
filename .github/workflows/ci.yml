@@ -25,6 +25,9 @@ jobs:
       - run: npx tsc --noEmit --noUnusedLocals --noUnusedParameters
       - run: npm run lint
       - run: npm test
+      - name: Windows updater behavior (simulated native commands)
+        shell: pwsh
+        run: ./tests/windows/updater.Tests.ps1
 
   build:
     name: Build (Next.js)
