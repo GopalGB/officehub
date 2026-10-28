@@ -1392,6 +1392,11 @@ export async function moveTask(args: MoveTaskArgs) {
             "Only the reporter or a project editor can reassign this task",
           );
         }
+        if (
+          parsed.data.toAssigneeId &&
+          parsed.data.toAssigneeId !== task.assigneeId
+        )
+          await assertAssignablePeople([parsed.data.toAssigneeId], tx);
         data.assignee = parsed.data.toAssigneeId
           ? { connect: { id: parsed.data.toAssigneeId } }
           : { disconnect: true };
