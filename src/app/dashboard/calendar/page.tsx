@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ExternalLink } from "lucide-react";
 import { auth } from "../../../../auth";
 import { db } from "@/lib/db";
 import { projectAccessWhere, isManagerOrAbove } from "@/lib/rbac";
@@ -8,6 +9,8 @@ import {
   fiscalPeriod,
   dateKey,
   addDays,
+  companyFiscalCalendar,
+  FISCAL_MONTH_NAMES,
 } from "@/lib/fiscal";
 import { formatDate, isOverdueDate } from "@/lib/utils";
 import { saveFiscalConfig } from "@/app/dashboard/actions";
@@ -36,6 +39,7 @@ export default async function FiscalCalendar({
         : 1;
   const weeks = fiscalWeeks(year, configs),
     selected = weeks.filter((w) => w.month === period);
+  const official = companyFiscalCalendar(year);
   const manager = isManagerOrAbove(session.user.role),
     scope = manager && params.scope !== "mine" ? "all" : "mine";
   const access = projectAccessWhere({
@@ -116,7 +120,7 @@ export default async function FiscalCalendar({
     <div className="mx-auto max-w-6xl space-y-6">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="eyebrow">Retail planning / NRF 4-5-4</p>
+          <p className="eyebrow">Retail planning / Company 4-5-4</p>
           <h1 className="page-title">Fiscal calendar</h1>
           <p className="page-subtitle">
             FY{year} · {weeks.length} weeks · Sunday–Saturday. Delivery dates,
@@ -135,13 +139,34 @@ export default async function FiscalCalendar({
           </Link>
         </div>
       </header>
+      {official && (
+        <section className="flex flex-wrap items-center justify-between gap-4 rounded-xl border bg-card p-5">
+          <div>
+            <p className="text-sm font-semibold">Official FY{year} calendar</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Aligned with your supplied fiscal calendar.
+              {year === 2028 ? " Week 53 belongs to January / Period 12." : ""}
+            </p>
+          </div>
+          <a
+            href={`/fiscal-calendars/${year}.pdf`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium hover:bg-secondary"
+          >
+            View original PDF <ExternalLink className="h-3.5 w-3.5" />
+          </a>
+        </section>
+      )}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-xs text-muted-foreground">
           Fiscal year: {formatDate(weeks[0].start)} –{" "}
           {formatDate(weeks[weeks.length - 1].end)}
-          {configs.some((c) => c.year === year)
-            ? " · Custom year alignment"
-            : " · NRF year alignment"}
+          {official
+            ? " · Official company calendar"
+            : configs.some((c) => c.year === year)
+              ? " · Custom year alignment"
+              : " · NRF year alignment"}
         </p>
         {manager && (
           <div className="flex gap-3 text-sm">
@@ -175,9 +200,9 @@ export default async function FiscalCalendar({
               href={query(year, i + 1)}
             >
               <p className="text-xs font-semibold">
-                P{i + 1}{" "}
+                {FISCAL_MONTH_NAMES[i]}{" "}
                 <span className="ml-1 font-normal text-muted-foreground">
-                  Q{Math.floor(i / 3) + 1}
+                  P{i + 1} · Q{Math.floor(i / 3) + 1}
                 </span>
               </p>
               <p className="mt-1 text-[10px] text-muted-foreground">
@@ -192,7 +217,8 @@ export default async function FiscalCalendar({
       <section className="surface space-y-5">
         <div>
           <h2 className="section-title">
-            Period {period} · Quarter {Math.ceil(period / 3)}
+            {FISCAL_MONTH_NAMES[period - 1]} · Period {period} · Quarter{" "}
+            {Math.ceil(period / 3)}
           </h2>
           <p className="mt-1 text-xs text-muted-foreground">
             {formatDate(selected[0].start)} –{" "}
@@ -259,14 +285,15 @@ export default async function FiscalCalendar({
           </div>
         </div>
       </section>
-      {manager && (
+      {manager && !official && (
         <details className="surface">
           <summary className="cursor-pointer text-sm font-semibold">
             Align a fiscal year with your company calendar
           </summary>
           <p className="page-subtitle">
-            NRF 4-5-4 is the default. Enter an official Sunday start and 52 or
-            53 weeks to override this year. A 53rd week is added to Period 12.
+            FY2026–2028 use the supplied company calendars. Other years default
+            to NRF 4-5-4. Enter a Sunday start and 52 or 53 weeks to override
+            this year. A 53rd week is added to Period 12.
           </p>
           <div className="mt-4">
             <ActionForm

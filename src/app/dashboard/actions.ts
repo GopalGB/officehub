@@ -2,7 +2,15 @@
 
 import { randomBytes } from "node:crypto";
 import { recordAudit, reviseProject, saveProjectRevision } from "@/lib/history";
-import { weekStart, addDays, dateKey } from "@/lib/fiscal";
+import {
+  weekStart,
+  addDays,
+  dateKey,
+  companyFiscalCalendar,
+} from "@/lib/fiscal";
+import { assertAssignablePeople } from "@/lib/project-people";
+import { requestDetailsSelect } from "@/lib/request-details";
+import { readSopUpload } from "@/lib/sop-upload";
 import { z } from "zod";
 import { formText } from "@/lib/utils";
 import { revalidatePath } from "next/cache";
@@ -162,15 +170,14 @@ async function checkProjectPeople(
   coOwnerId: string | null,
   sourceProjectId: string | null,
   projectId?: string,
+  previous?: { ownerId: string; coOwnerId: string | null },
 ) {
-  const ids = [
-    ...new Set([ownerId, coOwnerId].filter((id): id is string => !!id)),
-  ];
-  if (
-    (await db.user.count({ where: { id: { in: ids }, active: true } })) !==
-    ids.length
-  )
-    throw new Error("Choose active project owners");
+  // Preserve old ownership when editing unrelated details; every new allocation
+  // must name a real, active person, including restores and intake assignments.
+  await assertAssignablePeople([
+    ...(ownerId !== previous?.ownerId ? [ownerId] : []),
+    ...(coOwnerId && coOwnerId !== previous?.coOwnerId ? [coOwnerId] : []),
+  ]);
   if (sourceProjectId) {
     if (sourceProjectId === projectId)
       throw new Error("A project cannot enhance itself");
@@ -232,7 +239,7 @@ export async function createProject(formData: FormData) {
         department: parsed.department,
         acceptanceCriteria: parsed.acceptanceCriteria,
         // A member who creates a project with a different co-owner keeps access.
-        members: { connect: { id: user.id } },
+        members: isAdmin(user.role) ? undefined : { connect: { id: user.id } },
       },
     });
     await saveProjectRevision(tx, created.id, user, "Project created");
@@ -276,7 +283,14 @@ export async function updateProject(projectId: string, formData: FormData) {
     parsed.sourceProjectId === undefined
       ? existing.sourceProjectId
       : parsed.sourceProjectId;
-  await checkProjectPeople(user, ownerId, coOwnerId, sourceId, projectId);
+  await checkProjectPeople(
+    user,
+    ownerId,
+    coOwnerId,
+    sourceId,
+    projectId,
+    existing,
+  );
   checkedRange(
     parsed.startDate === undefined ? existing.startDate : parsed.startDate,
     parsed.targetDate === undefined ? existing.targetDate : parsed.targetDate,
@@ -1046,6 +1060,8 @@ export async function createTask(projectId: string, formData: FormData) {
   if (!parsed.success)
     throw new Error(parsed.error.issues[0]?.message ?? "Invalid input");
 
+  if (parsed.data.assigneeId)
+    await assertAssignablePeople([parsed.data.assigneeId]);
   if (parsed.data.parentId) {
     const parent = await db.task.findUnique({
       where: { id: parsed.data.parentId },
@@ -1148,6 +1164,8 @@ export async function updateTask(taskId: string, formData: FormData) {
     throw new Error(
       "Only the reporter or a project editor can reassign this report",
     );
+  if (parsed.data.assigneeId && parsed.data.assigneeId !== task.assigneeId)
+    await assertAssignablePeople([parsed.data.assigneeId]);
   if (
     parsed.data.expectedVersion !== undefined &&
     parsed.data.expectedVersion !== task.version
@@ -1374,6 +1392,11 @@ export async function moveTask(args: MoveTaskArgs) {
             "Only the reporter or a project editor can reassign this task",
           );
         }
+        if (
+          parsed.data.toAssigneeId &&
+          parsed.data.toAssigneeId !== task.assigneeId
+        )
+          await assertAssignablePeople([parsed.data.toAssigneeId], tx);
         data.assignee = parsed.data.toAssigneeId
           ? { connect: { id: parsed.data.toAssigneeId } }
           : { disconnect: true };
@@ -1424,6 +1447,8 @@ export async function quickAssignTask(
   if (!projectEditAllowed && task.reporterId !== me.id)
     throw new Error("Forbidden");
   z.string().cuid().nullable().parse(assigneeId);
+  if (assigneeId && assigneeId !== task.assigneeId)
+    await assertAssignablePeople([assigneeId]);
   await trackChild(
     me,
     task.projectId,
@@ -1501,7 +1526,7 @@ export async function setProjectMembers(projectId: string, userIds: string[]) {
   const user = await requireSession();
   const project = await db.project.findUnique({
     where: { id: projectId },
-    select: { id: true, ownerId: true },
+    select: { id: true, ownerId: true, members: { select: { id: true } } },
   });
   if (!project) throw new Error("Project not found");
   // Tighter than canEditProject — only the owner or a manager+ can change the
@@ -1510,6 +1535,8 @@ export async function setProjectMembers(projectId: string, userIds: string[]) {
     throw new Error("Only the project owner or a manager can change members");
   }
   z.array(idSchema).max(200).parse(userIds);
+  const existingIds = new Set(project.members.map((person) => person.id));
+  await assertAssignablePeople(userIds.filter((id) => !existingIds.has(id)));
   await db.$transaction((tx) =>
     reviseProject(
       tx,
@@ -1890,6 +1917,7 @@ export async function submitProjectRequest(
   if (!parsed.success)
     return { error: parsed.error.issues[0]?.message ?? "Check the form" };
   try {
+    const upload = await readSopUpload(fd.get("sopFile"));
     await db.$transaction(
       async (tx) => {
         const link = await tx.requestLink.findUnique({
@@ -1922,17 +1950,22 @@ export async function submitProjectRequest(
         // Repeated clicks do not create duplicate requests.
         const duplicate = await tx.projectRequest.findFirst({
           where: {
+            ...parsed.data,
             linkId: link.id,
             submitterEmail: parsed.data.submitterEmail.toLowerCase(),
-            title: parsed.data.title,
-            description: parsed.data.description,
+            requestedDate: parsed.data.requestedDate
+              ? new Date(parsed.data.requestedDate)
+              : null,
+            sopFileSha256: upload?.sopFileSha256 ?? null,
             createdAt: { gt: new Date(Date.now() - 300_000) },
           },
+          select: { id: true },
         });
         if (!duplicate)
           await tx.projectRequest.create({
             data: {
               ...parsed.data,
+              ...upload,
               requestedDate: parsed.data.requestedDate
                 ? new Date(parsed.data.requestedDate)
                 : null,
@@ -1975,6 +2008,7 @@ export async function decideProjectRequest(fd: FormData) {
     async (tx) => {
       const request = await tx.projectRequest.findUniqueOrThrow({
         where: { id: parsed.requestId },
+        select: requestDetailsSelect,
       });
       if (request.projectId)
         throw new Error(
@@ -2003,6 +2037,7 @@ export async function decideProjectRequest(fd: FormData) {
             sourceProjectId: parsed.sourceProjectId,
             estimatedHours: request.estimatedHours,
             savedHours: request.savedHours,
+            department: request.department,
             targetDate: request.requestedDate,
             priority: request.priority,
           },
@@ -2027,6 +2062,7 @@ export async function decideProjectRequest(fd: FormData) {
       }
       const after = await tx.projectRequest.update({
         where: { id: request.id, version: request.version },
+        select: requestDetailsSelect,
         data: {
           status:
             parsed.decision === "ASSIGN"
@@ -2060,6 +2096,10 @@ export async function decideProjectRequest(fd: FormData) {
 export async function saveFiscalConfig(fd: FormData) {
   const user = await requireManager();
   const parsed = fiscalConfigSchema.parse(Object.fromEntries(fd));
+  if (companyFiscalCalendar(parsed.year))
+    throw new Error(
+      "This year uses the supplied official company calendar and cannot be realigned.",
+    );
   if (new Date(parsed.startDate).getUTCDay() !== 0)
     throw new Error("The fiscal year must start on Sunday");
   await db.fiscalYearConfig.upsert({
@@ -2115,6 +2155,7 @@ export async function restoreProjectRevision(projectId: string, fd: FormData) {
     coOwnerId ?? null,
     sourceProjectId ?? null,
     projectId,
+    current,
   );
   checkedRange(startDate, targetDate);
   await db.$transaction((tx) =>

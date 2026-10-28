@@ -10,13 +10,19 @@ import { Textarea } from "@/components/ui/textarea";
 import { BlockField } from "@/components/editor/BlockField";
 import { PRIORITY_OPTIONS, PROJECT_STATUS_OPTIONS } from "./StatusBadge";
 import type { Priority, ProjectStatus } from "@prisma/client";
+import {
+  KEEP_ASSIGNMENT,
+  preserveCurrentAllocations,
+} from "@/lib/allocation-form";
 
 interface Props {
   action: (formData: FormData) => Promise<void>;
   initial?: {
     title?: string;
     ownerId?: string;
+    ownerName?: string;
     coOwnerId?: string | null;
+    coOwnerName?: string | null;
     projectType?: string;
     sourceProjectId?: string | null;
     estimatedHours?: number | null;
@@ -57,6 +63,12 @@ export function ProjectForm({
 }: Props) {
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const keepOwner =
+    !!initial?.ownerId &&
+    !people.some((person) => person.id === initial.ownerId);
+  const keepCoOwner =
+    !!initial?.coOwnerId &&
+    !people.some((person) => person.id === initial.coOwnerId);
 
   return (
     <form
@@ -64,7 +76,7 @@ export function ProjectForm({
         start(async () => {
           setError(null);
           try {
-            await action(fd);
+            await action(preserveCurrentAllocations(fd));
           } catch (cause) {
             // Next handles successful action redirects before resolving this call.
             setError(
@@ -161,31 +173,68 @@ export function ProjectForm({
           <Select
             id="ownerId"
             name="ownerId"
-            defaultValue={initial?.ownerId ?? currentUserId}
+            defaultValue={
+              keepOwner
+                ? KEEP_ASSIGNMENT
+                : people.some(
+                      (p) => p.id === (initial?.ownerId ?? currentUserId),
+                    )
+                  ? (initial?.ownerId ?? currentUserId)
+                  : ""
+            }
             disabled={!canChangeOwner || !ownerSelectable}
+            required
           >
+            <option value="" disabled>
+              Choose a project owner
+            </option>
+            {keepOwner && (
+              <option value={KEEP_ASSIGNMENT}>Keep current owner</option>
+            )}
             {people.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.name}
               </option>
             ))}
           </Select>
+          {keepOwner && (
+            <p className="text-xs text-muted-foreground">
+              Current owner: {initial?.ownerName ?? "Existing account"}. Choose
+              a team member to transfer ownership.
+            </p>
+          )}
+          {!people.length && (
+            <p className="text-xs text-muted-foreground">
+              Add a team member before allocating work. Admin accounts manage
+              the workspace.
+            </p>
+          )}
         </div>
         <div className="space-y-2">
           <Label htmlFor="coOwnerId">Sub-owner</Label>
           <Select
             id="coOwnerId"
             name="coOwnerId"
-            defaultValue={initial?.coOwnerId ?? ""}
+            defaultValue={
+              keepCoOwner ? KEEP_ASSIGNMENT : (initial?.coOwnerId ?? "")
+            }
             disabled={!canChangeOwner}
           >
             <option value="">No sub-owner</option>
+            {keepCoOwner && (
+              <option value={KEEP_ASSIGNMENT}>Keep current sub-owner</option>
+            )}
             {people.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.name}
               </option>
             ))}
           </Select>
+          {keepCoOwner && (
+            <p className="text-xs text-muted-foreground">
+              Current sub-owner: {initial?.coOwnerName ?? "Existing account"}.
+            </p>
+          )}
         </div>
         <div className="space-y-2">
           <Label htmlFor="projectType">Type</Label>

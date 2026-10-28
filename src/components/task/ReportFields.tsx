@@ -1,4 +1,5 @@
 import type { Task } from "@prisma/client";
+import { KEEP_ASSIGNMENT } from "@/lib/allocation-form";
 import {
   PRIORITY_OPTIONS,
   TASK_STATUS_OPTIONS,
@@ -7,11 +8,16 @@ export function ReportFields({
   report,
   people,
   canAssign = true,
+  currentAssigneeName,
 }: {
   canAssign?: boolean;
+  currentAssigneeName?: string;
   report?: Task;
   people: { id: string; name: string }[];
 }) {
+  const keepAssignee =
+    !!report?.assigneeId &&
+    !people.some((person) => person.id === report.assigneeId);
   return (
     <div className="grid gap-4 sm:grid-cols-2">
       {report && (
@@ -32,15 +38,26 @@ export function ReportFields({
         <select
           disabled={!canAssign}
           name="assigneeId"
-          defaultValue={report?.assigneeId ?? ""}
+          defaultValue={
+            keepAssignee ? KEEP_ASSIGNMENT : (report?.assigneeId ?? "")
+          }
         >
           <option value="">Unassigned</option>
+          {keepAssignee && (
+            <option value={KEEP_ASSIGNMENT}>Keep current assignment</option>
+          )}
           {people.map((p) => (
             <option key={p.id} value={p.id}>
               {p.name}
             </option>
           ))}
         </select>
+        {keepAssignee && (
+          <span className="text-xs font-normal text-muted-foreground">
+            Current assignment: {currentAssigneeName ?? "Existing account"}.
+            Choose a team member to reassign.
+          </span>
+        )}
       </label>
       <label className="field">
         Status

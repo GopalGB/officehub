@@ -307,6 +307,14 @@ export const requestLinkSchema = z.object({
 export const publicRequestSchema = z.object({
   submitterName: z.string().trim().min(2).max(100),
   submitterEmail: z.email().max(254),
+  managerName: z.string().trim().min(2, "Enter your manager's name").max(100),
+  department: z
+    .string()
+    .trim()
+    .min(2, "Enter your team or department")
+    .max(100),
+  sopLocation: z.string().trim().max(2000).optional().nullable(),
+  requiredFilesLocation: z.string().trim().max(2000).optional().nullable(),
   title: z.string().trim().min(2).max(160),
   description: z.string().trim().min(10).max(5000),
   projectType: projectTypeEnum,

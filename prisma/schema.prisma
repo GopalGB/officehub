@@ -409,6 +409,15 @@ model ProjectRequest {
   link            RequestLink @relation(fields: [linkId], references: [id])
   submitterName   String
   submitterEmail  String
+  managerName     String?
+  department      String?
+  sopLocation     String?
+  requiredFilesLocation String?
+  sopFileName     String?
+  sopFileType     String?
+  sopFileSize     Int?
+  sopFileSha256   String?
+  sopFileData     Bytes?
   title           String
   description     String
   projectType     String

@@ -1,3 +1,4 @@
+import { assignablePeopleWhere } from "@/lib/project-people";
 import { auth } from "../../../../../auth";
 import { db } from "@/lib/db";
 import { projectAccessWhere, isManagerOrAbove } from "@/lib/rbac";
@@ -8,7 +9,7 @@ export default async function NewProjectPage() {
   if (!session?.user) return null;
   const [people, projects] = await Promise.all([
     db.user.findMany({
-      where: { active: true },
+      where: assignablePeopleWhere,
       select: { id: true, name: true },
       orderBy: { name: "asc" },
     }),

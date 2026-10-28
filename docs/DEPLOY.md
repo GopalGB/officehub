@@ -112,7 +112,7 @@ gunzip -c officehub-2026-05-22.sql.gz | docker exec -i officehub-db psql -U offi
 cd /opt/officehub
 git pull
 docker compose up -d --build
-# Prisma migrate runs automatically as the container entrypoint.
+# Prisma schema push runs automatically before the application starts.
 ```
 
 ## SQLite swap (for very small deployments — <10 users, dev/staging)
@@ -155,6 +155,6 @@ Never run this on a live deployment unless you have a verified backup in hand.
 ## Common issues
 
 - **`AUTH_SECRET missing`** on first start: re-run the `openssl rand` line, restart compose.
-- **Migrations not applied**: the Dockerfile entrypoint runs `prisma migrate deploy`. If you need to migrate manually, `docker compose exec app npx prisma migrate deploy`.
+- **Schema not applied**: this repository uses `prisma db push` and has no committed migration baseline. Docker applies the schema with `prisma db push --skip-generate` before starting the app, matching the Windows updater. For a manual application update, use `docker compose exec app npx prisma db push --skip-generate`. Back up first. If Prisma warns about data loss, stop and review it; do not add reset or data-loss flags.
 - **Login loop / wrong-password every time**: `NEXTAUTH_URL` mismatch — set it to the exact URL you hit in the browser (scheme + host).
 - **BlockNote editor shows "Loading editor…" forever**: an extension or strict CSP is blocking the editor. Disable strict CSP on the dashboard routes.

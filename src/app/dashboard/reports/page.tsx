@@ -1,3 +1,4 @@
+import { assignablePeopleWhere } from "@/lib/project-people";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "../../../../auth";
@@ -55,7 +56,7 @@ export default async function TasksPage({
       orderBy: { title: "asc" },
     }),
     db.user.findMany({
-      where: { active: true },
+      where: assignablePeopleWhere,
       select: { id: true, name: true },
       orderBy: { name: "asc" },
     }),

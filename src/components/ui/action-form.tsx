@@ -1,6 +1,8 @@
 "use client";
 import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
+import { useToast } from "@/components/ui/toast";
+import { preserveCurrentAllocations } from "@/lib/allocation-form";
 export function ActionForm({
   action,
   children,
@@ -17,6 +19,7 @@ export function ActionForm({
   const [pending, start] = useTransition();
   const [error, setError] = useState("");
   const [saved, setSaved] = useState(false);
+  const { toast } = useToast();
   return (
     <form
       className={className}
@@ -25,14 +28,16 @@ export function ActionForm({
           setError("");
           setSaved(false);
           try {
-            await action(fd);
+            await action(preserveCurrentAllocations(fd));
             setSaved(true);
+            if (successMessage) toast(successMessage, "success");
           } catch (cause) {
-            setError(
+            const message =
               cause instanceof Error
                 ? cause.message
-                : "Could not save. Please try again.",
-            );
+                : "Could not save. Please try again.";
+            setError(message);
+            toast(message, "error");
           }
         })
       }

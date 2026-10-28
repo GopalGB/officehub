@@ -1,8 +1,9 @@
+import { assignablePeopleWhere } from "@/lib/project-people";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { auth } from "../../../../../auth";
 import { db } from "@/lib/db";
-import { taskPermissions, projectAccessWhere } from "@/lib/rbac";
+import { taskPermissions, reportAccessWhere } from "@/lib/rbac";
 import { updateTask } from "@/app/dashboard/actions";
 import { ActionForm } from "@/components/ui/action-form";
 import { ReportFields } from "@/components/task/ReportFields";
@@ -18,11 +19,7 @@ export default async function ReportPage({
   const report = await db.task.findUnique({
     where: {
       id,
-      OR: [
-        { assigneeId: session.user.id },
-        { reporterId: session.user.id },
-        { project: projectAccessWhere(session.user) },
-      ],
+      AND: [reportAccessWhere(session.user)],
     },
     include: {
       project: { include: { members: { select: { id: true } } } },
@@ -33,7 +30,7 @@ export default async function ReportPage({
   const permissions = taskPermissions(session.user, report);
   const canEdit = permissions.canEdit;
   const people = await db.user.findMany({
-    where: { active: true },
+    where: assignablePeopleWhere,
     select: { id: true, name: true },
     orderBy: { name: "asc" },
   });
@@ -56,7 +53,12 @@ export default async function ReportPage({
             action={updateTask.bind(null, id)}
             successMessage="Report saved."
           >
-            <ReportFields report={report} people={people} canAssign={permissions.canAssign} />
+            <ReportFields
+              report={report}
+              people={people}
+              canAssign={permissions.canAssign}
+              currentAssigneeName={report.assignee?.name}
+            />
           </ActionForm>
         ) : (
           <>

@@ -19,7 +19,7 @@ fees.
 - **Team overview** — management sees who is working on what, date-specific focus, weekly capacity, projects, and reports
 - **Request pool** — expiring shareable intake forms, saved requests, management review, and transactional owner assignment
 - **Version history** — immutable project detail versions, restore as a new version, and before/after audits for project work
-- **Fiscal calendar** — NRF 4-5-4 periods, fiscal weeks, quarters, 53-week years, and configurable year alignment
+- **Fiscal calendar** — supplied company FY2026–2028 calendars, original PDFs, 4-5-4 periods, fiscal weeks, quarters, and configurable alignment for other years
 - **Archive** — keep completed work and its history available
 
 Read the [workspace guide](docs/PROJECT-WORKSPACE.md) for permissions, daily planning, version boundaries, and request-link behavior.

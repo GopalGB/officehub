@@ -43,9 +43,17 @@ Managers can choose a date in **Team overview** and see every active person's pr
 
 ## Fiscal calendar
 
-The default is NRF **4-5-4**, with Sunday–Saturday weeks. The fiscal year begins on the Sunday nearest February 1. A 53-week year adds the extra week to Period 12. The fiscal calendar shows periods, quarters, numbered weeks, and project/report/milestone/enhancement deadlines.
+The supplied company calendars are authoritative for FY2026–2028, including every period and week boundary. Each year links to its original PDF in the calendar screen.
 
-The calendar is generated independently of the Gregorian month grid. Managers can override a year's official start date and 52/53-week count; align neighboring years as well if the official calendar shifts. This supports replacing the default with the user's supplied company calendar later.
+| Fiscal year | First Sunday | Last Saturday | Weeks |
+| --- | --- | --- | --- |
+| 2026 | 1 February 2026 | 30 January 2027 | 52 |
+| 2027 | 31 January 2027 | 29 January 2028 | 52 |
+| 2028 | 30 January 2028 | 3 February 2029 | 53 |
+
+The pattern is **4-5-4**, with Sunday–Saturday weeks. FY2028's extra week belongs to January / Period 12. These official years take precedence over old saved alignments and cannot be realigned through the form. Other years default to NRF, with the fiscal year beginning on the Sunday nearest February 1; managers can configure those years. The calendar shows month names, periods, quarters, numbered weeks, and project/report/milestone/enhancement deadlines.
+
+The calendar is generated independently of the Gregorian month grid. For other years, managers can override a year's Sunday start date and 52/53-week count; align neighboring years as well if a future official calendar shifts.
 
 ## Manager intake and pool
 
@@ -66,3 +74,13 @@ Historical changes that were never recorded before this upgrade cannot be recons
 ## Update
 
 See [Windows deployment](WINDOWS.md) for the user-account update command, database backup, port 8599, preserved logo, and failure handling. The update modifies app code and its database schema without changing Windows or network policies.
+
+## People and supporting request information
+
+Admin accounts manage the workspace and are excluded from work allocation and staff workload lists. Allocate projects, sub-ownership, collaborators, and reports to active team members or managers. Existing project history and administrative access are preserved; old ownership can be replaced by choosing a real person.
+
+The public automation request form collects the requester's name, email, reporting manager, and team/department (a text field). The reporting manager is distinct from the manager reviewing the request link. It also accepts an SOP location, an optional SOP upload, and the locations of needed input files. Shared drive/Windows paths and document URLs are saved as text; the server does not open those locations.
+
+SOP uploads support PDF, DOCX, and UTF-8 TXT up to 3 MB. File bytes stay in PostgreSQL and are included in the normal database backup. They are excluded from list queries, page props, and audit snapshots. Downloads require a signed-in manager or access to the assigned project; possession of the public intake link does not grant download access. The manager sees all supporting information in the pool, and it remains available in the assigned project's overview. Team/department also carries into the project details.
+
+The form keeps entered text and the selected file when a submission fails, displays the error for correction, and confirms a successful submission before offering another form.

@@ -1,3 +1,4 @@
+import { assignablePeopleWhere } from "@/lib/project-people";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "../../../../auth";
@@ -11,6 +12,8 @@ import {
 } from "@/app/dashboard/actions";
 import { ActionForm } from "@/components/ui/action-form";
 import { CopyLink } from "@/components/requests/CopyLink";
+import { RequestContext } from "@/components/requests/RequestContext";
+import { requestDetailsSelect } from "@/lib/request-details";
 export default async function RequestsPage({
   searchParams,
 }: {
@@ -31,7 +34,8 @@ export default async function RequestsPage({
     [
       db.projectRequest.findMany({
         where: { status },
-        include: {
+        select: {
+          ...requestDetailsSelect,
           link: {
             select: { label: true, manager: { select: { name: true } } },
           },
@@ -52,7 +56,7 @@ export default async function RequestsPage({
         take: 50,
       }),
       db.user.findMany({
-        where: { active: true },
+        where: assignablePeopleWhere,
         select: { id: true, name: true },
         orderBy: { name: "asc" },
       }),
@@ -97,7 +101,7 @@ export default async function RequestsPage({
                 minLength={2}
                 maxLength={120}
                 required
-                placeholder="e.g. BI project request"
+                placeholder="e.g. New Automation Request"
               />
             </label>
             <label className="field">
@@ -203,6 +207,7 @@ export default async function RequestsPage({
               )}
               <span>Submitted to {request.link.manager.name}</span>
             </div>
+            <RequestContext request={request} />
             {request.project ? (
               <p className="mt-5 text-sm">
                 <Link

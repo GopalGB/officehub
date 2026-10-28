@@ -1,3 +1,4 @@
+import { assignablePeopleWhere } from "@/lib/project-people";
 import { notFound, redirect } from "next/navigation";
 import type { Block } from "@blocknote/core";
 import { auth } from "../../../../../../auth";
@@ -21,7 +22,11 @@ export default async function EditProjectPage({
 
   const project = await db.project.findUnique({
     where: { id, AND: [projectAccessWhere(session.user)] },
-    include: { members: { select: { id: true } } },
+    include: {
+      members: { select: { id: true } },
+      owner: { select: { name: true } },
+      coOwner: { select: { name: true } },
+    },
   });
   if (!project) notFound();
   if (
@@ -38,7 +43,7 @@ export default async function EditProjectPage({
 
   const [people, projects] = await Promise.all([
     db.user.findMany({
-      where: { active: true },
+      where: assignablePeopleWhere,
       select: { id: true, name: true },
       orderBy: { name: "asc" },
     }),
@@ -73,6 +78,8 @@ export default async function EditProjectPage({
         submitLabel="Save changes"
         initial={{
           ...project,
+          ownerName: project.owner.name,
+          coOwnerName: project.coOwner?.name,
           title: project.title,
           summary: project.summary,
           description: (project.description as Block[] | null) ?? null,
