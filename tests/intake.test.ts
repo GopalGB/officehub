@@ -27,6 +27,11 @@ void test("every company fiscal week and period matches the supplied 2026, 2027,
   assert.equal(fiscalPeriod(new Date("2027-01-31"))?.year, 2027);
   assert.equal(fiscalPeriod(new Date("2029-02-03"))?.week, 53);
   assert.equal(fiscalPeriod(new Date("2029-02-04"))?.year, 2029);
+  const overlapping = [
+    { year: 2029, startDate: new Date("2029-01-28"), weeks: 52 },
+  ];
+  assert.equal(fiscalPeriod(new Date("2029-01-28"), overlapping)?.year, 2028);
+  assert.equal(fiscalPeriod(new Date("2029-02-03"), overlapping)?.week, 53);
 });
 
 void test("automation intake requires reporting manager and team, and preserves Windows paths", () => {

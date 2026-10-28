@@ -92,7 +92,12 @@ export function fiscalWeeks(year: number, overrides: FiscalConfig[] = []) {
 export function fiscalPeriod(date: Date, overrides: FiscalConfig[] = []) {
   const day = new Date(dateKey(date)).getTime();
   const year = date.getUTCFullYear();
-  for (const fy of [year + 1, year, year - 1]) {
+  // A stale adjacent-year override must not capture dates in an official year.
+  const official = COMPANY_FISCAL_CALENDARS.find(
+    (calendar) =>
+      day >= Date.parse(calendar.start) && day <= Date.parse(calendar.end),
+  );
+  for (const fy of official ? [official.year] : [year + 1, year, year - 1]) {
     const found = fiscalWeeks(fy, overrides).find(
       (w) => day >= w.start.getTime() && day <= w.end.getTime(),
     );

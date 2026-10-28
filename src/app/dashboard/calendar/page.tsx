@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ExternalLink } from "lucide-react";
 import { auth } from "../../../../auth";
 import { db } from "@/lib/db";
 import { projectAccessWhere, isManagerOrAbove } from "@/lib/rbac";
@@ -151,9 +152,9 @@ export default async function FiscalCalendar({
             href={`/fiscal-calendars/${year}.pdf`}
             target="_blank"
             rel="noopener noreferrer"
-            className="rounded-lg border px-4 py-2 text-sm font-medium hover:bg-secondary"
+            className="inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium hover:bg-secondary"
           >
-            View original PDF ↗
+            View original PDF <ExternalLink className="h-3.5 w-3.5" />
           </a>
         </section>
       )}
