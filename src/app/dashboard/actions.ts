@@ -1521,7 +1521,7 @@ export async function setProjectMembers(projectId: string, userIds: string[]) {
   const user = await requireSession();
   const project = await db.project.findUnique({
     where: { id: projectId },
-    select: { id: true, ownerId: true },
+    select: { id: true, ownerId: true, members: { select: { id: true } } },
   });
   if (!project) throw new Error("Project not found");
   // Tighter than canEditProject — only the owner or a manager+ can change the
@@ -1530,7 +1530,8 @@ export async function setProjectMembers(projectId: string, userIds: string[]) {
     throw new Error("Only the project owner or a manager can change members");
   }
   z.array(idSchema).max(200).parse(userIds);
-  await assertAssignablePeople(userIds);
+  const existingIds = new Set(project.members.map((person) => person.id));
+  await assertAssignablePeople(userIds.filter((id) => !existingIds.has(id)));
   await db.$transaction((tx) =>
     reviseProject(
       tx,

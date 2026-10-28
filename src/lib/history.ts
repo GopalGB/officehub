@@ -112,7 +112,10 @@ export async function reviseProject(
       ...(ownerId !== before.ownerId ? [ownerId] : []),
       ...(coOwnerId && coOwnerId !== before.coOwnerId ? [coOwnerId] : []),
       ...rosterChanges.flatMap((person) =>
-        typeof person.id === "string" ? [person.id] : [],
+        typeof person.id === "string" &&
+        !before.members.some((existing) => existing.id === person.id)
+          ? [person.id]
+          : [],
       ),
     ],
     tx,

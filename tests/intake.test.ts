@@ -4,6 +4,26 @@ import calendarWeeks from "./fixtures/company-fiscal-weeks.json";
 import { fiscalWeeks, fiscalPeriod, dateKey, addDays } from "@/lib/fiscal";
 import { MAX_SOP_BYTES, readSopUpload } from "@/lib/sop-upload";
 import { publicRequestSchema } from "@/lib/validation";
+import {
+  KEEP_ASSIGNMENT,
+  preserveCurrentAllocations,
+} from "@/lib/allocation-form";
+
+void test("unchanged legacy allocations are omitted while intentional allocation edits are submitted", () => {
+  const fd = new FormData();
+  fd.set("ownerId", KEEP_ASSIGNMENT);
+  fd.set("coOwnerId", KEEP_ASSIGNMENT);
+  fd.set("assigneeId", KEEP_ASSIGNMENT);
+  fd.set("title", "Unrelated detail edit");
+  preserveCurrentAllocations(fd);
+  assert.equal(fd.has("ownerId"), false);
+  assert.equal(fd.has("coOwnerId"), false);
+  assert.equal(fd.has("assigneeId"), false);
+  assert.equal(fd.get("title"), "Unrelated detail edit");
+  fd.set("assigneeId", "");
+  preserveCurrentAllocations(fd);
+  assert.equal(fd.get("assigneeId"), ""); // Explicit unassignment is retained.
+});
 
 void test("every company fiscal week and period matches the supplied 2026, 2027, and 2028 PDFs", () => {
   for (const [year, expected] of Object.entries(calendarWeeks)) {

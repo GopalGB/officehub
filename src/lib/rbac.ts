@@ -16,6 +16,20 @@ export function projectAccessWhere(viewer: Viewer): Prisma.ProjectWhereInput {
       };
 }
 
+/** Keep the manager's unrestricted predicate out of an OR, where Prisma drops
+ * empty relation filters instead of treating them as a matching branch. */
+export function reportAccessWhere(viewer: Viewer): Prisma.TaskWhereInput {
+  return isManagerOrAbove(viewer.role)
+    ? {}
+    : {
+        OR: [
+          { assigneeId: viewer.id },
+          { reporterId: viewer.id },
+          { project: projectAccessWhere(viewer) },
+        ],
+      };
+}
+
 export function canEditPage(viewer: Viewer, authorId: string): boolean {
   return viewer.id === authorId || isManagerOrAbove(viewer.role);
 }

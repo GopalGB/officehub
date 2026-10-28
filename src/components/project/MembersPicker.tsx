@@ -19,12 +19,14 @@ export function MembersPicker({
   allUsers,
   selectedIds,
   canEdit,
+  existingMembers = [],
 }: {
   projectId: string;
   ownerName: string;
   allUsers: Person[];
   selectedIds: string[];
   canEdit: boolean;
+  existingMembers?: Person[];
 }) {
   const [selected, setSelected] = useState<Set<string>>(new Set(selectedIds));
   const [open, setOpen] = useState(false);
@@ -43,12 +45,20 @@ export function MembersPicker({
         toast("Members updated", "success");
       } catch (e) {
         setSelected(prev); // revert optimistic update
-        toast(e instanceof Error ? e.message : "Could not update members", "error");
+        toast(
+          e instanceof Error ? e.message : "Could not update members",
+          "error",
+        );
       }
     });
   }
 
-  const selectedPeople = allUsers.filter((u) => selected.has(u.id));
+  const knownPeople = [
+    ...new Map(
+      [...existingMembers, ...allUsers].map((person) => [person.id, person]),
+    ).values(),
+  ];
+  const selectedPeople = knownPeople.filter((u) => selected.has(u.id));
   const unselected = allUsers.filter((u) => !selected.has(u.id));
 
   return (
@@ -116,9 +126,13 @@ export function MembersPicker({
                             className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors hover:bg-slate-50"
                           >
                             <Avatar name={u.name} size="sm" />
-                            <span className="min-w-0 flex-1 truncate">{u.name}</span>
+                            <span className="min-w-0 flex-1 truncate">
+                              {u.name}
+                            </span>
                             {u.email && (
-                              <span className="truncate text-xs text-slate-400">{u.email}</span>
+                              <span className="truncate text-xs text-slate-400">
+                                {u.email}
+                              </span>
                             )}
                           </button>
                         </li>

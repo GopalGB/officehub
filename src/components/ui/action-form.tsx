@@ -2,6 +2,7 @@
 import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
+import { preserveCurrentAllocations } from "@/lib/allocation-form";
 export function ActionForm({
   action,
   children,
@@ -27,7 +28,7 @@ export function ActionForm({
           setError("");
           setSaved(false);
           try {
-            await action(fd);
+            await action(preserveCurrentAllocations(fd));
             setSaved(true);
             if (successMessage) toast(successMessage, "success");
           } catch (cause) {

@@ -47,4 +47,6 @@ ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
 ENTRYPOINT ["/sbin/tini", "--"]
-CMD ["sh", "-c", "npx prisma migrate deploy && node server.js"]
+# The repository uses schema push, also used by the Windows updater. Never
+# accept data loss or reset existing databases during application startup.
+CMD ["sh", "-c", "npx prisma db push --skip-generate && node server.js"]

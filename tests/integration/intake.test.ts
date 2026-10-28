@@ -8,6 +8,7 @@ import {
 } from "@/lib/project-people";
 import { requestDetailsSelect } from "@/lib/request-details";
 import { readSopUpload } from "@/lib/sop-upload";
+import { reportAccessWhere } from "@/lib/rbac";
 
 const url = process.env.OFFICEHUB_TEST_DATABASE_URL;
 if (
@@ -19,7 +20,9 @@ process.env.DATABASE_URL = url;
 const db = new PrismaClient({ datasourceUrl: url });
 const suffix = randomUUID();
 const ids: string[] = [];
-let projectId: string, linkId: string, requestId: string;
+let projectId = "",
+  linkId = "",
+  requestId: string;
 before(async () => {
   for (const [name, role, active] of [
     ["owner", "MEMBER", true],
@@ -53,12 +56,19 @@ before(async () => {
   ).id;
 });
 after(async () => {
-  await db.projectRequest.deleteMany({ where: { linkId } });
-  await db.requestLink.deleteMany({ where: { id: linkId } });
-  await db.auditLog.deleteMany({ where: { projectId } });
-  await db.project.deleteMany({ where: { id: projectId } });
-  await db.user.deleteMany({ where: { id: { in: ids } } });
-  await db.$disconnect();
+  try {
+    if (linkId) {
+      await db.projectRequest.deleteMany({ where: { linkId } });
+      await db.requestLink.deleteMany({ where: { id: linkId } });
+    }
+    if (projectId) {
+      await db.auditLog.deleteMany({ where: { projectId } });
+      await db.project.deleteMany({ where: { id: projectId } });
+    }
+    await db.user.deleteMany({ where: { id: { in: ids } } });
+  } finally {
+    await db.$disconnect();
+  }
 });
 void test("allocation lists and server guards exclude Admin and inactive accounts", async () => {
   const people = await db.user.findMany({
@@ -72,6 +82,48 @@ void test("allocation lists and server guards exclude Admin and inactive account
     assertAssignablePeople([ids[2]], db),
     /active team members/,
   );
+});
+
+void test("managers can open reports outside their own assignments while unrelated members cannot", async () => {
+  const report = await db.task.create({
+    data: {
+      projectId,
+      title: "Manager visibility regression",
+      reporterId: ids[0],
+      assigneeId: ids[0],
+    },
+  });
+  try {
+    assert.equal(
+      await db.task.count({
+        where: {
+          id: report.id,
+          AND: [reportAccessWhere({ id: ids[3], role: "MANAGER" })],
+        },
+      }),
+      1,
+    );
+    assert.equal(
+      await db.task.count({
+        where: {
+          id: report.id,
+          AND: [reportAccessWhere({ id: ids[0], role: "MEMBER" })],
+        },
+      }),
+      1,
+    );
+    assert.equal(
+      await db.task.count({
+        where: {
+          id: report.id,
+          AND: [reportAccessWhere({ id: ids[2], role: "MEMBER" })],
+        },
+      }),
+      0,
+    );
+  } finally {
+    await db.task.delete({ where: { id: report.id } });
+  }
 });
 void test("forged ownership, sub-owner, and collaborator changes cannot allocate Admin", async () => {
   const { reviseProject } = await import("@/lib/history");
@@ -166,6 +218,65 @@ void test("legacy Admin-owned projects remain editable without creating new Admi
       ),
       /Admin accounts/,
     );
+  } finally {
+    await db.auditLog.deleteMany({ where: { projectId: legacy.id } });
+    await db.project.delete({ where: { id: legacy.id } });
+  }
+});
+
+void test("roster edits and restores preserve existing ineligible members but cannot add them after removal", async () => {
+  const { reviseProject } = await import("@/lib/history");
+  const legacy = await db.project.create({
+    data: {
+      title: "Legacy roster",
+      ownerId: ids[0],
+      members: { connect: [{ id: ids[1] }, { id: ids[2] }] },
+    },
+  });
+  const actor = { id: ids[3], role: "MANAGER" as const };
+  try {
+    await db.$transaction((tx) =>
+      reviseProject(
+        tx,
+        actor,
+        legacy.id,
+        {
+          title: "Restored details",
+          members: { set: [ids[1], ids[2], ids[3]].map((id) => ({ id })) },
+        },
+        "Restore details and add an eligible manager",
+      ),
+    );
+    const stored = await db.project.findUniqueOrThrow({
+      where: { id: legacy.id },
+      include: { members: true },
+    });
+    assert.deepEqual(
+      stored.members.map((person) => person.id).sort(),
+      [ids[1], ids[2], ids[3]].sort(),
+    );
+    await db.$transaction((tx) =>
+      reviseProject(
+        tx,
+        actor,
+        legacy.id,
+        { members: { set: [{ id: ids[3] }] } },
+        "Explicit removal",
+      ),
+    );
+    for (const id of [ids[1], ids[2]])
+      await assert.rejects(
+        db.$transaction((tx) =>
+          reviseProject(
+            tx,
+            actor,
+            legacy.id,
+            { members: { connect: { id } } },
+            "Invalid reallocation",
+          ),
+        ),
+        /Admin accounts/,
+      );
   } finally {
     await db.auditLog.deleteMany({ where: { projectId: legacy.id } });
     await db.project.delete({ where: { id: legacy.id } });
