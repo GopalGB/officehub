@@ -36,8 +36,8 @@ function Find-ExistingPgDump {
     # Never install another database or change PATH to find its backup utility.
     if (-not [string]::IsNullOrWhiteSpace($env:OFFICEHUB_PG_DUMP)) { return $env:OFFICEHUB_PG_DUMP }
     $OnPath = Get-Command pg_dump.exe -CommandType Application -ErrorAction SilentlyContinue
-    if ($OnPath) { return $OnPath.Source }
     $Candidates = New-Object 'System.Collections.Generic.List[string]'
+    if ($OnPath) { $Candidates.Add($OnPath.Source) }
     if (Get-Command Get-CimInstance -ErrorAction SilentlyContinue) {
         $Services = Get-CimInstance Win32_Service -Filter "Name LIKE '%postgres%' OR DisplayName LIKE '%postgres%'" -ErrorAction SilentlyContinue
         foreach ($Service in @($Services | Sort-Object @{ Expression = { $_.State -eq 'Running' }; Descending = $true })) {
@@ -59,7 +59,12 @@ function Find-ExistingPgDump {
     }
     if ($env:LOCALAPPDATA) { $Candidates.Add((Join-Path $env:LOCALAPPDATA 'CatalystWorkspace\PostgreSQL16\pgsql\bin\pg_dump.exe')) }
     foreach ($Candidate in @($Candidates | Select-Object -Unique)) {
-        if (Test-Path -LiteralPath $Candidate -PathType Leaf) { return $Candidate }
+        if (Test-Path -LiteralPath $Candidate -PathType Leaf -ErrorAction SilentlyContinue) {
+            # An installed client can be older than the configured server. Use
+            # its native version check against that server before selecting it.
+            & node.exe --env-file=.env scripts/backup-db.mjs --check-client $Candidate
+            if ($LASTEXITCODE -eq 0) { return $Candidate }
+        }
     }
     return $null
 }
@@ -135,8 +140,8 @@ try {
 
     # Find the existing PostgreSQL backup utility without modifying PATH.
     $PgDump = Find-ExistingPgDump
-    if ([string]::IsNullOrWhiteSpace($PgDump) -or -not (Test-Path -LiteralPath $PgDump)) {
-        throw "pg_dump.exe was not found. Set `$env:OFFICEHUB_PG_DUMP to the existing PostgreSQL bin\pg_dump.exe path and rerun. No database changes were made."
+    if ([string]::IsNullOrWhiteSpace($PgDump) -or -not (Test-Path -LiteralPath $PgDump -PathType Leaf)) {
+        throw "No usable pg_dump.exe was found for the configured database. Check the database connection and set `$env:OFFICEHUB_PG_DUMP to a compatible PostgreSQL bin\pg_dump.exe path. No database changes were made."
     }
     Write-Host "Using PostgreSQL backup utility: $PgDump"
     Run-Checked "node.exe" @("--env-file=.env", "scripts/backup-db.mjs", $PgDump, (Join-Path $BackupDir "tracker.dump"))
