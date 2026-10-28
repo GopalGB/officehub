@@ -31,6 +31,38 @@ function Normalize-ConfigForComparison {
     }
     return ($Lines -join "`n").Trim()
 }
+function Find-ExistingPgDump {
+    # Search only installed-product locations and read-only Windows metadata.
+    # Never install another database or change PATH to find its backup utility.
+    if (-not [string]::IsNullOrWhiteSpace($env:OFFICEHUB_PG_DUMP)) { return $env:OFFICEHUB_PG_DUMP }
+    $OnPath = Get-Command pg_dump.exe -CommandType Application -ErrorAction SilentlyContinue
+    if ($OnPath) { return $OnPath.Source }
+    $Candidates = New-Object 'System.Collections.Generic.List[string]'
+    if (Get-Command Get-CimInstance -ErrorAction SilentlyContinue) {
+        $Services = Get-CimInstance Win32_Service -Filter "Name LIKE '%postgres%' OR DisplayName LIKE '%postgres%'" -ErrorAction SilentlyContinue
+        foreach ($Service in @($Services | Sort-Object @{ Expression = { $_.State -eq 'Running' }; Descending = $true })) {
+            $CommandLine = [string]$Service.PathName
+            $Executable = $null
+            if ($CommandLine -match '^\s*"([^\"]+)"') { $Executable = $Matches[1] }
+            elseif ($CommandLine -match '^\s*(.+?\b(?:pg_ctl|postgres)\.exe)(?:\s|$)') { $Executable = $Matches[1] }
+            if ($Executable) { $Candidates.Add((Join-Path (Split-Path -Parent $Executable) 'pg_dump.exe')) }
+        }
+    }
+    $Installations = Get-ItemProperty -Path 'HKLM:\SOFTWARE\PostgreSQL\Installations\*', 'HKLM:\SOFTWARE\WOW6432Node\PostgreSQL\Installations\*', 'HKCU:\SOFTWARE\PostgreSQL\Installations\*' -ErrorAction SilentlyContinue
+    foreach ($Installation in @($Installations)) {
+        if ($Installation.'Base Directory') { $Candidates.Add((Join-Path $Installation.'Base Directory' 'bin\pg_dump.exe')) }
+    }
+    $Roots = @($env:ProgramFiles, ${env:ProgramFiles(x86)}, $env:LOCALAPPDATA) | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
+    foreach ($Root in $Roots) {
+        $MatchesOnDisk = Get-ChildItem -Path (Join-Path $Root 'PostgreSQL\*\bin\pg_dump.exe'), (Join-Path $Root 'pgAdmin 4\runtime\pg_dump.exe'), (Join-Path $Root 'pgAdmin 4\*\runtime\pg_dump.exe') -File -ErrorAction SilentlyContinue
+        foreach ($Utility in @($MatchesOnDisk | Sort-Object FullName -Descending)) { $Candidates.Add($Utility.FullName) }
+    }
+    if ($env:LOCALAPPDATA) { $Candidates.Add((Join-Path $env:LOCALAPPDATA 'CatalystWorkspace\PostgreSQL16\pgsql\bin\pg_dump.exe')) }
+    foreach ($Candidate in @($Candidates | Select-Object -Unique)) {
+        if (Test-Path -LiteralPath $Candidate -PathType Leaf) { return $Candidate }
+    }
+    return $null
+}
 try {
     Set-Location -LiteralPath $AppDir
     if (-not (Test-Path .\package.json) -or -not (Test-Path .\.git) -or -not (Test-Path .\.env)) {
@@ -77,8 +109,10 @@ try {
         Run-Checked "git.exe" @("restore", "--source=HEAD", "--staged", "--worktree", "--", "next.config.ts")
     }
     Write-Host "Updating from GopalGB/officehub main. Backups: $BackupDir"
-    Run-Checked "git.exe" @("fetch", "origin", "main")
-    Run-Checked "git.exe" @("merge", "--ff-only", "FETCH_HEAD")
+    # Per-command flags avoid Windows pack-file deletion prompts during automatic
+    # maintenance. They do not write global or repository Git configuration.
+    Run-Checked "git.exe" @("-c", "maintenance.auto=false", "-c", "gc.auto=0", "fetch", "--no-auto-gc", "origin", "main")
+    Run-Checked "git.exe" @("-c", "maintenance.auto=false", "-c", "gc.auto=0", "merge", "--ff-only", "FETCH_HEAD")
 
     # Use already trusted Windows certificates for this process, when supported.
     $SystemCa = & node.exe -p "process.allowedNodeEnvironmentFlags.has('--use-system-ca')"
@@ -100,20 +134,11 @@ try {
     if ($ListenIp -notin $LocalIps) { throw "The selected IP is not assigned to this server. Check Get-NetIPAddress -AddressFamily IPv4." }
 
     # Find the existing PostgreSQL backup utility without modifying PATH.
-    $PgDump = $env:OFFICEHUB_PG_DUMP
-    if ([string]::IsNullOrWhiteSpace($PgDump)) {
-        $FoundDump = Get-Command pg_dump.exe -ErrorAction SilentlyContinue
-        if ($FoundDump) { $PgDump = $FoundDump.Source }
-    }
-    if ([string]::IsNullOrWhiteSpace($PgDump)) {
-        foreach ($Version in @(19, 18, 17, 16, 15, 14)) {
-            $Candidate = Join-Path $env:ProgramFiles "PostgreSQL\$Version\bin\pg_dump.exe"
-            if (Test-Path -LiteralPath $Candidate) { $PgDump = $Candidate; break }
-        }
-    }
+    $PgDump = Find-ExistingPgDump
     if ([string]::IsNullOrWhiteSpace($PgDump) -or -not (Test-Path -LiteralPath $PgDump)) {
         throw "pg_dump.exe was not found. Set `$env:OFFICEHUB_PG_DUMP to the existing PostgreSQL bin\pg_dump.exe path and rerun. No database changes were made."
     }
+    Write-Host "Using PostgreSQL backup utility: $PgDump"
     Run-Checked "node.exe" @("--env-file=.env", "scripts/backup-db.mjs", $PgDump, (Join-Path $BackupDir "tracker.dump"))
     Run-Checked "npm.cmd" @("ci", "--include=dev")
     # Never pass --accept-data-loss or --force-reset. Prisma stops on unsafe changes.
