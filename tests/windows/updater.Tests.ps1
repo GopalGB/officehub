@@ -29,7 +29,13 @@ Copy-Item "$Repo/next.config.ts" (Join-Path $Source 'next.config.ts')
 & $RealGit -C $Source add .
 & $RealGit -C $Source commit -m 'Workspace upgrade' *> $null
 & $RealGit -C $Source push *> $null
-[IO.File]::WriteAllText((Join-Path $Target 'next.config.ts'), $OldConfig.Replace('process.env.NODE_ENV === "production" ?', 'process.env.NODE_ENV === "production" && process.platform !== "win32" ?'))
+$BrokenDash = ([string][char]0x00E2) + ([string][char]0x20AC) + ([string][char]0x201D)
+$Dash = [string][char]0x2014
+$WindowsConfig = $OldConfig.Replace('process.env.NODE_ENV === "production" ?', 'process.env.NODE_ENV === "production" && process.platform !== "win32" ?')
+# Reproduce the reported PowerShell 5.1 save: the intended Windows guard plus
+# mojibake in the comment, CRLF line endings, and an optional UTF-8 BOM.
+$WindowsConfig = $WindowsConfig.Replace($Dash, $BrokenDash).Replace("`r`n", "`n").Replace("`n", "`r`n")
+[IO.File]::WriteAllText((Join-Path $Target 'next.config.ts'), $WindowsConfig, (New-Object System.Text.UTF8Encoding($true)))
 $EnvText = "DATABASE_URL=`"postgresql://test@test.invalid/tracker?schema=public`"`nAUTH_SECRET=`"unchanged-secret`"`nNEXTAUTH_URL=`"http://10.5.64.77:8599`"`nSEED_ADMIN_PASSWORD=`"unchanged-login`""
 [IO.File]::WriteAllText((Join-Path $Target '.env'), $EnvText)
 [IO.File]::WriteAllText((Join-Path $Target 'logo.png'), 'logo bytes preserved')
@@ -77,7 +83,28 @@ $Commands = [IO.File]::ReadAllText($TracePath)
 if ($Commands.IndexOf('scripts/backup-db.mjs') -gt $Commands.IndexOf('npx prisma db push')) { throw 'Schema ran before backup' }
 if (-not $Commands.Contains('npm start -- --hostname 10.5.64.77 --port 8599')) { throw 'Wrong app binding' }
 if ($Commands.Contains('--accept-data-loss')) { throw 'Unsafe schema flag' }
-'PASS updater: fast-forward, known Windows config, backup order, logo and secrets preserved, port 8599, environment restored'
+$SavedConfig = Get-ChildItem -LiteralPath (Join-Path $env:LOCALAPPDATA 'CatalystWorkspace/Backups') -Recurse -Filter 'next.config.ts' | Select-Object -First 1
+if (-not $SavedConfig -or [IO.File]::ReadAllText($SavedConfig.FullName) -cne $WindowsConfig) { throw 'The original Windows configuration was not preserved exactly' }
+'PASS updater: recognizes Windows comment encoding, CRLF and BOM; original config, logo and secrets preserved; backup before schema; port 8599'
+# Genuine settings must be rejected even if the file also has the known comment
+# artifact. Comparison is case-sensitive, and string values are never repaired.
+$CleanConfig = [IO.File]::ReadAllText((Join-Path $Target 'next.config.ts'))
+foreach ($CustomConfig in @(
+    $CleanConfig.Replace('bodySizeLimit: "5mb"', 'bodySizeLimit: "10mb"'),
+    $CleanConfig.Replace('reactStrictMode: true', 'reactStrictMode: false'),
+    $CleanConfig.Replace('reactStrictMode', 'ReactStrictMode'),
+    $CleanConfig.Replace('bodySizeLimit: "5mb"', ('bodySizeLimit: "' + $BrokenDash + '"'))
+)) {
+    $CustomConfig = $CustomConfig.Replace($Dash, $BrokenDash)
+    [IO.File]::WriteAllText((Join-Path $Target 'next.config.ts'), $CustomConfig)
+    Clear-Content $TracePath
+    $Failed = $false
+    try { & $Updater -AppDir $Target } catch { $Failed = $_.Exception.Message.Contains('next.config.ts has custom edits') }
+    if (-not $Failed -or [IO.File]::ReadAllText((Join-Path $Target 'next.config.ts')) -cne $CustomConfig) { throw 'Custom configuration was not protected' }
+    if ([IO.File]::ReadAllText($TracePath).Contains('npx prisma db push')) { throw 'Schema changes ran despite custom configuration' }
+}
+& $RealGit -C $Target restore next.config.ts
+'PASS updater: preserves real settings, case changes, and string values; no database changes when blocked'
 # Unknown tracked edits must stop and remain intact.
 [IO.File]::AppendAllText((Join-Path $Target 'package.json'), 'custom change')
 $Failed = $false

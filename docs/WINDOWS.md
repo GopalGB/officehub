@@ -28,7 +28,7 @@ The updater:
 
 1. Checks that the checkout is on `main`, the origin is `GopalGB/officehub`, and the target app port is free. It does not stop arbitrary processes.
 2. Copies `.env`, the optional root `logo.png`, and the known earlier Windows configuration adjustment into `%LOCALAPPDATA%\CatalystWorkspace\Backups\<timestamp>`.
-3. Refuses unexpected tracked edits. The exact earlier `next.config.ts` Windows standalone fix is backed up and reconciled automatically, since that fix is now in main.
+3. Refuses unexpected tracked edits. The earlier `next.config.ts` Windows standalone fix is backed up and reconciled automatically, since that fix is now in main. Its comparison tolerates Windows line endings and the known PowerShell 5.1 garbled-dash artifact in full-line comments. Setting names and string values are compared case-sensitively and are never repaired or ignored.
 4. Fetches main and fast-forwards. It does not force-reset, overwrite custom code, or change remotes.
 5. Finds the existing `pg_dump.exe`, then backs up the configured database to `tracker.dump`. The filename is just a backup name; the connection comes from your `.env`. Credentials are passed only in the backup child process environment.
 6. Runs `npm ci --include=dev`, `prisma db push` **without** data-loss or reset flags, and the production build. Native command failures stop the update.
@@ -39,7 +39,7 @@ This updates application code, application database structure, and app URL setti
 ## If a check stops the update
 
 - **Port in use:** stop the old OfficeHub terminal with Ctrl+C. If another application owns the port, choose an available approved port; the script does not kill it.
-- **Local edits:** inspect `git status`. Commit or resolve your custom edits deliberately. Do not use `git reset --hard` to make the updater proceed.
+- **Local edits:** inspect `git status` and `git.exe diff HEAD -- next.config.ts`. The updater backs up the original local configuration before comparing it. An earlier Windows save may show a garbled dash in a comment alongside the intended `process.platform !== "win32"` adjustment; the current updater recognizes that combination. Other changes remain blocked and preserved. Commit or resolve those custom edits deliberately. Do not use `git reset --hard` to make the updater proceed.
 - **`pg_dump.exe` missing:** point to your existing PostgreSQL installation without changing PATH:
 
   ```powershell
