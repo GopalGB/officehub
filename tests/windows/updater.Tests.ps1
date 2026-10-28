@@ -46,10 +46,28 @@ $env:NODE_OPTIONS = '--original-option'
 $env:NODE_ENV = 'before-update'
 $env:DATABASE_URL = 'ambient-value-preserved'
 $script:FailBuild = $false
+$script:PostgresServicePath = $null
+$script:MockPgDumpLookup = $false
+$script:PathPgDump = $null
+$script:IncompatibleClients = @()
+$script:FailAllClientProbes = $false
+function global:Get-Command {
+ param([string]$Name, [string]$CommandType, [string]$ErrorAction)
+ if ($script:MockPgDumpLookup -and $Name -eq 'pg_dump.exe') {
+     if ($script:PathPgDump) { [pscustomobject]@{Source=$script:PathPgDump} }
+     return
+ }
+ Microsoft.PowerShell.Core\Get-Command @PSBoundParameters
+}
 function global:Get-NetTCPConnection { param($State, $LocalPort, $ErrorAction) }
 function global:Get-NetIPAddress { param($AddressFamily) [pscustomobject]@{IPAddress='10.5.64.77'} }
+function global:Get-CimInstance {
+ param($ClassName, $Filter, $ErrorAction)
+ if ($script:PostgresServicePath) { [pscustomobject]@{ PathName=$script:PostgresServicePath; State='Running' } }
+}
 function global:git.exe {
  param([Parameter(ValueFromRemainingArguments=$true)][string[]]$CommandArgs)
+ Add-Content $TracePath ('git ' + ($CommandArgs -join ' '))
  if ($CommandArgs[0] -eq 'remote' -and $CommandArgs[1] -eq 'get-url') { $global:LASTEXITCODE=0; 'https://github.com/GopalGB/officehub.git'; return }
  & $RealGit @CommandArgs
  $global:LASTEXITCODE = $LASTEXITCODE
@@ -60,6 +78,9 @@ function global:node.exe {
  $global:LASTEXITCODE = 0
  if ($CommandArgs[0] -eq '-p' -and $CommandArgs[1].Contains('execFileSync')) { [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($OldConfig)) }
  elseif ($CommandArgs[0] -eq '-p') { 'true' }
+ elseif ($CommandArgs -contains '--check-client') {
+     if ($script:FailAllClientProbes -or $CommandArgs[-1] -in $script:IncompatibleClients) { $global:LASTEXITCODE = 1 }
+ }
  elseif ($CommandArgs -contains 'scripts/backup-db.mjs') { [IO.File]::WriteAllText($CommandArgs[-1], ('backup simulation' * 20)) }
  else { 'localhost' }
 }
@@ -73,6 +94,7 @@ function global:npx.cmd {
  Add-Content $TracePath ('npx ' + ($CommandArgs -join ' ')); $global:LASTEXITCODE=0
 }
 Set-Location $Target
+$GitSettings = [IO.File]::ReadAllText((Join-Path $Target '.git/config'))
 $Updater = [scriptblock]::Create([IO.File]::ReadAllText("$Repo/scripts/update-windows.ps1"))
 & $Updater -AppDir $Target
 if ($env:NODE_OPTIONS -ne '--original-option' -or $env:NODE_ENV -ne 'before-update' -or $env:DATABASE_URL -ne 'ambient-value-preserved') { throw 'Environment was not restored' }
@@ -83,9 +105,56 @@ $Commands = [IO.File]::ReadAllText($TracePath)
 if ($Commands.IndexOf('scripts/backup-db.mjs') -gt $Commands.IndexOf('npx prisma db push')) { throw 'Schema ran before backup' }
 if (-not $Commands.Contains('npm start -- --hostname 10.5.64.77 --port 8599')) { throw 'Wrong app binding' }
 if ($Commands.Contains('--accept-data-loss')) { throw 'Unsafe schema flag' }
+if (-not $Commands.Contains('git -c maintenance.auto=false -c gc.auto=0 fetch --no-auto-gc origin main')) { throw 'Fetch may trigger automatic Git maintenance' }
+if (-not $Commands.Contains('git -c maintenance.auto=false -c gc.auto=0 merge --ff-only FETCH_HEAD')) { throw 'Merge may trigger automatic Git maintenance' }
+if ([IO.File]::ReadAllText((Join-Path $Target '.git/config')) -cne $GitSettings) { throw 'Persistent Git settings changed' }
 $SavedConfig = Get-ChildItem -LiteralPath (Join-Path $env:LOCALAPPDATA 'CatalystWorkspace/Backups') -Recurse -Filter 'next.config.ts' | Select-Object -First 1
 if (-not $SavedConfig -or [IO.File]::ReadAllText($SavedConfig.FullName) -cne $WindowsConfig) { throw 'The original Windows configuration was not preserved exactly' }
 'PASS updater: recognizes Windows comment encoding, CRLF and BOM; original config, logo and secrets preserved; backup before schema; port 8599'
+'PASS updater: skips automatic maintenance during fetch and merge without changing persistent Git settings'
+# Find the utility next to a registered service in a custom Program Files path.
+# This reproduces D:\Program Files\PostgreSQL\18 rather than C:\Program Files.
+$OriginalDumpOverride = $env:OFFICEHUB_PG_DUMP
+$CustomBin = Join-Path $Root 'Program Files/PostgreSQL/18/bin'
+New-Item -ItemType Directory -Path $CustomBin | Out-Null
+$CustomDump = Join-Path $CustomBin 'pg_dump.exe'
+Set-Content $CustomDump 'simulated installed backup utility'
+$script:PostgresServicePath = '"' + (Join-Path $CustomBin 'pg_ctl.exe') + '" runservice -N "postgresql-x64-18"'
+try {
+    Remove-Item Env:OFFICEHUB_PG_DUMP -ErrorAction SilentlyContinue
+    # An installed developer/CI client on PATH must not affect this case.
+    $script:MockPgDumpLookup = $true
+    Clear-Content $TracePath
+    & $Updater -AppDir $Target
+    $Commands = [IO.File]::ReadAllText($TracePath)
+    if (-not $Commands.Contains('scripts/backup-db.mjs ' + $CustomDump + ' ')) { throw 'Custom PostgreSQL service path was not used for backup' }
+    # A stale client on PATH must be skipped in favor of a compatible service client.
+    $OldDump = Join-Path $Root 'older-pg_dump.exe'
+    Set-Content $OldDump 'incompatible installed client'
+    $script:PathPgDump = $OldDump
+    $script:IncompatibleClients = @($OldDump)
+    Clear-Content $TracePath
+    & $Updater -AppDir $Target
+    $Commands = [IO.File]::ReadAllText($TracePath)
+    $OldProbe = $Commands.IndexOf('--check-client ' + $OldDump)
+    $NewProbe = $Commands.IndexOf('--check-client ' + $CustomDump)
+    if ($OldProbe -lt 0 -or $NewProbe -le $OldProbe -or -not $Commands.Contains('scripts/backup-db.mjs ' + $CustomDump + ' ')) { throw 'An incompatible PATH client prevented selecting the compatible service client' }
+    $script:FailAllClientProbes = $true
+    Clear-Content $TracePath
+    $Failed = $false
+    try { & $Updater -AppDir $Target } catch { $Failed = $_.Exception.Message.Contains('No usable pg_dump.exe') }
+    $Commands = [IO.File]::ReadAllText($TracePath)
+    if (-not $Failed -or $Commands.Contains('npx prisma db push') -or $Commands.Contains('npm start')) { throw 'Upgrade continued without a compatible backup client' }
+} finally {
+    $env:OFFICEHUB_PG_DUMP = $OriginalDumpOverride
+    $script:PostgresServicePath = $null
+    $script:MockPgDumpLookup = $false
+    $script:PathPgDump = $null
+    $script:IncompatibleClients = @()
+    $script:FailAllClientProbes = $false
+}
+'PASS updater: finds pg_dump beside the PostgreSQL service in a custom drive/path with spaces'
+'PASS updater: skips an incompatible PATH client; stops before schema or startup if no candidate works'
 # Genuine settings must be rejected even if the file also has the known comment
 # artifact. Comparison is case-sensitive, and string values are never repaired.
 $CleanConfig = [IO.File]::ReadAllText((Join-Path $Target 'next.config.ts'))
