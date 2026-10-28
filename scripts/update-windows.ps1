@@ -19,6 +19,18 @@ function Write-Utf8 {
     param([string]$Path, [string]$Content)
     [System.IO.File]::WriteAllText($Path, $Content, (New-Object System.Text.UTF8Encoding($false)))
 }
+function Normalize-ConfigForComparison {
+    param([string]$Content)
+    # Windows PowerShell 5.1 Get-Content can decode a UTF-8 dash as Windows-1252
+    # before WriteAllText saves it again. Repair that known artifact only in
+    # full-line comments. Never normalize application setting/string values.
+    $BrokenDash = ([string][char]0x00E2) + ([string][char]0x20AC) + ([string][char]0x201D)
+    $Dash = [string][char]0x2014
+    $Lines = foreach ($Line in $Content.Replace("`r`n", "`n").Split("`n")) {
+        if ($Line.TrimStart().StartsWith("//")) { $Line.Replace($BrokenDash, $Dash) } else { $Line }
+    }
+    return ($Lines -join "`n").Trim()
+}
 try {
     Set-Location -LiteralPath $AppDir
     if (-not (Test-Path .\package.json) -or -not (Test-Path .\.git) -or -not (Test-Path .\.env)) {
@@ -57,8 +69,11 @@ try {
         $HeadConfig = [System.Text.Encoding]::UTF8.GetString([Convert]::FromBase64String(([string]$HeadBase64).Trim()))
         $LocalConfig = [System.IO.File]::ReadAllText((Join-Path $AppDir "next.config.ts"))
         $ExpectedConfig = $HeadConfig.Replace('process.env.NODE_ENV === "production" ?', 'process.env.NODE_ENV === "production" && process.platform !== "win32" ?')
-        if ($LocalConfig.Replace("`r`n", "`n").Trim() -ne $ExpectedConfig.Trim()) { throw "next.config.ts has custom edits. Review them before updating; no custom configuration was replaced." }
-        Copy-Item -LiteralPath .\next.config.ts -Destination (Join-Path $BackupDir "next.config.ts")
+        $ConfigBackup = Join-Path $BackupDir "next.config.ts"
+        Copy-Item -LiteralPath .\next.config.ts -Destination $ConfigBackup
+        if ((Normalize-ConfigForComparison $LocalConfig) -cne (Normalize-ConfigForComparison $ExpectedConfig)) {
+            throw "next.config.ts has custom edits. Your file is preserved at $ConfigBackup. Run git.exe diff HEAD -- next.config.ts to review them; no custom configuration was replaced."
+        }
         Run-Checked "git.exe" @("restore", "--source=HEAD", "--staged", "--worktree", "--", "next.config.ts")
     }
     Write-Host "Updating from GopalGB/officehub main. Backups: $BackupDir"

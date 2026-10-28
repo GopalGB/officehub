@@ -329,4 +329,5 @@ and deployment instructions. Use theme tokens for new controls and keep text con
 - Retail dates use `src/lib/fiscal.ts`: Sunday nearest February 1, 4-5-4, extra week in P12. Custom year overrides are supported.
 - Public `/request/[token]` pages validate unguessable expiring/revocable links without granting workspace access. Re-check manager active state and role at submission. Manager decisions are transactional and version-checked. No outbound messaging occurs.
 - Windows updates use `scripts/update-windows.ps1`. Preserve the no-admin workflow: no execution-policy, firewall, service, PATH, certificate-store, or PostgreSQL-server changes; no schema data-loss flags; a database backup precedes schema application.
+- The Windows config guard recognizes the earlier standalone adjustment plus the known PowerShell 5.1 UTF-8 dash corruption in full-line comments. Preserve the original file in backups; compare actual setting names and values case-sensitively. Do not normalize string literals or discard other custom settings to make an update proceed.
 - Keep the logo wrapper transparent. The root `logo.png` is local deployment content and ignored by Git.
