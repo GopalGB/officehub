@@ -1,3 +1,4 @@
+import { assignablePeopleWhere } from "@/lib/project-people";
 import { notFound, redirect } from "next/navigation";
 import type { Block } from "@blocknote/core";
 import { auth } from "../../../../../../auth";
@@ -38,7 +39,7 @@ export default async function EditProjectPage({
 
   const [people, projects] = await Promise.all([
     db.user.findMany({
-      where: { active: true },
+      where: assignablePeopleWhere,
       select: { id: true, name: true },
       orderBy: { name: "asc" },
     }),

@@ -1,3 +1,6 @@
+import { assignablePeopleWhere } from "@/lib/project-people";
+import { requestDetailsSelect } from "@/lib/request-details";
+import { RequestContext } from "@/components/requests/RequestContext";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Block } from "@blocknote/core";
@@ -108,6 +111,7 @@ export default async function ProjectDetailPage({
           orderBy: { createdAt: "desc" },
           take: 30,
         },
+        requests: { select: requestDetailsSelect, orderBy: { createdAt: "desc" } },
         enhancements: {
           include: { author: { select: { id: true, name: true } } },
           orderBy: { createdAt: "desc" },
@@ -128,7 +132,7 @@ export default async function ProjectDetailPage({
     }),
     db.tag.findMany({ orderBy: { name: "asc" } }),
     db.user.findMany({
-      where: { active: true },
+      where: assignablePeopleWhere,
       select: { id: true, name: true },
       orderBy: { name: "asc" },
     }),
@@ -322,6 +326,7 @@ export default async function ProjectDetailPage({
       </nav>
       {tab === "overview" && (
         <>
+          {project.requests.map((request) => <RequestContext key={request.id} request={request} />)}
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {[
               ["Delivery deadline", formatDate(project.targetDate)],
@@ -423,7 +428,7 @@ export default async function ProjectDetailPage({
                 projectId={project.id}
                 ownerName={project.owner.name}
                 allUsers={members.filter((m) => m.id !== project.ownerId)}
-                selectedIds={memberIds}
+                selectedIds={memberIds.filter((id) => members.some((person) => person.id === id))}
                 canEdit={
                   project.ownerId === session.user.id ||
                   isManagerOrAbove(session.user.role)

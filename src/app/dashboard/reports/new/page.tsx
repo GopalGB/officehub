@@ -1,3 +1,4 @@
+import { assignablePeopleWhere } from "@/lib/project-people";
 import { auth } from "../../../../../auth";
 import { db } from "@/lib/db";
 import { projectAccessWhere } from "@/lib/rbac";
@@ -14,7 +15,7 @@ export default async function NewReport() {
       orderBy: { title: "asc" },
     }),
     db.user.findMany({
-      where: { active: true },
+      where: assignablePeopleWhere,
       select: { id: true, name: true },
       orderBy: { name: "asc" },
     }),

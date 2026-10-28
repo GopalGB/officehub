@@ -1,3 +1,4 @@
+import { assignablePeopleWhere } from "@/lib/project-people";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { auth } from "../../../../../auth";
@@ -33,7 +34,7 @@ export default async function ReportPage({
   const permissions = taskPermissions(session.user, report);
   const canEdit = permissions.canEdit;
   const people = await db.user.findMany({
-    where: { active: true },
+    where: assignablePeopleWhere,
     select: { id: true, name: true },
     orderBy: { name: "asc" },
   });

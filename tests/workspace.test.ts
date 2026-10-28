@@ -35,9 +35,9 @@ void test("NRF year boundaries and week 53 follow 4-5-4 retail dates", () => {
   }
 });
 void test("custom fiscal alignment overrides NRF for dates around new year", () => {
-  const config = [{ year: 2026, startDate: new Date("2026-02-08"), weeks: 52 }];
-  assert.equal(dateKey(fiscalWeeks(2026, config)[0].start), "2026-02-08");
-  assert.equal(fiscalPeriod(new Date("2026-02-08"), config)?.week, 1);
+  const config = [{ year: 2030, startDate: new Date("2030-02-10"), weeks: 52 }];
+  assert.equal(dateKey(fiscalWeeks(2030, config)[0].start), "2030-02-10");
+  assert.equal(fiscalPeriod(new Date("2030-02-10"), config)?.week, 1);
   assert.equal(dateKey(weekStart(new Date("2026-10-28"))), "2026-10-25");
 });
 function plan(overrides: PlanWithDays["overrides"] = []): PlanWithDays {

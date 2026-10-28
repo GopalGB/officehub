@@ -1,6 +1,7 @@
 "use client";
 import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
+import { useToast } from "@/components/ui/toast";
 export function ActionForm({
   action,
   children,
@@ -17,6 +18,7 @@ export function ActionForm({
   const [pending, start] = useTransition();
   const [error, setError] = useState("");
   const [saved, setSaved] = useState(false);
+  const { toast } = useToast();
   return (
     <form
       className={className}
@@ -27,12 +29,14 @@ export function ActionForm({
           try {
             await action(fd);
             setSaved(true);
+            if (successMessage) toast(successMessage, "success");
           } catch (cause) {
-            setError(
+            const message =
               cause instanceof Error
                 ? cause.message
-                : "Could not save. Please try again.",
-            );
+                : "Could not save. Please try again.";
+            setError(message);
+            toast(message, "error");
           }
         })
       }

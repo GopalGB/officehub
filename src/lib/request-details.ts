@@ -1,0 +1,31 @@
+import type { Prisma } from "@prisma/client";
+
+// Never load attachment bytes into page props, project history, or audit logs.
+export const requestDetailsSelect = {
+  id: true,
+  linkId: true,
+  submitterName: true,
+  submitterEmail: true,
+  managerName: true,
+  department: true,
+  title: true,
+  description: true,
+  projectType: true,
+  existingProject: true,
+  estimatedHours: true,
+  savedHours: true,
+  requestedDate: true,
+  priority: true,
+  status: true,
+  managerNotes: true,
+  sopLocation: true,
+  requiredFilesLocation: true,
+  sopFileName: true,
+  sopFileSize: true,
+  sopFileType: true,
+  sopFileSha256: true,
+  projectId: true,
+  version: true,
+  createdAt: true,
+  updatedAt: true,
+} satisfies Prisma.ProjectRequestSelect;

@@ -1,3 +1,4 @@
+import { assignablePeopleWhere } from "@/lib/project-people";
 import {
   weekStart,
   addDays,
@@ -92,7 +93,7 @@ export default async function ManagerPage({
       take: 200,
     }),
     db.user.findMany({
-      where: { active: true },
+      where: assignablePeopleWhere,
       select: { id: true, name: true },
       orderBy: { name: "asc" },
     }),
@@ -119,7 +120,7 @@ export default async function ManagerPage({
   const [people, plans, activeProjects, openReports, pendingRequests, configs] =
     await Promise.all([
       db.user.findMany({
-        where: { active: true },
+        where: assignablePeopleWhere,
         select: { id: true, name: true, role: true },
         orderBy: { name: "asc" },
       }),

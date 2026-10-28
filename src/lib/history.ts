@@ -1,5 +1,6 @@
 import type { Prisma } from "@prisma/client";
 import type { Viewer } from "@/lib/rbac";
+import { assertAssignablePeople } from "@/lib/project-people";
 import {
   canEditProject,
   projectAccessWhere,
@@ -103,6 +104,19 @@ export async function reviseProject(
     );
   if (expectedVersion !== undefined && before.version !== expectedVersion)
     throw new Error("This project changed elsewhere. Reload before saving.");
+  const rosterChanges = [data.members?.set, data.members?.connect].flatMap(
+    (value) => (value ? (Array.isArray(value) ? value : [value]) : []),
+  );
+  await assertAssignablePeople(
+    [
+      ...(ownerId !== before.ownerId ? [ownerId] : []),
+      ...(coOwnerId && coOwnerId !== before.coOwnerId ? [coOwnerId] : []),
+      ...rosterChanges.flatMap((person) =>
+        typeof person.id === "string" ? [person.id] : [],
+      ),
+    ],
+    tx,
+  );
   await saveProjectRevision(tx, projectId, actor, "Previous saved state");
   const status = typeof data.status === "string" ? data.status : before.status;
   const after = await tx.project.update({

@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { jsonError, jsonOk, requireApiAuth } from "@/lib/api";
 import { projectCreateSchema, ProjectStatusEnum } from "@/lib/validation";
 import { isManagerOrAbove, projectAccessWhere } from "@/lib/rbac";
+import { assertAssignablePeople } from "@/lib/project-people";
 
 export async function GET(req: Request) {
   const { user, response } = await requireApiAuth();
@@ -71,6 +72,19 @@ export async function POST(req: Request) {
     new Date(parsed.data.startDate) > new Date(parsed.data.targetDate)
   )
     return jsonError("VALIDATION", "Deadline must follow start date", 422);
+  const ownerId =
+    parsed.data.ownerId && isManagerOrAbove(user.role)
+      ? parsed.data.ownerId
+      : user.id;
+  try {
+    await assertAssignablePeople([ownerId]);
+  } catch {
+    return jsonError(
+      "VALIDATION",
+      "Choose an active team member as owner. Admin accounts cannot be allocated work.",
+      422,
+    );
+  }
   const project = await db.$transaction(async (tx) => {
     const created = await tx.project.create({
       data: {
@@ -88,10 +102,7 @@ export async function POST(req: Request) {
           : null,
         // Only manager+ may create a project owned by someone else; a MEMBER
         // passing ownerId previously forged ownership (OH-02).
-        ownerId:
-          parsed.data.ownerId && isManagerOrAbove(user.role)
-            ? parsed.data.ownerId
-            : user.id,
+        ownerId,
       },
     });
     await saveProjectRevision(

@@ -161,15 +161,29 @@ export function ProjectForm({
           <Select
             id="ownerId"
             name="ownerId"
-            defaultValue={initial?.ownerId ?? currentUserId}
+            defaultValue={
+              people.some((p) => p.id === (initial?.ownerId ?? currentUserId))
+                ? (initial?.ownerId ?? currentUserId)
+                : ""
+            }
             disabled={!canChangeOwner || !ownerSelectable}
+            required
           >
+            <option value="" disabled>
+              Choose a project owner
+            </option>
             {people.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.name}
               </option>
             ))}
           </Select>
+          {!people.length && (
+            <p className="text-xs text-muted-foreground">
+              Add a team member before allocating work. Admin accounts manage
+              the workspace.
+            </p>
+          )}
         </div>
         <div className="space-y-2">
           <Label htmlFor="coOwnerId">Sub-owner</Label>

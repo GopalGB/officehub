@@ -1,4 +1,26 @@
-/** NRF fiscal years start on the Sunday nearest February 1. Dates are UTC days. */
+/** Official company calendars take precedence; other years use NRF 4-5-4. */
+export const COMPANY_FISCAL_CALENDARS = [
+  { year: 2026, start: "2026-02-01", end: "2027-01-30", weeks: 52 },
+  { year: 2027, start: "2027-01-31", end: "2028-01-29", weeks: 52 },
+  { year: 2028, start: "2028-01-30", end: "2029-02-03", weeks: 53 },
+] as const;
+export const FISCAL_MONTH_NAMES = [
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
+  "January",
+] as const;
+export function companyFiscalCalendar(year: number) {
+  return COMPANY_FISCAL_CALENDARS.find((calendar) => calendar.year === year);
+}
 export const DAY = 86_400_000;
 export function dateKey(date: Date | string): string {
   return new Date(date).toISOString().slice(0, 10);
@@ -20,6 +42,9 @@ export function fiscalConfig(
   year: number,
   overrides: FiscalConfig[] = [],
 ): FiscalConfig {
+  const official = companyFiscalCalendar(year);
+  if (official)
+    return { year, startDate: new Date(official.start), weeks: official.weeks };
   return (
     overrides.find((c) => c.year === year) ?? {
       year,
