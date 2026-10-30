@@ -167,3 +167,20 @@ void test("XML coordinate limits cover single quotes, encoded references and imp
       /2,000 rows/,
     );
 });
+void test("worksheet paths with alternate extensions receive the same coordinate guard", async () => {
+  for (const sheetPath of [
+    "worksheets/sheet1.XML",
+    "alternate/worksheet.dat",
+  ]) {
+    await assert.rejects(
+      readProjectWorkbook(
+        workbookFile([], {
+          sheetPath,
+          sheetXml:
+            '<worksheet><sheetData><row r="1048576"/></sheetData></worksheet>',
+        }),
+      ),
+      /2,000 rows/,
+    );
+  }
+});

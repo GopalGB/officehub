@@ -9,7 +9,7 @@ const xml = (value: string) =>
 const strToU8 = (value: string) => new TextEncoder().encode(value);
 export function workbookFile(
   rows: string[][],
-  options: { sheetXml?: string; name?: string } = {},
+  options: { sheetXml?: string; name?: string; sheetPath?: string } = {},
 ) {
   const sheetXml =
     options.sheetXml ??
@@ -22,9 +22,9 @@ export function workbookFile(
       '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Projects" sheetId="1" r:id="rId1"/></sheets></workbook>',
     ),
     "xl/_rels/workbook.xml.rels": strToU8(
-      '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/></Relationships>',
+      `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="${xml(options.sheetPath ?? "worksheets/sheet1.xml")}"/></Relationships>`,
     ),
-    "xl/worksheets/sheet1.xml": strToU8(sheetXml),
+    ["xl/" + (options.sheetPath ?? "worksheets/sheet1.xml")]: strToU8(sheetXml),
   }) as Uint8Array; // Compatibility with fflate's TS 5.7+ generic typed arrays.
   return new File([new Uint8Array(buffer)], options.name ?? "sample.xlsx");
 }

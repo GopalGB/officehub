@@ -1,5 +1,5 @@
 import readExcelFile from "read-excel-file/universal";
-import { unzipSync, strFromU8 } from "fflate";
+import { unzipSync } from "fflate";
 import { SaxesParser } from "saxes";
 import { parseProjectSheet } from "@/lib/project-import";
 
@@ -31,12 +31,12 @@ export async function readProjectWorkbook(file: File) {
     },
   });
   // fflate 0.8.3 declares generic Uint8Arrays (TS 5.7+); this repo uses TS 5.6.
-  const xmlParts = unzipSync(buffer, {
-    filter: (entry) => entry.name.endsWith(".xml"),
-  }) as Record<string, Uint8Array>;
+  const parts = unzipSync(buffer) as Record<string, Uint8Array>;
   let declaredSheets = 0;
-  for (const bytes of Object.values(xmlParts)) {
-    const xml = strFromU8(bytes);
+  for (const bytes of Object.values(parts)) {
+    // Relationships can name XML content with any extension. Inspect its bytes.
+    const xml = new TextDecoder().decode(bytes);
+    if (!xml.trimStart().startsWith("<")) continue;
     let rowCount = 0,
       cellCount = 0;
     const parser = new SaxesParser({ xmlns: false });
