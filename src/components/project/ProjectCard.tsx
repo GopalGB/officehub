@@ -7,6 +7,7 @@ import { TagPills } from "./TagPills";
 import { FavoriteButton } from "./FavoriteButton";
 import { formatDate, isOverdueDate } from "@/lib/utils";
 
+/** Summarize status, ownership, and deadline while retaining a link to full detail. */
 export function ProjectCard({
   project,
   isFavorite = false,

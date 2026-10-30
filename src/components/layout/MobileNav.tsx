@@ -20,6 +20,7 @@ import { cn } from "@/lib/utils";
 import { isAdmin, isManagerOrAbove } from "@/lib/rbac";
 import type { Role } from "@prisma/client";
 
+/** Mirror the role-filtered workspace destinations in the mobile drawer. */
 export function MobileNav({ role }: { role: Role }) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();

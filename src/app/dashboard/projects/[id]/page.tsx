@@ -52,6 +52,7 @@ import {
 } from "@/lib/rbac";
 import { formatDate, timeAgo } from "@/lib/utils";
 
+/** Present three project sections while preserving legacy tab and enhancement links. */
 export default async function ProjectDetailPage({
   params,
   searchParams,

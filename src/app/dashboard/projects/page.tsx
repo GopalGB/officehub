@@ -5,6 +5,7 @@ import { projectAccessWhere, isManagerOrAbove } from "@/lib/rbac";
 import { ProjectStatusEnum } from "@/lib/validation";
 import { ProjectCard } from "@/components/project/ProjectCard";
 import { Button } from "@/components/ui/button";
+/** Authorize and paginate the Cards view, with manager import available at this entrypoint. */
 export default async function ProjectsPage({
   searchParams,
 }: {

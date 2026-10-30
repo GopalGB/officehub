@@ -17,6 +17,7 @@ import {
   Calendar,
 } from "lucide-react";
 
+/** Keep primary destinations short; project views and import live within Projects. */
 export function Sidebar({ role }: { role: Role }) {
   const pathname = usePathname();
   type NavItem = {

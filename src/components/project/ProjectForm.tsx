@@ -58,6 +58,7 @@ function toInputDate(d: Date | null | undefined) {
   return date.toISOString().slice(0, 10);
 }
 
+/** Submit basics and collapsed metadata together, revealing fields that need correction. */
 export function ProjectForm({
   action,
   initial,

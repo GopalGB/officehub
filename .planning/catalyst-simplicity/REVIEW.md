@@ -17,4 +17,7 @@
 - GitHub dependency review cannot run because this repository does not support
   it without Dependency graph enabled. No repository setting was changed; this
   patch changes no dependencies. Build, strict checks, CodeQL, and gitleaks passed.
-  CodeRabbit findings and their resolution are tracked in PR #10.
+  CodeRabbit reviewed the final functional tree with no actionable findings and
+  minimal merge risk. Its docstring-coverage warning was addressed with concise
+  comments on the touched project and navigation entrypoints. No inline review
+  threads or outside-diff findings remained.
