@@ -28,9 +28,13 @@ You are working on **OfficeHub** — a self-hosted Notion+Jira hybrid for office
 10. **No raw `JSON.parse`** — use the `parseJSON` helper.
 
 ### Design
-- **Pure white theme.** Body bg = `bg-white`. Black appears only as text, thin borders, small icon fills, and priority indicator bars.
-- No `bg-slate-900` / `bg-black` as primary fills. State emphasis = bordered + bold + underline, not color.
-- Tailwind `dark:` variants exist in the codebase but are dead code (no `.dark` class is ever set). Don't add new `dark:` variants — pure white only.
+- Use the light Catalyst theme in `docs/BRANDING.md`: navy actions, orange focus
+  and selection, blue informational accents, white cards on a quiet background.
+- Prefer shared theme tokens and semantic status colors with readable labels.
+  Dark mode is disabled; do not add dead `dark:` variants or a theme picker.
+- Keep optional project detail in disclosures and the three primary sections
+  Overview / Work / History. Preserve legacy deep links and submitted form values.
+- Root `logo.png` must render on a transparent wrapper, with no colored backdrop.
 
 ### Security
 - `.env`, `*.pem`, `*.key`, `credentials.json` are blocked by the pre-push hook and CI. Don't try to commit them.

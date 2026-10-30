@@ -11,14 +11,13 @@ import {
   LayoutDashboard,
   Users2,
   Settings,
-  Columns3,
   BarChart3,
   CheckSquare,
   BookOpen,
   Calendar,
-  FileSpreadsheet,
 } from "lucide-react";
 
+/** Keep primary destinations short; project views and import live within Projects. */
 export function Sidebar({ role }: { role: Role }) {
   const pathname = usePathname();
   type NavItem = {
@@ -51,21 +50,9 @@ export function Sidebar({ role }: { role: Role }) {
           show: true,
         },
         {
-          href: "/dashboard/projects/import",
-          label: "Import Excel",
-          icon: FileSpreadsheet,
-          show: isManagerOrAbove(role),
-        },
-        {
           href: "/dashboard/planner",
           label: "My week",
           icon: Calendar,
-          show: true,
-        },
-        {
-          href: "/dashboard/board",
-          label: "Project board",
-          icon: Columns3,
           show: true,
         },
         {
@@ -147,6 +134,8 @@ export function Sidebar({ role }: { role: Role }) {
                   const active = l.exact
                     ? pathname === l.href
                     : (pathname === l.href ||
+                        (l.href === "/dashboard/projects" &&
+                          pathname === "/dashboard/board") ||
                         pathname.startsWith(l.href + "/")) &&
                       !visible.some(
                         (other) =>
@@ -159,6 +148,7 @@ export function Sidebar({ role }: { role: Role }) {
                     <Link
                       key={l.href}
                       href={l.href}
+                      aria-current={active ? "page" : undefined}
                       className={cn(
                         "flex items-center gap-2 rounded-md px-2.5 py-1.5 text-sm transition-colors",
                         active

@@ -71,8 +71,7 @@ export function ProjectJourney({
         <div>
           <h2 className="section-title">Project timeline</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Original delivery and every requested change, on one timeline.
-            Changes can overlap the original work or follow delivery.
+            Delivery and changes, at a glance.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -85,35 +84,16 @@ export function ProjectJourney({
             <RotateCcw className="h-3.5 w-3.5" />
             Replay
           </button>
-          <div className="flex rounded-lg border bg-secondary p-1 text-xs">
-            {["all", "active", "completed"].map((f) => (
-              <button
-                key={f}
-                type="button"
-                aria-pressed={filter === f}
-                onClick={() => setFilter(f)}
-                className={cn(
-                  "rounded-md px-3 py-1.5 capitalize",
-                  filter === f && "bg-card font-semibold shadow-sm",
-                )}
-              >
-                {f === "all" ? "All stages" : f}
-              </button>
-            ))}
-          </div>
         </div>
       </div>
       <section
-        className="min-w-0 rounded-xl border bg-secondary/30 p-4"
+        className="min-w-0 rounded-xl bg-secondary/40 p-4"
         aria-label="Project delivery progress"
       >
         <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
           <p className="font-semibold">
             {completed} of {stages.length} stages completed
           </p>
-          <span className="text-xs text-muted-foreground">
-            Original delivery → requested changes
-          </span>
         </div>
         <div
           className="mt-3 h-1.5 overflow-hidden rounded-full bg-secondary"
@@ -140,7 +120,14 @@ export function ProjectJourney({
             {ordered.map((stage, index) => (
               <li
                 key={stage.id}
-                className="journey-stage w-44 shrink-0 rounded-lg border bg-card p-3"
+                className={cn(
+                  "journey-stage w-44 shrink-0 rounded-lg border border-t-2 bg-card p-3",
+                  complete(stage.status)
+                    ? "border-t-brand-navy"
+                    : isActiveStage(stage.status)
+                      ? "border-t-brand-orange"
+                      : "border-t-border",
+                )}
                 style={{ animationDelay: `${Math.min(index * 60, 480)}ms` }}
               >
                 <div className="flex items-center gap-2 text-xs font-medium">
@@ -188,155 +175,173 @@ export function ProjectJourney({
             ))}
           </ol>
         </div>
-        <p className="mt-2 text-[10px] text-muted-foreground">
-          Stages show the original work and its recorded changes. The schedule
-          below uses the dates you enter; undated stages stay unscheduled.
-        </p>
       </section>
-      {controls}
-      <p className="text-xs text-muted-foreground">
-        {stages.filter((stage) => stage.kind === "Enhancement").length} changes
-        / enhancements ·{" "}
-        {stages.filter((stage) => complete(stage.status)).length} completed
-        stages
-      </p>
-      {!dates.length && (
-        <p className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
-          {stages.some((stage) => stage.scheduled && stage.invalidRange)
-            ? "Scheduled dates need correction. Check the start and end dates below."
-            : "No dates scheduled yet. Add the project start and deadline, or add a dated change, to plot its duration."}
-        </p>
-      )}
-      <p className="text-xs text-muted-foreground sm:hidden">
-        Scroll the timeline horizontally to see all dates.
-      </p>
-      <div
-        className="max-w-full overflow-x-auto pb-2"
-        aria-label="Project timeline schedule"
-      >
-        <div key={`${filter}:${replay}`} className="min-w-[600px]">
-          <div className="ml-52 flex justify-between border-b pb-2 text-[10px] text-muted-foreground">
-            {dates.length > 0 &&
-              Array.from({ length: 5 }, (_, i) => (
-                <span key={i}>
-                  {formatDate(new Date(min + (span * i) / 4))}
-                </span>
-              ))}
-          </div>
-          {visible.map((s, index) => (
-            <div
-              key={s.id}
-              className="journey-stage grid grid-cols-[208px_minmax(0,1fr)] items-center border-b border-border/60 py-4"
-              style={{ animationDelay: `${Math.min(index * 45, 360)}ms` }}
-            >
-              <div className="min-w-0 pr-4">
-                <p className="truncate text-sm font-medium" title={s.title}>
-                  {s.href ? (
-                    <Link className="text-link" href={s.href}>
-                      {s.title}
-                    </Link>
-                  ) : (
-                    s.title
+      <details className="disclosure">
+        <summary>View dated timeline</summary>
+        <div className="disclosure-body">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-xs text-muted-foreground">
+              Dates you enter define the schedule. Undated stages stay
+              unscheduled.
+            </p>
+            <div className="flex rounded-lg border bg-secondary p-1 text-xs">
+              {["all", "active", "completed"].map((f) => (
+                <button
+                  key={f}
+                  type="button"
+                  aria-pressed={filter === f}
+                  onClick={() => setFilter(f)}
+                  className={cn(
+                    "rounded-md px-3 py-1.5 capitalize",
+                    filter === f &&
+                      "bg-brand-navy font-semibold text-white shadow-sm",
                   )}
-                </p>
-                <p className="mt-1 text-[10px] text-muted-foreground">
-                  {s.kind} · {s.status.toLowerCase().replaceAll("_", " ")}
-                </p>
-              </div>
-              <div className="min-w-0">
-                <div
-                  className="relative h-8 overflow-hidden rounded-md bg-secondary/70"
-                  title={
-                    s.scheduled
-                      ? `${s.title}: ${formatDate(s.start)} to ${formatDate(s.end)}`
-                      : `${s.title}: dates not scheduled`
-                  }
                 >
-                  {s.scheduled && today >= 0 && today <= 100 && (
-                    <span
-                      className="absolute inset-y-0 z-10 border-l-2 border-dashed border-brand-orange/50"
-                      style={{ left: `${today}%` }}
-                    />
-                  )}
-                  {!s.scheduled || s.invalidRange ? (
-                    <span className="absolute inset-1 flex items-center justify-center rounded border border-dashed text-[10px] text-muted-foreground">
-                      {s.invalidRange
-                        ? "Check start and end dates"
-                        : "Not scheduled"}
-                    </span>
-                  ) : (
-                    <span
-                      className={cn(
-                        "journey-draw absolute top-1 h-6 rounded-md",
-                        complete(s.status)
-                          ? "bg-brand-navy"
-                          : ["REJECTED", "ARCHIVED"].includes(s.status)
-                            ? "bg-muted-foreground"
-                            : s.kind === "Original delivery"
-                              ? "bg-brand-navy"
-                              : "bg-brand-orange",
-                      )}
-                      style={{
-                        ...barStyle(s),
-                        animationDelay: `${Math.min(index * 45, 360)}ms`,
-                      }}
-                    />
-                  )}
-                </div>
-                <p className="mt-1.5 text-[10px] text-muted-foreground">
-                  {s.scheduled
-                    ? s.hasStart && s.hasEnd
-                      ? `${formatDate(s.start)} → ${formatDate(s.end)}`
-                      : s.hasStart
-                        ? `Starts ${formatDate(s.start)} · deadline not set`
-                        : `${s.endLabel} ${formatDate(s.end)} · start not set`
-                    : `Logged ${formatDate(s.loggedAt)} · dates not scheduled`}
-                  {s.scheduled &&
-                    ` · ${fiscalLabel(new Date(s.start), fiscalConfigs)}`}
-                </p>
-              </div>
+                  {f === "all" ? "All stages" : f}
+                </button>
+              ))}
             </div>
-          ))}
-          {!visible.length && (
-            <p className="py-8 text-center text-sm text-muted-foreground">
-              No stages match this view.
+          </div>
+          {!dates.length && (
+            <p className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
+              {stages.some((stage) => stage.scheduled && stage.invalidRange)
+                ? "Scheduled dates need correction. Check the start and end dates below."
+                : "No dates scheduled yet. Add the project start and deadline, or add a dated change, to plot its duration."}
             </p>
           )}
-          {!!milestones.length && (
-            <div className="grid grid-cols-[208px_1fr] py-4">
-              <p className="text-xs font-medium">Delivery milestones</p>
-              <div className="relative h-8">
-                {milestones.map((m) => (
-                  <span
-                    key={m.id}
-                    className="absolute top-0 text-lg"
-                    style={{ left: `${Math.min(97, position(m.date))}%` }}
-                    title={`${m.title} · ${formatDate(m.date)} · ${m.completed ? "Completed" : "Pending"}`}
-                    aria-label={`${m.title}, ${formatDate(m.date)}, ${m.completed ? "completed" : "pending"}`}
-                  >
-                    {m.completed ? "◆" : "◇"}
-                  </span>
-                ))}
+          <p className="text-xs text-muted-foreground sm:hidden">
+            Scroll the timeline horizontally to see all dates.
+          </p>
+          <div
+            className="max-w-full overflow-x-auto pb-2"
+            aria-label="Project timeline schedule"
+          >
+            <div key={`${filter}:${replay}`} className="min-w-[600px]">
+              <div className="ml-52 flex justify-between border-b pb-2 text-[10px] text-muted-foreground">
+                {dates.length > 0 &&
+                  Array.from({ length: 5 }, (_, i) => (
+                    <span key={i}>
+                      {formatDate(new Date(min + (span * i) / 4))}
+                    </span>
+                  ))}
               </div>
+              {visible.map((s, index) => (
+                <div
+                  key={s.id}
+                  className="journey-stage grid grid-cols-[208px_minmax(0,1fr)] items-center border-b border-border/60 py-4"
+                  style={{ animationDelay: `${Math.min(index * 45, 360)}ms` }}
+                >
+                  <div className="min-w-0 pr-4">
+                    <p className="truncate text-sm font-medium" title={s.title}>
+                      {s.href ? (
+                        <Link className="text-link" href={s.href}>
+                          {s.title}
+                        </Link>
+                      ) : (
+                        s.title
+                      )}
+                    </p>
+                    <p className="mt-1 text-[10px] text-muted-foreground">
+                      {s.kind} · {s.status.toLowerCase().replaceAll("_", " ")}
+                    </p>
+                  </div>
+                  <div className="min-w-0">
+                    <div
+                      className="relative h-8 overflow-hidden rounded-md bg-secondary/70"
+                      title={
+                        s.scheduled
+                          ? `${s.title}: ${formatDate(s.start)} to ${formatDate(s.end)}`
+                          : `${s.title}: dates not scheduled`
+                      }
+                    >
+                      {s.scheduled && today >= 0 && today <= 100 && (
+                        <span
+                          className="absolute inset-y-0 z-10 border-l-2 border-dashed border-brand-orange/50"
+                          style={{ left: `${today}%` }}
+                        />
+                      )}
+                      {!s.scheduled || s.invalidRange ? (
+                        <span className="absolute inset-1 flex items-center justify-center rounded border border-dashed text-[10px] text-muted-foreground">
+                          {s.invalidRange
+                            ? "Check start and end dates"
+                            : "Not scheduled"}
+                        </span>
+                      ) : (
+                        <span
+                          className={cn(
+                            "journey-draw absolute top-1 h-6 rounded-md",
+                            complete(s.status)
+                              ? "bg-brand-navy"
+                              : ["REJECTED", "ARCHIVED"].includes(s.status)
+                                ? "bg-muted-foreground"
+                                : s.kind === "Original delivery"
+                                  ? "bg-brand-navy"
+                                  : "bg-brand-orange",
+                          )}
+                          style={{
+                            ...barStyle(s),
+                            animationDelay: `${Math.min(index * 45, 360)}ms`,
+                          }}
+                        />
+                      )}
+                    </div>
+                    <p className="mt-1.5 text-[10px] text-muted-foreground">
+                      {s.scheduled
+                        ? s.hasStart && s.hasEnd
+                          ? `${formatDate(s.start)} → ${formatDate(s.end)}`
+                          : s.hasStart
+                            ? `Starts ${formatDate(s.start)} · deadline not set`
+                            : `${s.endLabel} ${formatDate(s.end)} · start not set`
+                        : `Logged ${formatDate(s.loggedAt)} · dates not scheduled`}
+                      {s.scheduled &&
+                        ` · ${fiscalLabel(new Date(s.start), fiscalConfigs)}`}
+                    </p>
+                  </div>
+                </div>
+              ))}
+              {!visible.length && (
+                <p className="py-8 text-center text-sm text-muted-foreground">
+                  No stages match this view.
+                </p>
+              )}
+              {!!milestones.length && (
+                <div className="grid grid-cols-[208px_1fr] py-4">
+                  <p className="text-xs font-medium">Delivery milestones</p>
+                  <div className="relative h-8">
+                    {milestones.map((m) => (
+                      <span
+                        key={m.id}
+                        className="absolute top-0 text-lg"
+                        style={{ left: `${Math.min(97, position(m.date))}%` }}
+                        title={`${m.title} · ${formatDate(m.date)} · ${m.completed ? "Completed" : "Pending"}`}
+                        aria-label={`${m.title}, ${formatDate(m.date)}, ${m.completed ? "completed" : "pending"}`}
+                      >
+                        {m.completed ? "◆" : "◇"}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
-          )}
+          </div>
+          <div className="flex flex-wrap gap-4 text-[11px] text-muted-foreground">
+            <span className="inline-flex items-center gap-1.5">
+              <i className="h-2 w-2 rounded-full bg-brand-navy" />
+              Original delivery
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <i className="h-2 w-2 rounded-full bg-brand-orange" />
+              Enhancement
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <i className="h-2 w-2 rounded-full bg-brand-navy" />
+              Completed
+            </span>
+            <span>┊ Today</span>
+          </div>
         </div>
-      </div>
-      <div className="flex flex-wrap gap-4 text-[11px] text-muted-foreground">
-        <span className="inline-flex items-center gap-1.5">
-          <i className="h-2 w-2 rounded-full bg-brand-navy" />
-          Original delivery
-        </span>
-        <span className="inline-flex items-center gap-1.5">
-          <i className="h-2 w-2 rounded-full bg-brand-orange" />
-          Enhancement
-        </span>
-        <span className="inline-flex items-center gap-1.5">
-          <i className="h-2 w-2 rounded-full bg-brand-navy" />
-          Completed
-        </span>
-        <span>┊ Today</span>
-      </div>
+      </details>
+      {controls}
     </div>
   );
 }

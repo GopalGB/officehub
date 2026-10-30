@@ -8,7 +8,6 @@ import { auth } from "../../../../../auth";
 import { db } from "@/lib/db";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   PriorityBadge,
   ProjectStatusBadge,
@@ -53,6 +52,7 @@ import {
 } from "@/lib/rbac";
 import { formatDate, timeAgo } from "@/lib/utils";
 
+/** Present three project sections while preserving legacy tab and enhancement links. */
 export default async function ProjectDetailPage({
   params,
   searchParams,
@@ -67,16 +67,15 @@ export default async function ProjectDetailPage({
     Number.isSafeInteger(pageNumber) && pageNumber > 0
       ? Math.min(10000, pageNumber)
       : 1;
-  const tab = [
-    "overview",
-    "details",
-    "reports",
-    "enhancements",
-    "activity",
-    "history",
-  ].includes(requestedTab ?? "")
-    ? requestedTab
-    : "overview";
+  // Keep bookmarked sections and timeline change links working after consolidation.
+  const tab =
+    requestedTab === "history"
+      ? "history"
+      : ["work", "reports", "enhancements", "activity"].includes(
+            requestedTab ?? "",
+          )
+        ? "work"
+        : "overview";
   const session = await auth();
   if (!session?.user) return null;
 
@@ -257,127 +256,85 @@ export default async function ProjectDetailPage({
     })),
   ];
   return (
-    <div className="mx-auto min-w-0 max-w-6xl space-y-6">
+    <div className="mx-auto min-w-0 max-w-6xl space-y-5">
       <header className="space-y-4">
-        <p className="eyebrow">
-          <Link href="/dashboard/projects">Projects</Link> /{" "}
-          {project.projectType.replaceAll("_", " ").toLowerCase()} · Version{" "}
-          {project.version}
-        </p>
+        <Link className="text-link text-sm" href="/dashboard/projects">
+          ← Projects
+        </Link>
         <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="min-w-0 basis-full flex-1 space-y-1 sm:basis-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <h1 className="min-w-0 break-words text-2xl font-semibold tracking-tight">
-                {project.title}
-              </h1>
-              <ProjectStatusBadge status={project.status} />
-              <PriorityBadge priority={project.priority} />
-            </div>
+          <div className="min-w-0 basis-full flex-1 space-y-2 sm:basis-0">
+            <ProjectStatusBadge status={project.status} />
+            <h1 className="page-title min-w-0 break-words">{project.title}</h1>
             {project.summary && (
-              <p className="text-sm text-slate-500">{project.summary}</p>
+              <p className="max-w-3xl text-sm leading-relaxed text-muted-foreground">
+                {project.summary}
+              </p>
             )}
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            {(project.ownerId === session.user.id ||
-              isManagerOrAbove(session.user.role)) && (
-              <Button variant="outline" size="sm" asChild>
-                <Link
-                  href={`/dashboard/projects/${project.id}?tab=overview#project-team`}
-                >
-                  + Add member
-                </Link>
-              </Button>
-            )}
+          <div className="flex items-center gap-2">
             {canEdit && (
-              <Button asChild variant="outline" size="sm">
-                <Link href={`/dashboard/projects/${project.id}/edit`}>
-                  Edit
+              <Button asChild size="sm">
+                <Link href={`/dashboard/projects/${id}/edit`}>
+                  Edit project
                 </Link>
               </Button>
             )}
             {canDelete && (
-              <form action={archiveProject.bind(null, project.id)}>
-                <Button type="submit" variant="ghost" size="sm">
-                  Archive
-                </Button>
-              </form>
+              <details className="relative">
+                <summary className="cursor-pointer rounded-lg border bg-card px-3 py-2 text-sm">
+                  More
+                </summary>
+                <div className="absolute right-0 z-20 mt-2 w-44 rounded-xl border bg-card p-2 shadow-lg">
+                  <form action={archiveProject.bind(null, id)}>
+                    <Button
+                      type="submit"
+                      variant="ghost"
+                      size="sm"
+                      className="w-full justify-start"
+                    >
+                      Archive project
+                    </Button>
+                  </form>
+                </div>
+              </details>
             )}
           </div>
         </div>
-
-        <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-slate-500">
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-muted-foreground">
           <span className="flex items-center gap-2">
             <Avatar name={project.owner.name} className="h-6 w-6 text-[10px]" />
-            Owner:{" "}
-            <strong className="text-slate-700">{project.owner.name}</strong>
+            <span>
+              Owner ·{" "}
+              <strong className="text-foreground">{project.owner.name}</strong>
+            </span>
           </span>
-          <span>
-            Sub-owner:{" "}
-            <strong>{project.coOwner?.name ?? "Not assigned"}</strong>
+          {project.coOwner && <span>Sub-owner · {project.coOwner.name}</span>}
+          <span className="rounded-lg bg-brand-tint px-3 py-1.5 text-brand-navy">
+            Target · {formatDate(project.targetDate)}
           </span>
-          <span>Starts: {formatDate(project.startDate)}</span>
-          <span>Target: {formatDate(project.targetDate)}</span>
-          <span>Updated {timeAgo(project.updatedAt)}</span>
         </div>
       </header>
-
-      <nav
-        className="flex gap-1 overflow-x-auto border-b pb-1"
-        aria-label="Project sections"
-      >
+      <nav className="flex gap-1 border-b" aria-label="Project sections">
         {[
-          "overview",
-          "details",
-          "reports",
-          "enhancements",
-          "activity",
-          "history",
-        ].map((t) => (
+          ["overview", "Overview"],
+          ["work", "Work"],
+          ["history", "History"],
+        ].map(([value, label]) => (
           <Link
-            key={t}
-            href={`?tab=${t}`}
-            aria-current={tab === t ? "page" : undefined}
-            className={`shrink-0 rounded-t-lg px-4 py-3 text-sm capitalize ${tab === t ? "border-b-2 border-brand-orange bg-card font-semibold" : "text-muted-foreground hover:bg-secondary"}`}
+            key={value}
+            href={`?tab=${value}`}
+            aria-current={tab === value ? "page" : undefined}
+            className={`rounded-t-lg border-b-2 px-5 py-3 text-sm ${tab === value ? "border-brand-orange bg-brand-tint font-semibold text-brand-navy" : "border-transparent text-muted-foreground hover:bg-secondary"}`}
           >
-            {t}
+            {label}
           </Link>
         ))}
       </nav>
       {tab === "overview" && (
         <>
-          <section className="surface min-w-0 max-w-full">
+          <section className="surface min-w-0 max-w-full border-t-4 border-t-brand-orange">
             <ProjectJourney
-              key={`${project.id}:${project.enhancements.length}`}
-              controls={
-                canEdit ? (
-                  <>
-                    <p className="mt-4 text-xs text-muted-foreground">
-                      <Link
-                        className="text-link"
-                        href={`/dashboard/projects/${id}/edit#timeline-dates`}
-                      >
-                        Set or edit project dates
-                      </Link>{" "}
-                      · Add a change with its own start and deadline, during or
-                      after delivery.
-                    </p>
-                    <details className="mt-5 rounded-xl border bg-secondary/20 p-4">
-                      <summary className="cursor-pointer text-sm font-semibold">
-                        + Add change to timeline
-                      </summary>
-                      <div className="mt-4">
-                        <ActionForm
-                          action={addEnhancement.bind(null, project.id)}
-                          label="Add change"
-                          successMessage="Change added to the project timeline."
-                        >
-                          <EnhancementFields />
-                        </ActionForm>
-                      </div>
-                    </details>
-                  </>
-                ) : undefined
-              }
+              key={`${id}:${project.enhancements.length}`}
               stages={stages}
               fiscalConfigs={fiscalConfigs}
               milestones={project.milestones
@@ -388,60 +345,36 @@ export default async function ProjectDetailPage({
                   date: m.dueDate!.toISOString(),
                   completed: m.completed,
                 }))}
+              controls={
+                canEdit ? (
+                  <div className="space-y-3 border-t pt-4">
+                    <details className="disclosure">
+                      <summary>Add a change</summary>
+                      <div className="disclosure-body">
+                        <ActionForm
+                          action={addEnhancement.bind(null, id)}
+                          label="Add change"
+                          successMessage="Change added to the project timeline."
+                        >
+                          <EnhancementFields />
+                        </ActionForm>
+                      </div>
+                    </details>
+                    <Link
+                      className="text-link inline-block text-xs"
+                      href={`/dashboard/projects/${id}/edit#timeline-dates`}
+                    >
+                      Edit timeline dates
+                    </Link>
+                  </div>
+                ) : undefined
+              }
             />
           </section>
-          {project.requests.map((request) => (
-            <RequestContext key={request.id} request={request} />
-          ))}
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {[
-              ["Delivery deadline", formatDate(project.targetDate)],
-              [
-                "Fiscal deadline",
-                project.targetDate
-                  ? fiscalLabel(project.targetDate, fiscalConfigs)
-                  : "Not scheduled",
-              ],
-              [
-                "Estimated effort",
-                project.estimatedHours === null
-                  ? "Not estimated"
-                  : `${project.estimatedHours} hours`,
-              ],
-              [
-                "Expected time saved",
-                project.savedHours === null
-                  ? "Not estimated"
-                  : `${project.savedHours} hours / week`,
-              ],
-            ].map(([label, value]) => (
-              <div key={label} className="surface">
-                <p className="text-xs text-muted-foreground">{label}</p>
-                <p className="mt-2 text-sm font-semibold">{value}</p>
-              </div>
-            ))}
-          </div>
-          {source && (
-            <p className="text-sm text-muted-foreground">
-              Continues / enhances{" "}
-              <Link
-                className="text-link"
-                href={`/dashboard/projects/${source.id}`}
-              >
-                {source.title}
-              </Link>
-            </p>
-          )}
-
-          <section id="project-team" className="surface space-y-4 scroll-mt-24">
-            <div>
-              <h2 className="section-title">Project team</h2>
-              <p className="mt-1 text-xs text-muted-foreground">
-                Add another person using + Add member.
-              </p>
-            </div>
+          <section id="project-team" className="surface space-y-3 scroll-mt-24">
+            <h2 className="section-title">Project team</h2>
             <MembersPicker
-              projectId={project.id}
+              projectId={id}
               ownerName={project.owner.name}
               allUsers={members.filter(
                 (person) => person.id !== project.ownerId,
@@ -456,10 +389,50 @@ export default async function ProjectDetailPage({
               }
             />
           </section>
-          {!!additionalDetails.length && (
-            <section className="surface">
-              <h2 className="section-title">Additional details</h2>
-              <dl className="mt-4 grid gap-4 sm:grid-cols-2">
+          <details className="disclosure" open={requestedTab === "details"}>
+            <summary>Project details</summary>
+            <div className="disclosure-body">
+              <dl className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                {[
+                  [
+                    "Type",
+                    project.projectType.toLowerCase().replaceAll("_", " "),
+                  ],
+                  ["Starts", formatDate(project.startDate)],
+                  ["Completed", formatDate(project.actualEndDate)],
+                  [
+                    "Fiscal deadline",
+                    project.targetDate
+                      ? fiscalLabel(project.targetDate, fiscalConfigs)
+                      : "Not scheduled",
+                  ],
+                  [
+                    "Estimated effort",
+                    project.estimatedHours === null
+                      ? "Not estimated"
+                      : `${project.estimatedHours} hours`,
+                  ],
+                  [
+                    "Expected time saved",
+                    project.savedHours === null
+                      ? "Not estimated"
+                      : `${project.savedHours} hours / week`,
+                  ],
+                  ["Team", project.department || "—"],
+                  ["Sub-team", project.subTeam || "—"],
+                  ["Version", String(project.version)],
+                ].map(([label, value]) => (
+                  <div key={label}>
+                    <dt className="text-xs text-muted-foreground">{label}</dt>
+                    <dd className="mt-1 break-words text-sm">{value}</dd>
+                  </div>
+                ))}
+                <div>
+                  <dt className="text-xs text-muted-foreground">Priority</dt>
+                  <dd className="mt-1">
+                    <PriorityBadge priority={project.priority} />
+                  </dd>
+                </div>
                 {additionalDetails.map((field) => (
                   <div key={field.label} className="min-w-0">
                     <dt className="text-xs text-muted-foreground">
@@ -471,110 +444,62 @@ export default async function ProjectDetailPage({
                   </div>
                 ))}
               </dl>
-            </section>
-          )}
+              {source && (
+                <p className="text-sm">
+                  Continues / enhances{" "}
+                  <Link
+                    className="text-link"
+                    href={`/dashboard/projects/${source.id}`}
+                  >
+                    {source.title}
+                  </Link>
+                </p>
+              )}
+              {project.acceptanceCriteria && (
+                <div>
+                  <h3 className="section-title">Success criteria</h3>
+                  <p className="mt-2 whitespace-pre-wrap text-sm text-muted-foreground">
+                    {project.acceptanceCriteria}
+                  </p>
+                </div>
+              )}
+              <div>
+                <h3 className="mb-3 section-title">Description</h3>
+                <BlockReader
+                  content={(project.description as Block[] | null) ?? null}
+                />
+              </div>
+              <div>
+                <h3 className="mb-3 section-title">Tags</h3>
+                <TagPicker
+                  projectId={id}
+                  allTags={allTags}
+                  selectedIds={project.tags.map((t) => t.id)}
+                  canEdit={canEdit}
+                />
+              </div>
+              {project.requests.map((request) => (
+                <RequestContext key={request.id} request={request} />
+              ))}
+              <p className="text-xs text-muted-foreground">
+                Updated {timeAgo(project.updatedAt)}
+              </p>
+            </div>
+          </details>
+        </>
+      )}
+      {tab === "work" && (
+        <>
           <section className="surface space-y-4">
-            <h2 className="section-title">Delivery milestones</h2>
-            <MilestoneList
-              projectId={project.id}
-              items={project.milestones}
-              onAdd={addMilestone}
-              onToggle={toggleMilestone}
-              onDelete={deleteMilestone}
-              canManage={canEdit}
-            />
-          </section>
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="surface">
-              <h2 className="section-title">Success criteria</h2>
-              <p className="mt-3 whitespace-pre-wrap text-sm text-muted-foreground">
-                {project.acceptanceCriteria ||
-                  "Define what success looks like in project details."}
-              </p>
-            </div>
-            <div className="surface">
-              <h2 className="section-title">At a glance</h2>
-              <p className="mt-3 text-sm text-muted-foreground">
-                {project.tasks.filter((t) => t.status === "DONE").length} /{" "}
-                {project.tasks.length} reports delivered ·{" "}
-                {project.enhancements.filter((e) => e.status === "DONE").length}{" "}
-                / {project.enhancements.length} enhancements completed
-              </p>
-              <p className="mt-2 text-sm text-muted-foreground">
-                Original delivery completed: {formatDate(project.actualEndDate)}
-              </p>
-              {project.department && (
-                <p className="mt-2 text-sm">Team: {project.department}</p>
-              )}
-              {project.subTeam && (
-                <p className="mt-2 text-sm">Sub-team: {project.subTeam}</p>
-              )}
-            </div>
-          </div>
-        </>
-      )}
-      {tab === "details" && (
-        <>
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Members</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <MembersPicker
-                projectId={project.id}
-                ownerName={project.owner.name}
-                allUsers={members.filter((m) => m.id !== project.ownerId)}
-                selectedIds={memberIds}
-                existingMembers={project.members.filter(
-                  (person) => person.id !== project.ownerId,
-                )}
-                canEdit={
-                  project.ownerId === session.user.id ||
-                  isManagerOrAbove(session.user.role)
-                }
-              />
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Tags</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <TagPicker
-                projectId={project.id}
-                allTags={allTags}
-                selectedIds={project.tags.map((t) => t.id)}
-                canEdit={canEdit}
-              />
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Description</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <BlockReader
-                content={(project.description as Block[] | null) ?? null}
-              />
-            </CardContent>
-          </Card>
-        </>
-      )}
-      {tab === "reports" && (
-        <>
-          <section className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h2 className="text-base font-semibold">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h2 className="section-title">
                 Reports{" "}
-                <span className="text-xs font-normal text-slate-400">
-                  ({project.tasks.length})
+                <span className="ml-1 text-xs font-normal text-muted-foreground">
+                  {project.tasks.filter((t) => t.status === "DONE").length} /{" "}
+                  {project.tasks.length} complete
                 </span>
               </h2>
-              {canEdit && (
-                <TaskQuickAdd projectId={project.id} assignees={members} />
-              )}
+              {canEdit && <TaskQuickAdd projectId={id} assignees={members} />}
             </div>
             <TaskTable
               rows={project.tasks.map((task) => ({
@@ -586,49 +511,71 @@ export default async function ProjectDetailPage({
               canManage={canEdit}
             />
           </section>
+          <details
+            className="disclosure"
+            open={requestedTab === "enhancements"}
+          >
+            <summary>
+              Changes & enhancements · {project.enhancements.length}
+            </summary>
+            <div className="disclosure-body">
+              <EnhancementList
+                projectId={id}
+                items={project.enhancements}
+                onAdd={addEnhancement}
+                onUpdate={updateEnhancement}
+                onDelete={deleteEnhancement}
+                viewerId={session.user.id}
+                canManage={canEdit}
+              />
+            </div>
+          </details>
+          <details className="disclosure">
+            <summary>
+              Milestones ·{" "}
+              {project.milestones.filter((m) => m.completed).length} /{" "}
+              {project.milestones.length} complete
+            </summary>
+            <div className="disclosure-body">
+              <MilestoneList
+                projectId={id}
+                items={project.milestones}
+                onAdd={addMilestone}
+                onToggle={toggleMilestone}
+                onDelete={deleteMilestone}
+                canManage={canEdit}
+              />
+            </div>
+          </details>
+          <details className="disclosure" open={requestedTab === "activity"}>
+            <summary>Updates & discussion</summary>
+            <div className="disclosure-body">
+              <section className="space-y-3">
+                <h2 className="section-title">Status updates</h2>
+                <UpdateList
+                  updates={project.updates.map((u) => ({
+                    id: u.id,
+                    content: u.content as Block[] | null,
+                    createdAt: u.createdAt,
+                    author: u.author,
+                  }))}
+                  onAdd={addProjectUpdate.bind(null, id)}
+                />
+              </section>
+              <section className="space-y-3">
+                <h2 className="section-title">Comments</h2>
+                <CommentThread
+                  projectId={id}
+                  items={project.comments}
+                  viewerId={session.user.id}
+                  canManage={canEdit}
+                  onAdd={addComment}
+                  onDelete={deleteComment}
+                />
+              </section>
+            </div>
+          </details>
         </>
-      )}
-      {tab === "activity" && (
-        <>
-          <section className="space-y-2">
-            <h2 className="text-base font-semibold">Status updates</h2>
-            <UpdateList
-              updates={project.updates.map((u) => ({
-                id: u.id,
-                content: u.content as Block[] | null,
-                createdAt: u.createdAt,
-                author: u.author,
-              }))}
-              onAdd={addProjectUpdate.bind(null, project.id)}
-            />
-          </section>
-
-          <section className="space-y-2">
-            <h2 className="text-base font-semibold">Comments</h2>
-            <CommentThread
-              projectId={project.id}
-              items={project.comments}
-              viewerId={session.user.id}
-              canManage={canEdit}
-              onAdd={addComment}
-              onDelete={deleteComment}
-            />
-          </section>
-        </>
-      )}
-      {tab === "enhancements" && (
-        <section className="space-y-2">
-          <h2 className="text-base font-semibold">Enhancements</h2>
-          <EnhancementList
-            projectId={project.id}
-            items={project.enhancements}
-            onAdd={addEnhancement}
-            onUpdate={updateEnhancement}
-            onDelete={deleteEnhancement}
-            viewerId={session.user.id}
-            canManage={canEdit}
-          />
-        </section>
       )}
       {tab === "history" && (
         <ProjectHistory

@@ -58,6 +58,7 @@ function toInputDate(d: Date | null | undefined) {
   return date.toISOString().slice(0, 10);
 }
 
+/** Submit basics and collapsed metadata together, revealing fields that need correction. */
 export function ProjectForm({
   action,
   initial,
@@ -79,9 +80,25 @@ export function ProjectForm({
 
   return (
     <form
+      onInvalidCapture={(event) => {
+        // Native validation must be able to focus fields in a closed section.
+        const control = event.target;
+        if (control instanceof HTMLElement) {
+          let ancestor = control.parentElement;
+          while (ancestor) {
+            if (ancestor instanceof HTMLDetailsElement) ancestor.open = true;
+            ancestor = ancestor.parentElement;
+          }
+        }
+      }}
       onSubmit={(event) => {
         event.preventDefault();
-        const fd = new FormData(event.currentTarget);
+        const form = event.currentTarget;
+        const revealDetails = () =>
+          form.querySelectorAll("details").forEach((detail) => {
+            detail.open = true;
+          });
+        const fd = new FormData(form);
         start(async () => {
           setError(null);
           try {
@@ -91,6 +108,7 @@ export function ProjectForm({
                 JSON.parse(raw),
               );
               if (!checked.success) {
+                revealDetails();
                 setError(
                   checked.error.issues[0]?.message ??
                     "Check additional details",
@@ -100,6 +118,7 @@ export function ProjectForm({
             }
             await action(preserveCurrentAllocations(fd));
           } catch (cause) {
+            revealDetails();
             // Next handles successful action redirects before resolving this call.
             setError(
               cause instanceof Error ? cause.message : "Could not save project",
@@ -136,7 +155,7 @@ export function ProjectForm({
         />
       </div>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <div className="space-y-2">
           <Label htmlFor="status">Status</Label>
           <Select
@@ -165,7 +184,6 @@ export function ProjectForm({
             ))}
           </Select>
         </div>
-        <div />
       </div>
 
       <div
@@ -261,101 +279,119 @@ export function ProjectForm({
             </p>
           )}
         </div>
-        <div className="space-y-2">
-          <Label htmlFor="projectType">Type</Label>
-          <Select
-            id="projectType"
-            name="projectType"
-            defaultValue={initial?.projectType ?? "NEW_PROJECT"}
-          >
-            <option value="NEW_PROJECT">New project</option>
-            <option value="ENHANCEMENT">Enhancement</option>
-            <option value="SUPPORT">Support / maintenance</option>
-          </Select>
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="sourceProjectId">Enhances / follows project</Label>
-          <Select
-            id="sourceProjectId"
-            name="sourceProjectId"
-            defaultValue={initial?.sourceProjectId ?? ""}
-          >
-            <option value="">Standalone project</option>
-            {projects.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.title}
-              </option>
-            ))}
-          </Select>
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="estimatedHours">Estimated effort (hours)</Label>
-          <Input
-            id="estimatedHours"
-            name="estimatedHours"
-            type="number"
-            min="0"
-            max="100000"
-            step="0.25"
-            defaultValue={initial?.estimatedHours ?? ""}
-          />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="savedHours">Expected time saved (hours / week)</Label>
-          <Input
-            id="savedHours"
-            name="savedHours"
-            type="number"
-            min="0"
-            max="100000"
-            step="0.25"
-            defaultValue={initial?.savedHours ?? ""}
-          />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="department">Team / department</Label>
-          <Input
-            id="department"
-            name="department"
-            maxLength={100}
-            defaultValue={initial?.department ?? ""}
-          />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="subTeam">Sub-team</Label>
-          <Input
-            id="subTeam"
-            name="subTeam"
-            maxLength={100}
-            defaultValue={initial?.subTeam ?? ""}
-            placeholder="Optional"
-          />
-        </div>
-        <div className="space-y-2 md:col-span-2">
-          <Label htmlFor="acceptanceCriteria">
-            Success criteria / definition of done
-          </Label>
-          <Textarea
-            id="acceptanceCriteria"
-            name="acceptanceCriteria"
-            rows={3}
-            maxLength={5000}
-            defaultValue={initial?.acceptanceCriteria ?? ""}
-            placeholder="What needs to be delivered, checked, and accepted?"
-          />
-        </div>
       </div>
+      <details className="disclosure">
+        <summary>
+          More project details{" "}
+          <span className="ml-auto text-xs font-normal text-muted-foreground">
+            Optional
+          </span>
+        </summary>
+        <div className="disclosure-body">
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="projectType">Type</Label>
+              <Select
+                id="projectType"
+                name="projectType"
+                defaultValue={initial?.projectType ?? "NEW_PROJECT"}
+              >
+                <option value="NEW_PROJECT">New project</option>
+                <option value="ENHANCEMENT">Enhancement</option>
+                <option value="SUPPORT">Support / maintenance</option>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="sourceProjectId">
+                Enhances / follows project
+              </Label>
+              <Select
+                id="sourceProjectId"
+                name="sourceProjectId"
+                defaultValue={initial?.sourceProjectId ?? ""}
+              >
+                <option value="">Standalone project</option>
+                {projects.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.title}
+                  </option>
+                ))}
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="estimatedHours">Estimated effort (hours)</Label>
+              <Input
+                id="estimatedHours"
+                name="estimatedHours"
+                type="number"
+                min="0"
+                max="100000"
+                step="0.25"
+                defaultValue={initial?.estimatedHours ?? ""}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="savedHours">
+                Expected time saved (hours / week)
+              </Label>
+              <Input
+                id="savedHours"
+                name="savedHours"
+                type="number"
+                min="0"
+                max="100000"
+                step="0.25"
+                defaultValue={initial?.savedHours ?? ""}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="department">Team / department</Label>
+              <Input
+                id="department"
+                name="department"
+                maxLength={100}
+                defaultValue={initial?.department ?? ""}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="subTeam">Sub-team</Label>
+              <Input
+                id="subTeam"
+                name="subTeam"
+                maxLength={100}
+                defaultValue={initial?.subTeam ?? ""}
+                placeholder="Optional"
+              />
+            </div>
+            <div className="space-y-2 md:col-span-2">
+              <Label htmlFor="acceptanceCriteria">
+                Success criteria / definition of done
+              </Label>
+              <Textarea
+                id="acceptanceCriteria"
+                name="acceptanceCriteria"
+                rows={3}
+                maxLength={5000}
+                defaultValue={initial?.acceptanceCriteria ?? ""}
+                placeholder="What needs to be delivered, checked, and accepted?"
+              />
+            </div>
+          </div>
 
-      <AdditionalDetailsEditor initial={initial?.additionalDetails} />
+          <AdditionalDetailsEditor initial={initial?.additionalDetails} />
 
-      <div className="space-y-2">
-        <Label>Description</Label>
-        <BlockField name="description" initial={initial?.description ?? null} />
-        <p className="text-xs text-slate-500">
-          Rich notes — formatting, lists, headings. Type / for blocks.
-        </p>
-      </div>
-
+          <div className="space-y-2">
+            <Label>Description</Label>
+            <BlockField
+              name="description"
+              initial={initial?.description ?? null}
+            />
+            <p className="text-xs text-slate-500">
+              Rich notes — formatting, lists, headings. Type / for blocks.
+            </p>
+          </div>
+        </div>
+      </details>
       {error && (
         <p role="alert" className="text-sm text-red-700 dark:text-red-300">
           {error}

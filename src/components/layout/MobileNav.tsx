@@ -9,19 +9,18 @@ import {
   X,
   LayoutDashboard,
   Folders,
-  Columns3,
   Users2,
   Settings,
   BarChart3,
   CheckSquare,
   BookOpen,
   Calendar,
-  FileSpreadsheet,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { isAdmin, isManagerOrAbove } from "@/lib/rbac";
 import type { Role } from "@prisma/client";
 
+/** Mirror the role-filtered workspace destinations in the mobile drawer. */
 export function MobileNav({ role }: { role: Role }) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
@@ -38,12 +37,6 @@ export function MobileNav({ role }: { role: Role }) {
       label: "Projects",
       icon: Folders,
       show: true,
-    },
-    {
-      href: "/dashboard/projects/import",
-      label: "Import Excel",
-      icon: FileSpreadsheet,
-      show: isManagerOrAbove(role),
     },
     {
       href: "/dashboard/requests",
@@ -69,16 +62,10 @@ export function MobileNav({ role }: { role: Role }) {
       icon: Calendar,
       show: true,
     },
-    {
-      href: "/dashboard/board",
-      label: "Project board",
-      icon: Columns3,
-      show: true,
-    },
     { href: "/dashboard/pages", label: "Wiki", icon: BookOpen, show: true },
     {
       href: "/dashboard/manager",
-      label: "Manager",
+      label: "Team overview",
       icon: BarChart3,
       show: isManagerOrAbove(role),
     },
@@ -140,6 +127,8 @@ export function MobileNav({ role }: { role: Role }) {
               {links.map((l) => {
                 const active =
                   (pathname === l.href ||
+                    (l.href === "/dashboard/projects" &&
+                      pathname === "/dashboard/board") ||
                     (l.href !== "/dashboard" &&
                       pathname.startsWith(l.href + "/"))) &&
                   !links.some(
@@ -153,6 +142,7 @@ export function MobileNav({ role }: { role: Role }) {
                   <Link
                     key={l.href}
                     href={l.href}
+                    aria-current={active ? "page" : undefined}
                     onClick={() => setOpen(false)}
                     className={cn(
                       "flex items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors",

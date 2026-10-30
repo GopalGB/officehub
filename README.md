@@ -317,6 +317,14 @@ mobile menu, and account screens. A text fallback fills the slot until the file
 exists. Add the file before building Docker images, or mount it at `/app/logo.png`.
 See [the branding guide](docs/BRANDING.md) for dimensions, Docker mounting, and theme tokens.
 
+Projects has a **Cards / Board** switch and a manager **Import Excel** button.
+Inside a project, **Overview** shows stage progress and the project team;
+**Work** contains reports, enhancements, milestones, and discussion; **History**
+contains recorded changes and versions. Expand **Project details** for imported
+columns, notes, effort, and team information, or **View dated timeline** for the
+schedule. Optional fields in create/edit forms stay under **More project details**.
+Existing project-section links continue to work.
+
 See `.env.example` for the full list. Critical fields to change:
 
 | Var | Purpose |
