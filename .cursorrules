@@ -22,7 +22,7 @@ Cursor: read AGENTS.md before suggesting code. Always.
 6. **BlockNote hooks (`useCreateBlockNote`) crash during SSR.** Always wrap in a mount guard — see `src/components/editor/BlockEditor.tsx` for the pattern.
 7. **Server actions passed as props to client components must be bound at the top level**, not via inline arrow closures. Use `action.bind(null, projectId)`.
 8. **Server components cannot pass event handlers** (`onChange`, `onClick`) to client elements. Use `<AutoSubmitSelect>` from `src/components/ui/auto-submit-select.tsx` or extract a client component.
-9. **No `bg-slate-*` for primary surfaces.** App is pure white. Black appears only as text + thin borders + small icon fills.
+9. **Use the light Catalyst theme** from `docs/BRANDING.md`: navy actions, orange selection, blue accents, quiet white content surfaces. Keep optional detail in disclosures.
 10. **Validate every server-action input with Zod** from `src/lib/validation.ts`.
 11. **Wrap every `useTransition(async)` in try/catch + toast** — silent failures break UX.
 12. **`revalidatePath` after every mutation** that changes visible state.
@@ -41,7 +41,7 @@ For larger work (a new entity), follow `docs/GSD-PLAYBOOK.md`.
 - `useEffect` for data fetching in server components.
 - Importing server-only code (`db`, `auth`) into client components.
 - Editing `prisma/schema.prisma` without running `npx prisma db push && npx prisma generate`.
-- Adding solid black or colored backgrounds — pure white only.
+- Adding arbitrary theme colors, dead dark-mode variants, or colored backgrounds behind the transparent root logo.
 - Logging secrets, tokens, or PII anywhere (`console.log`, error messages, server actions).
 
 ## Before submitting a change

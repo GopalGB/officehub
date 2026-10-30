@@ -16,7 +16,7 @@ Next.js 15 + TS strict + Postgres 16 + Prisma 5 + Auth.js v5 + BlockNote + Tailw
 5. BlockNote requires SSR mount guard.
 6. Bound server actions when passed as props (`action.bind(null, id)`).
 7. Server components → use `<AutoSubmitSelect>` instead of inline `onChange`.
-8. Pure white theme only.
+8. Light Catalyst theme: navy actions, orange selection, blue accents, white content; see `docs/BRANDING.md`.
 9. Validate inputs with Zod schemas from `src/lib/validation.ts`.
 10. `try/catch + toast` for all `useTransition(async)` calls.
 11. `revalidatePath` after every mutation.
@@ -28,7 +28,7 @@ Follow `docs/EXTENDING.md`. For large work: `docs/GSD-PLAYBOOK.md`.
 - `process.env` in client code
 - Raw `JSON.parse` without try/catch
 - Importing `db` / `auth` into client components
-- Colored or solid-black backgrounds
+- Arbitrary theme colors or a colored backdrop behind the transparent root logo
 - Logging secrets
 
 ## Before submit

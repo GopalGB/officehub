@@ -10,4 +10,11 @@
 - Mobile review caught an implicit grid track expanding to a long project title.
   Added an explicit minmax(0, 1fr) base column and shrinking title/link containers.
 - Existing unit tests (41), isolated database tests (26), lint, strict TypeScript,
-  and production build passed. Final rendered verification and PR review follow.
+  and production build passed. All 37 Chromium production-browser checks passed,
+  including legacy section anchors, native/server validation, optional-field
+  persistence, basics-only creation, board drag/CSV, role gates, reduced motion,
+  and desktop/375px card geometry. Synthetic fixtures were removed afterward.
+- GitHub dependency review cannot run because this repository does not support
+  it without Dependency graph enabled. No repository setting was changed; this
+  patch changes no dependencies. Build, strict checks, CodeQL, and gitleaks passed.
+  CodeRabbit findings and their resolution are tracked in PR #10.
