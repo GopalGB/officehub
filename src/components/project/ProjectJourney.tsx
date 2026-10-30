@@ -1,6 +1,11 @@
 "use client";
 import { useState, type ReactNode } from "react";
-import { chronologicalStages } from "@/lib/timeline";
+import {
+  chronologicalStages,
+  isCompletedStage,
+  timelineBarPosition,
+} from "@/lib/timeline";
+import { CheckCircle2, Circle, RotateCcw } from "lucide-react";
 import Link from "next/link";
 import { formatDate, cn } from "@/lib/utils";
 import { fiscalLabel, type FiscalConfig } from "@/lib/fiscal";
@@ -31,8 +36,10 @@ export function ProjectJourney({
   controls?: ReactNode;
 }) {
   const [filter, setFilter] = useState("all");
-  const complete = (status: string) =>
-    ["DONE", "COMPLETED", "ARCHIVED"].includes(status);
+  const [replay, setReplay] = useState(0);
+  const complete = isCompletedStage;
+  const ordered = chronologicalStages(stages);
+  const completed = stages.filter((stage) => complete(stage.status)).length;
   const visible = chronologicalStages(
     stages.filter(
       (s) =>
@@ -54,8 +61,12 @@ export function ProjectJourney({
   const position = (date: string) =>
     Math.min(100, Math.max(0, ((new Date(date).getTime() - min) / span) * 100));
   const today = ((Date.now() - min) / span) * 100;
+  const barStyle = (stage: Stage) => {
+    const geometry = timelineBarPosition(stage.start, stage.end, min, span);
+    return { left: `${geometry.left}%`, width: `${geometry.width}%` };
+  };
   return (
-    <div className="space-y-5">
+    <div className="min-w-0 max-w-full space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="section-title">Project timeline</h2>
@@ -64,23 +75,117 @@ export function ProjectJourney({
             Changes can overlap the original work or follow delivery.
           </p>
         </div>
-        <div className="flex rounded-lg border bg-secondary p-1 text-xs">
-          {["all", "active", "completed"].map((f) => (
-            <button
-              key={f}
-              type="button"
-              aria-pressed={filter === f}
-              onClick={() => setFilter(f)}
-              className={cn(
-                "rounded-md px-3 py-1.5 capitalize",
-                filter === f && "bg-card font-semibold shadow-sm",
-              )}
-            >
-              {f === "all" ? "All stages" : f}
-            </button>
-          ))}
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setReplay((value) => value + 1)}
+            className="motion-reduce:hidden inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium hover:bg-secondary"
+            aria-label="Replay project timeline"
+          >
+            <RotateCcw className="h-3.5 w-3.5" />
+            Replay
+          </button>
+          <div className="flex rounded-lg border bg-secondary p-1 text-xs">
+            {["all", "active", "completed"].map((f) => (
+              <button
+                key={f}
+                type="button"
+                aria-pressed={filter === f}
+                onClick={() => setFilter(f)}
+                className={cn(
+                  "rounded-md px-3 py-1.5 capitalize",
+                  filter === f && "bg-card font-semibold shadow-sm",
+                )}
+              >
+                {f === "all" ? "All stages" : f}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
+      <section
+        className="min-w-0 rounded-xl border bg-secondary/30 p-4"
+        aria-label="Project delivery progress"
+      >
+        <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+          <p className="font-semibold">
+            {completed} of {stages.length} stages completed
+          </p>
+          <span className="text-xs text-muted-foreground">
+            Original delivery → requested changes
+          </span>
+        </div>
+        <div
+          className="mt-3 h-1.5 overflow-hidden rounded-full bg-secondary"
+          role="progressbar"
+          aria-label="Completed project stages"
+          aria-valuemin={0}
+          aria-valuemax={Math.max(1, stages.length)}
+          aria-valuenow={completed}
+        >
+          <div
+            key={replay}
+            className="journey-draw h-full rounded-full bg-brand-orange"
+            style={{
+              width: `${stages.length ? (completed / stages.length) * 100 : 0}%`,
+            }}
+          />
+        </div>
+        <div className="mt-4 max-w-full overflow-x-auto pb-2">
+          <ol
+            key={replay}
+            className="flex min-w-max gap-3"
+            aria-label="Project delivery stages"
+          >
+            {ordered.map((stage, index) => (
+              <li
+                key={stage.id}
+                className="journey-stage w-44 shrink-0 rounded-lg border bg-card p-3"
+                style={{ animationDelay: `${Math.min(index * 60, 480)}ms` }}
+              >
+                <div className="flex items-center gap-2 text-xs font-medium">
+                  {complete(stage.status) ? (
+                    <CheckCircle2 className="h-4 w-4 shrink-0 text-primary" />
+                  ) : (
+                    <Circle className="h-4 w-4 shrink-0 text-brand-orange" />
+                  )}
+                  <span>
+                    {index === 0 && stage.kind === "Original delivery"
+                      ? "Original delivery"
+                      : `Stage ${index + 1}`}
+                  </span>
+                </div>
+                <p
+                  className="mt-2 line-clamp-2 break-words text-xs font-semibold"
+                  title={stage.title}
+                >
+                  {stage.href ? (
+                    <Link className="text-link" href={stage.href}>
+                      {stage.title}
+                    </Link>
+                  ) : (
+                    stage.title
+                  )}
+                </p>
+                <p className="mt-2 text-[10px] capitalize text-muted-foreground">
+                  {stage.status.toLowerCase().replaceAll("_", " ")}
+                </p>
+                <p className="mt-1 text-[10px] text-muted-foreground">
+                  {stage.scheduled && stage.hasEnd
+                    ? `${stage.endLabel} ${formatDate(stage.end)}`
+                    : stage.scheduled && stage.hasStart
+                      ? `Starts ${formatDate(stage.start)}`
+                      : "Dates not set"}
+                </p>
+              </li>
+            ))}
+          </ol>
+        </div>
+        <p className="mt-2 text-[10px] text-muted-foreground">
+          Stages show the original work and its recorded changes. The schedule
+          below uses the dates you enter; undated stages stay unscheduled.
+        </p>
+      </section>
       {controls}
       <p className="text-xs text-muted-foreground">
         {stages.filter((stage) => stage.kind === "Enhancement").length} changes
@@ -98,8 +203,11 @@ export function ProjectJourney({
       <p className="text-xs text-muted-foreground sm:hidden">
         Scroll the timeline horizontally to see all dates.
       </p>
-      <div className="overflow-x-auto pb-2">
-        <div className="min-w-[600px]">
+      <div
+        className="max-w-full overflow-x-auto pb-2"
+        aria-label="Project timeline schedule"
+      >
+        <div key={`${filter}:${replay}`} className="min-w-[600px]">
           <div className="ml-52 flex justify-between border-b pb-2 text-[10px] text-muted-foreground">
             {dates.length > 0 &&
               Array.from({ length: 5 }, (_, i) => (
@@ -108,12 +216,13 @@ export function ProjectJourney({
                 </span>
               ))}
           </div>
-          {visible.map((s) => (
+          {visible.map((s, index) => (
             <div
               key={s.id}
-              className="grid grid-cols-[208px_1fr] items-center border-b border-border/60 py-4"
+              className="journey-stage grid grid-cols-[208px_minmax(0,1fr)] items-center border-b border-border/60 py-4"
+              style={{ animationDelay: `${Math.min(index * 45, 360)}ms` }}
             >
-              <div className="pr-4">
+              <div className="min-w-0 pr-4">
                 <p className="truncate text-sm font-medium" title={s.title}>
                   {s.href ? (
                     <Link className="text-link" href={s.href}>
@@ -127,9 +236,9 @@ export function ProjectJourney({
                   {s.kind} · {s.status.toLowerCase().replaceAll("_", " ")}
                 </p>
               </div>
-              <div>
+              <div className="min-w-0">
                 <div
-                  className="relative h-8 rounded-md bg-secondary/70"
+                  className="relative h-8 overflow-hidden rounded-md bg-secondary/70"
                   title={
                     s.scheduled
                       ? `${s.title}: ${formatDate(s.start)} to ${formatDate(s.end)}`
@@ -151,18 +260,18 @@ export function ProjectJourney({
                   ) : (
                     <span
                       className={cn(
-                        "absolute top-1 h-6 min-w-2 rounded-md",
+                        "journey-draw absolute top-1 h-6 rounded-md",
                         complete(s.status)
-                          ? "bg-emerald-600 dark:bg-emerald-500"
+                          ? "bg-brand-navy"
                           : s.status === "REJECTED"
-                            ? "bg-slate-400 dark:bg-slate-500"
+                            ? "bg-muted-foreground"
                             : s.kind === "Original delivery"
-                              ? "bg-brand-navy dark:bg-sky-400"
-                              : "bg-brand-orange dark:bg-orange-400",
+                              ? "bg-brand-navy"
+                              : "bg-brand-orange",
                       )}
                       style={{
-                        left: `${Math.min(98, position(s.start))}%`,
-                        width: `${Math.max(1, position(s.end) - position(s.start))}%`,
+                        ...barStyle(s),
+                        animationDelay: `${Math.min(index * 45, 360)}ms`,
                       }}
                     />
                   )}
@@ -208,15 +317,15 @@ export function ProjectJourney({
       </div>
       <div className="flex flex-wrap gap-4 text-[11px] text-muted-foreground">
         <span className="inline-flex items-center gap-1.5">
-          <i className="h-2 w-2 rounded-full bg-brand-navy dark:bg-sky-400" />
+          <i className="h-2 w-2 rounded-full bg-brand-navy" />
           Original delivery
         </span>
         <span className="inline-flex items-center gap-1.5">
-          <i className="h-2 w-2 rounded-full bg-brand-orange dark:bg-orange-400" />
+          <i className="h-2 w-2 rounded-full bg-brand-orange" />
           Enhancement
         </span>
         <span className="inline-flex items-center gap-1.5">
-          <i className="h-2 w-2 rounded-full bg-emerald-600 dark:bg-emerald-500" />
+          <i className="h-2 w-2 rounded-full bg-brand-navy" />
           Completed
         </span>
         <span>┊ Today</span>

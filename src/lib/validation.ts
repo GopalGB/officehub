@@ -38,6 +38,11 @@ export const EnhancementStatusEnum = z.enum([
 ]);
 export const RoleEnum = z.enum(["ADMIN", "MANAGER", "MEMBER"]);
 
+export const projectBoardFilterSchema = z.object({
+  scope: z.enum(["mine", "all"]).optional().catch("mine"),
+  owner: z.string().max(200).optional().catch("INVALID"),
+});
+
 const isoDate = z.preprocess(
   (value) => (value === "" ? null : value),
   z

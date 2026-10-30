@@ -7,6 +7,8 @@ import {
   fiscalLabel,
 } from "@/lib/fiscal";
 import { dayLoad } from "@/lib/planning";
+import { summarizePeopleProjects } from "@/lib/project-summary";
+import { TeamProjectSummary } from "@/components/dashboard/TeamProjectSummary";
 import { ProjectStatusEnum } from "@/lib/validation";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -66,6 +68,7 @@ export default async function ManagerPage({
   if (!isManagerOrAbove(session.user.role)) redirect("/dashboard");
 
   const { status, owner, q, day } = await searchParams;
+  const summaryDay = localToday();
 
   const parsedStatus = ProjectStatusEnum.safeParse(status);
   const where = {
@@ -103,7 +106,7 @@ export default async function ManagerPage({
     }),
     db.project.count({
       where: {
-        targetDate: { lt: new Date() },
+        targetDate: { lt: summaryDay },
         status: { in: ["PLANNING", "IN_PROGRESS", "BLOCKED", "ON_HOLD"] },
       },
     }),
@@ -117,34 +120,50 @@ export default async function ManagerPage({
       : null;
   const today = selectedDay ?? localToday();
   const start = weekStart(today);
-  const [people, plans, activeProjects, openReports, pendingRequests, configs] =
-    await Promise.all([
-      db.user.findMany({
-        where: assignablePeopleWhere,
-        select: { id: true, name: true, role: true },
-        orderBy: { name: "asc" },
-      }),
-      db.workPlan.findMany({
-        where: { weekStart: start },
-        include: { overrides: true, project: { select: { title: true } } },
-      }),
-      db.project.findMany({
-        where: { status: { notIn: ["COMPLETED", "ARCHIVED"] } },
-        select: {
-          id: true,
-          title: true,
-          ownerId: true,
-          coOwnerId: true,
-          members: { select: { id: true } },
-        },
-      }),
-      db.task.findMany({
-        where: { status: { not: "DONE" } },
-        select: { id: true, title: true, assigneeId: true },
-      }),
-      db.projectRequest.count({ where: { status: "PENDING" } }),
-      db.fiscalYearConfig.findMany(),
-    ]);
+  const [
+    people,
+    plans,
+    portfolioProjects,
+    openReports,
+    pendingRequests,
+    configs,
+  ] = await Promise.all([
+    db.user.findMany({
+      where: assignablePeopleWhere,
+      select: { id: true, name: true, role: true },
+      orderBy: { name: "asc" },
+    }),
+    db.workPlan.findMany({
+      where: { weekStart: start },
+      include: { overrides: true, project: { select: { title: true } } },
+    }),
+    db.project.findMany({
+      where: { status: { not: "ARCHIVED" } },
+      select: {
+        id: true,
+        title: true,
+        ownerId: true,
+        coOwnerId: true,
+        status: true,
+        targetDate: true,
+        members: { select: { id: true } },
+      },
+    }),
+    db.task.findMany({
+      where: { status: { not: "DONE" } },
+      select: { id: true, title: true, assigneeId: true },
+    }),
+    db.projectRequest.count({ where: { status: "PENDING" } }),
+    db.fiscalYearConfig.findMany(),
+  ]);
+  const activeProjects = portfolioProjects.filter(
+    (project) => project.status !== "COMPLETED",
+  );
+  const peopleSummary = summarizePeopleProjects(
+    people,
+    portfolioProjects,
+    summaryDay,
+  );
   const projectNames = Object.fromEntries(
     activeProjects.map((p) => [p.id, p.title]),
   );
@@ -153,7 +172,7 @@ export default async function ManagerPage({
   );
 
   return (
-    <div className="space-y-6">
+    <div className="min-w-0 max-w-full space-y-6">
       <header className="space-y-1">
         <h1 className="text-2xl font-semibold tracking-tight">Team overview</h1>
         <p className="text-sm text-slate-500">
@@ -162,6 +181,7 @@ export default async function ManagerPage({
         </p>
       </header>
 
+      <TeamProjectSummary rows={peopleSummary} asOf={summaryDay} />
       <section className="surface space-y-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>

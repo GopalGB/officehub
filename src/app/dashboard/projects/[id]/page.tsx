@@ -257,17 +257,17 @@ export default async function ProjectDetailPage({
     })),
   ];
   return (
-    <div className="mx-auto max-w-6xl space-y-6">
+    <div className="mx-auto min-w-0 max-w-6xl space-y-6">
       <header className="space-y-4">
         <p className="eyebrow">
           <Link href="/dashboard/projects">Projects</Link> /{" "}
           {project.projectType.replaceAll("_", " ").toLowerCase()} · Version{" "}
           {project.version}
         </p>
-        <div className="flex items-start justify-between gap-3">
-          <div className="space-y-1">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0 basis-full flex-1 space-y-1 sm:basis-0">
             <div className="flex flex-wrap items-center gap-2">
-              <h1 className="text-2xl font-semibold tracking-tight">
+              <h1 className="min-w-0 break-words text-2xl font-semibold tracking-tight">
                 {project.title}
               </h1>
               <ProjectStatusBadge status={project.status} />
@@ -277,7 +277,7 @@ export default async function ProjectDetailPage({
               <p className="text-sm text-slate-500">{project.summary}</p>
             )}
           </div>
-          <div className="flex shrink-0 items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {(project.ownerId === session.user.id ||
               isManagerOrAbove(session.user.role)) && (
               <Button variant="outline" size="sm" asChild>
@@ -345,9 +345,9 @@ export default async function ProjectDetailPage({
       </nav>
       {tab === "overview" && (
         <>
-          <section className="surface">
+          <section className="surface min-w-0 max-w-full">
             <ProjectJourney
-              key={project.enhancements.length}
+              key={`${project.id}:${project.enhancements.length}`}
               controls={
                 canEdit ? (
                   <>

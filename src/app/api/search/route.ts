@@ -18,16 +18,8 @@ export async function GET(req: Request) {
 
   const ci = { contains: q, mode: "insensitive" as const };
   const canSeeAll = isManagerOrAbove(session.user.role);
-  const userId = session.user.id;
 
-  const projectWhere = canSeeAll
-    ? { OR: [{ title: ci }, { summary: ci }] }
-    : {
-        AND: [
-          { OR: [{ ownerId: userId }, { members: { some: { id: userId } } }] },
-          { OR: [{ title: ci }, { summary: ci }] },
-        ],
-      };
+  const projectWhere = { AND: [projectAccessWhere(session.user), { OR: [{ title: ci }, { summary: ci }] }] };
   const taskWhere = canSeeAll
     ? { OR: [{ title: ci }, { description: ci }] }
     : {

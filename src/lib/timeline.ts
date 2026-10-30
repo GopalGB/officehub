@@ -40,3 +40,26 @@ export function chronologicalStages<
     );
   });
 }
+
+export function isCompletedStage(status: string) {
+  return ["DONE", "COMPLETED", "ARCHIVED"].includes(status);
+}
+
+/** Keep minimum-width markers inside the track, including a point at its end. */
+export function timelineBarPosition(
+  start: string,
+  end: string,
+  min: number,
+  span: number,
+) {
+  const position = (value: string) =>
+    Math.min(
+      100,
+      Math.max(0, ((Date.parse(value) - min) / Math.max(span, 1)) * 100),
+    );
+  const left = Math.min(98, position(start));
+  return {
+    left,
+    width: Math.min(100 - left, Math.max(2, position(end) - left)),
+  };
+}

@@ -4,6 +4,8 @@ import { redirect } from "next/navigation";
 import { auth } from "../../../../auth";
 import { db } from "@/lib/db";
 import { isManagerOrAbove, canEditProject } from "@/lib/rbac";
+import { projectBoardFilters } from "@/lib/project-board";
+import { assignablePeopleWhere } from "@/lib/project-people";
 import { ProjectBoardClient } from "@/components/project/ProjectBoardClient";
 import { Button } from "@/components/ui/button";
 import { AutoSubmitSelect } from "@/components/ui/auto-submit-select";
@@ -38,31 +40,18 @@ export default async function BoardPage({
   const session = await auth();
   if (!session?.user) redirect("/login");
   const {
-    scope = isManagerOrAbove(session.user.role) ? "all" : "mine",
+    scope: safeScope,
     owner,
-  } = await searchParams;
-
-  // Members can only see their own
-  const safeScope = session.user.role === "MEMBER" ? "mine" : scope;
-
-  const where: Record<string, unknown> = {
-    status: { in: COLUMNS.map((c) => c.status) },
-  };
-  if (safeScope === "mine") {
-    // Members see projects they own OR are explicitly added to.
-    where.OR = [
-      { ownerId: session.user.id },
-      { members: { some: { id: session.user.id } } },
-    ];
-  }
-  if (owner && owner !== "ALL") where.ownerId = owner;
+    where,
+  } = projectBoardFilters(session.user, await searchParams);
 
   const [projects, owners] = await Promise.all([
     db.project.findMany({
       where,
       include: {
         owner: { select: { id: true, name: true } },
-        members: { select: { id: true } },
+        coOwner: { select: { id: true, name: true } },
+        members: { select: { id: true, name: true } },
       },
       orderBy: [
         { orderIndex: "asc" },
@@ -74,7 +63,7 @@ export default async function BoardPage({
     }),
     isManagerOrAbove(session.user.role)
       ? db.user.findMany({
-          where: { active: true },
+          where: assignablePeopleWhere,
           select: { id: true, name: true },
           orderBy: { name: "asc" },
         })
@@ -82,14 +71,14 @@ export default async function BoardPage({
   ]);
 
   return (
-    <div className="space-y-4">
+    <div className="min-w-0 max-w-full space-y-4">
       <header className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Board</h1>
           <p className="text-sm text-slate-500">
-            Drag a project card across columns or reorder it within a column.
-            Keyboard: Tab to focus, Space to grab, arrows to move, Space to
-            drop, Esc to cancel.
+            Use a card’s move handle to change its status or order. Open its
+            title to track delivery. Keyboard: Tab to a move handle, Space to
+            grab, arrows to move, Space to drop, Esc to cancel.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -144,8 +133,9 @@ export default async function BoardPage({
         canEditByOwner={isManagerOrAbove(session.user.role)}
       />
       <p className="text-xs text-neutral-400">
-        Drag freely across columns or reorder within. Cards you don&apos;t own
-        show a lock icon.
+        The board and CSV show up to 500 matching projects. Managers can switch
+        to all team work; members see projects they own, sub-own, or have
+        joined. Archived projects are excluded.
       </p>
     </div>
   );

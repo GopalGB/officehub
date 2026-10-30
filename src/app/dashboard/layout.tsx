@@ -23,8 +23,8 @@ export default async function DashboardLayout({ children }: { children: React.Re
             role={session.user.role}
             mobileNav={<MobileNav role={session.user.role} />}
           />
-          <main className="flex-1 overflow-y-auto p-4 md:p-6">
-            <div className="animate-fade-in">{children}</div>
+          <main className="min-w-0 max-w-full flex-1 overflow-y-auto p-4 md:p-6">
+            <div className="animate-fade-in min-w-0 max-w-full">{children}</div>
           </main>
         </div>
       </div>
