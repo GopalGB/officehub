@@ -4,7 +4,12 @@ import type { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { type Viewer, isManagerOrAbove } from "@/lib/rbac";
 import { assertAssignablePeople } from "@/lib/project-people";
-import { recordAudit, reviseProject, saveProjectRevision } from "@/lib/history";
+import {
+  recordAudit,
+  recordAudits,
+  reviseProject,
+  saveProjectRevision,
+} from "@/lib/history";
 import { additionalDetailsSchema } from "@/lib/additional-details";
 import {
   importName,
@@ -268,35 +273,53 @@ export async function applyProjectImport(
           where: { projectId: project.id },
           select: { id: true, title: true },
         });
+        // Match by normalized title; createManyAndReturn does not promise order.
+        const byName = new Map<string, { id: string; title: string }>();
+        for (const change of existingChanges)
+          if (!byName.has(importName(change.title)))
+            byName.set(importName(change.title), change);
+        const pending = new Map<string, ImportRow["changes"][number]>();
         for (const [index, change] of row.data.changes.entries()) {
           // Imports append newly recorded iterations. Existing timeline edits are kept.
-          if (importedChanges.some((item) => item.index === index)) continue;
-          let enhancement = existingChanges.find(
-            (item) => importName(item.title) === importName(change.title),
-          );
-          if (!enhancement) {
-            enhancement = await tx.enhancement.create({
-              data: {
+          if (
+            !importedChanges.some((item) => item.index === index) &&
+            !byName.has(importName(change.title))
+          )
+            pending.set(importName(change.title), change);
+        }
+        const added = pending.size
+          ? await tx.enhancement.createManyAndReturn({
+              data: [...pending.values()].map((change) => ({
                 projectId: project.id,
                 authorId: actor.id,
                 ...change,
                 priority: row.data.priority ?? "MEDIUM",
                 status: row.data.status === "COMPLETED" ? "DONE" : "PROPOSED",
-              },
-            });
-            await recordAudit(
-              tx,
-              actor,
-              "Recorded enhancement imported from Excel",
-              "Enhancement",
-              enhancement.id,
-              project.id,
-              null,
-              enhancement,
+              })),
+            })
+          : [];
+        await recordAudits(
+          tx,
+          actor,
+          added.map((enhancement) => ({
+            action: "Recorded enhancement imported from Excel",
+            entity: "Enhancement",
+            entityId: enhancement.id,
+            projectId: project.id,
+            before: null,
+            after: enhancement,
+          })),
+        );
+        for (const change of added)
+          byName.set(importName(change.title), change);
+        result.changesAdded += added.length;
+        for (const [index, change] of row.data.changes.entries()) {
+          if (importedChanges.some((item) => item.index === index)) continue;
+          const enhancement = byName.get(importName(change.title));
+          if (!enhancement)
+            throw new Error(
+              "Could not match the imported enhancement. No projects were saved.",
             );
-            existingChanges.push(enhancement);
-            result.changesAdded++;
-          }
           importedChanges.push({ index, id: enhancement.id });
         }
         await tx.projectImportRecord.upsert({

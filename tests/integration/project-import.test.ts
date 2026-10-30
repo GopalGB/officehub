@@ -77,6 +77,61 @@ function workbook(
   };
 }
 const service = () => import("@/lib/project-import-service");
+void test("the documented maximum imports 200 projects and 10,000 audited timeline changes within one transaction", async () => {
+  const { prepareProjectImport, applyProjectImport } = await service();
+  const source = `maximum-${suffix}`;
+  const rows = parseProjectSheet([
+    [
+      "No.",
+      "Project",
+      "Status",
+      "Recorded enhancement iterations",
+      "Enhancement details",
+    ],
+    ...Array.from({ length: 200 }, (_, index) => [
+      String(index),
+      `Bulk project ${index}-${suffix}`,
+      "Completed",
+      "50",
+      Array.from(
+        { length: 50 },
+        (_, change) => `${change + 1}. Recorded change ${change + 1}`,
+      ).join("\n"),
+    ]),
+  ]);
+  const preview = await prepareProjectImport(
+    actor,
+    { source, ownerId },
+    { fileName: "synthetic-maximum.xlsx", sheetName: "Projects", rows },
+  );
+  const result = await applyProjectImport(actor, preview.id, false);
+  assert.deepEqual(result, {
+    created: 200,
+    updated: 0,
+    skipped: 0,
+    changesAdded: 10000,
+  });
+  const records = await db.projectImportRecord.findMany({
+    where: { source: `${source}::projects` },
+    select: { projectId: true },
+  });
+  const projectIds = records.map((record) => record.projectId);
+  assert.equal(
+    await db.enhancement.count({ where: { projectId: { in: projectIds } } }),
+    10000,
+  );
+  assert.equal(
+    await db.auditLog.count({
+      where: { projectId: { in: projectIds }, entity: "Enhancement" },
+    }),
+    10000,
+  );
+  assert.deepEqual(
+    (await db.projectImport.findUniqueOrThrow({ where: { id: preview.id } }))
+      .rows,
+    [],
+  );
+});
 void test("renamed imported references cannot collide with another project", async () => {
   const { prepareProjectImport, applyProjectImport } = await service();
   const source = `names-${suffix}`,

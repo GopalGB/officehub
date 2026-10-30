@@ -32,6 +32,35 @@ export async function recordAudit(
     },
   });
 }
+/** Bulk child imports keep the same audit shape without a round trip per child. */
+export async function recordAudits(
+  tx: Prisma.TransactionClient,
+  actor: Actor,
+  entries: {
+    action: string;
+    entity: string;
+    entityId: string;
+    projectId: string | null;
+    before: unknown;
+    after: unknown;
+  }[],
+) {
+  if (!entries.length) return;
+  await tx.auditLog.createMany({
+    data: entries.map((entry) => ({
+      userId: actor.id,
+      action: entry.action,
+      entity: entry.entity,
+      entityId: entry.entityId,
+      projectId: entry.projectId,
+      meta: jsonSnapshot({
+        actor: actor.name ?? actor.id,
+        before: entry.before,
+        after: entry.after,
+      }),
+    })),
+  });
+}
 const snapshotInclude = {
   members: { select: { id: true } },
   tags: { select: { id: true } },

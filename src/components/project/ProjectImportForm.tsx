@@ -28,7 +28,7 @@ export function ProjectImportForm({
   if (result)
     return (
       <div className="surface space-y-5" role="status">
-        <CheckCircle2 className="h-9 w-9 text-emerald-600 dark:text-emerald-400" />
+        <CheckCircle2 className="h-9 w-9 text-primary" />
         <h2 className="section-title">Your projects are ready</h2>
         <p className="text-sm">
           {result.created} created · {result.updated} updated · {result.skipped}{" "}
