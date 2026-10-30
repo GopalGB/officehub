@@ -16,6 +16,7 @@ import {
   CheckSquare,
   BookOpen,
   Calendar,
+  FileSpreadsheet,
 } from "lucide-react";
 
 export function Sidebar({ role }: { role: Role }) {
@@ -48,6 +49,12 @@ export function Sidebar({ role }: { role: Role }) {
           label: "Projects",
           icon: Folders,
           show: true,
+        },
+        {
+          href: "/dashboard/projects/import",
+          label: "Import Excel",
+          icon: FileSpreadsheet,
+          show: isManagerOrAbove(role),
         },
         {
           href: "/dashboard/planner",

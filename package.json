@@ -43,7 +43,9 @@
     "tailwind-merge": "2.5.4",
     "zod": "4.6.7",
     "@mantine/core": "8.3.18",
-    "@mantine/hooks": "8.3.18"
+    "@mantine/hooks": "8.3.18",
+    "fflate": "0.8.3",
+    "read-excel-file": "9.3.14"
   },
   "devDependencies": {
     "@types/bcryptjs": "2.4.6",

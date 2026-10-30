@@ -161,6 +161,7 @@ model Project {
   workPlans      WorkPlan[]
   dailyOverrides DailyOverride[]
   requests       ProjectRequest[]
+  importRecords  ProjectImportRecord[]
 
   @@index([ownerId])
   @@index([coOwnerId])
@@ -168,6 +169,36 @@ model Project {
   @@index([status])
   @@index([targetDate])
   @@index([status, orderIndex])
+}
+
+// Preview data remains local to the deployment. Uploads never become repo files.
+model ProjectImport {
+  id          String    @id @default(cuid())
+  actorId     String
+  ownerId     String
+  source      String
+  fileName    String
+  sheetName   String
+  rows        Json
+  createdAt   DateTime  @default(now())
+  expiresAt   DateTime
+  appliedAt   DateTime?
+  result      Json?
+
+  @@index([actorId, expiresAt])
+}
+
+model ProjectImportRecord {
+  id            String  @id @default(cuid())
+  source        String
+  recordKey     String
+  projectId     String
+  project       Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  importedHash  String
+  enhancements  Json    @default("[]")
+
+  @@unique([source, recordKey])
+  @@index([projectId])
 }
 
 model ProjectUpdate {

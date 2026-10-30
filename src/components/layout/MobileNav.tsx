@@ -16,6 +16,7 @@ import {
   CheckSquare,
   BookOpen,
   Calendar,
+  FileSpreadsheet,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { isAdmin, isManagerOrAbove } from "@/lib/rbac";
@@ -37,6 +38,12 @@ export function MobileNav({ role }: { role: Role }) {
       label: "Projects",
       icon: Folders,
       show: true,
+    },
+    {
+      href: "/dashboard/projects/import",
+      label: "Import Excel",
+      icon: FileSpreadsheet,
+      show: isManagerOrAbove(role),
     },
     {
       href: "/dashboard/requests",

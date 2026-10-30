@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { auth } from "../../../../auth";
 import { db } from "@/lib/db";
-import { projectAccessWhere } from "@/lib/rbac";
+import { projectAccessWhere, isManagerOrAbove } from "@/lib/rbac";
 import { ProjectStatusEnum } from "@/lib/validation";
 import { ProjectCard } from "@/components/project/ProjectCard";
 import { Button } from "@/components/ui/button";
@@ -69,7 +69,8 @@ export default async function ProjectsPage({
             {count} projects. Ownership, delivery, and every next iteration.
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          {isManagerOrAbove(session.user.role) && <Button variant="outline" asChild><Link href="/dashboard/projects/import">Import Excel</Link></Button>}
           <Button variant="outline" asChild>
             <Link href="/dashboard/board">Board view</Link>
           </Button>
