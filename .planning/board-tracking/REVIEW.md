@@ -7,3 +7,5 @@ The board's original member predicate omitted sub-owners. Its replacement shares
 Browser checks exercise mouse, keyboard and touch moves, same-column order, Escape/outside rollback, scope forgery, member/manager exports, replay, reduced motion, long titles and narrow layouts. Manager-only summary rendering is checked separately from the board. Pending saves disable move handles without falsely showing permission locks, and focus returns after saving.
 
 Final verification and any automated review findings are recorded in the pull request. Windows deployment remains the user's existing guarded no-admin updater; this cloud workspace cannot deploy to the office server.
+
+CodeRabbit found that an archived unfinished stage could be counted as completed. Completion now requires DONE or COMPLETED; ARCHIVED and REJECTED remain closed in All stages and are excluded from active/completed filters. A regression test covers each status. The review's ESLint sandbox installation timed out; the repository's own ESLint and GitHub strict-check job passed.

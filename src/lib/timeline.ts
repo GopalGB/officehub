@@ -21,6 +21,7 @@ export function deliveryRange(input: {
   };
 }
 
+/** Retain original delivery first without inventing planned dates for logged changes. */
 export function chronologicalStages<
   T extends {
     kind: string;
@@ -41,8 +42,16 @@ export function chronologicalStages<
   });
 }
 
+/** Archiving closes work without proving delivery; only explicit done states count. */
 export function isCompletedStage(status: string) {
-  return ["DONE", "COMPLETED", "ARCHIVED"].includes(status);
+  return ["DONE", "COMPLETED"].includes(status);
+}
+
+/** Closed stages remain available in All stages without appearing as active work. */
+export function isActiveStage(status: string) {
+  return (
+    !isCompletedStage(status) && !["ARCHIVED", "REJECTED"].includes(status)
+  );
 }
 
 /** Keep minimum-width markers inside the track, including a point at its end. */

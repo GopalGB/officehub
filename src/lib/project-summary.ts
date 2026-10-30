@@ -8,6 +8,7 @@ type SummaryProject = {
   coOwnerId: string | null;
   members: { id: string }[];
 };
+/** Deduplicate assignment identities so overlapping roles never inflate workload. */
 export function summarizePeopleProjects(
   people: { id: string; name: string }[],
   projects: SummaryProject[],

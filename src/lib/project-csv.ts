@@ -1,6 +1,7 @@
 import type { Project } from "@prisma/client";
 import { additionalDetailsSchema } from "@/lib/additional-details";
 
+/** Quoting alone is insufficient: neutralize prefixes Excel may treat as formulas. */
 export function csvCell(value: string | number | null | undefined) {
   let text = value === null || value === undefined ? "" : String(value);
   let first = 0;
@@ -25,6 +26,7 @@ export type BoardProject = Project & {
   coOwner: { id: string; name: string } | null;
   members: { id: string; name: string }[];
 };
+/** Select export fields explicitly so richer Prisma objects cannot leak credentials. */
 export function projectBoardCSV(projects: BoardProject[]) {
   const details = projects.map((project) =>
     additionalDetailsSchema.parse(project.additionalDetails),

@@ -4,6 +4,7 @@ import type { Transform } from "@dnd-kit/utilities";
 export type Placement = "above" | "below";
 
 type Box = { left: number; top: number; width: number; height: number };
+/** Bound the complete preview rectangle, not just the pointer, at viewport edges. */
 export function boundedDragTransform(
   transform: Transform,
   rect: Box,
@@ -25,6 +26,7 @@ export function boundedDragTransform(
   );
   return { ...transform, x: left - rect.left, y: top - rect.top };
 }
+/** The body portal uses viewport coordinates independently of scrolling columns. */
 export const restrictOverlayToViewport: Modifier = ({
   transform,
   draggingNodeRect,

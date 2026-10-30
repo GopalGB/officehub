@@ -10,6 +10,7 @@ export const BOARD_STATUSES = [
   "COMPLETED",
 ] as const;
 
+/** Combine filters with AND so owner/scope inputs cannot replace project access. */
 export function projectBoardFilters(viewer: Viewer, input: unknown) {
   const parsed = projectBoardFilterSchema.parse(input);
   const scope = isManagerOrAbove(viewer.role)

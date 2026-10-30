@@ -3,7 +3,11 @@ import { test } from "node:test";
 import { csvCell, projectBoardCSV, type BoardProject } from "@/lib/project-csv";
 import { projectBoardFilters } from "@/lib/project-board";
 import { summarizePeopleProjects } from "@/lib/project-summary";
-import { timelineBarPosition } from "@/lib/timeline";
+import {
+  timelineBarPosition,
+  isCompletedStage,
+  isActiveStage,
+} from "@/lib/timeline";
 import { boundedDragTransform } from "@/components/board/dnd-helpers";
 
 const now = new Date("2026-10-30");
@@ -173,5 +177,26 @@ void test("timeline markers and durations stay inside the track at either endpoi
   ]) {
     const bar = timelineBarPosition(start, end, min, span);
     assert.ok(bar.left >= 0 && bar.width > 0 && bar.left + bar.width <= 100);
+  }
+});
+void test("archiving unfinished work never marks delivery complete or active", () => {
+  for (const status of ["DONE", "COMPLETED"]) {
+    assert.equal(isCompletedStage(status), true);
+    assert.equal(isActiveStage(status), false);
+  }
+  for (const status of ["ARCHIVED", "REJECTED"]) {
+    assert.equal(isCompletedStage(status), false);
+    assert.equal(isActiveStage(status), false);
+  }
+  for (const status of [
+    "PLANNING",
+    "PROPOSED",
+    "APPROVED",
+    "IN_PROGRESS",
+    "BLOCKED",
+    "ON_HOLD",
+  ]) {
+    assert.equal(isCompletedStage(status), false);
+    assert.equal(isActiveStage(status), true);
   }
 });

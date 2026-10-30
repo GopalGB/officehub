@@ -32,6 +32,7 @@ const COLUMNS: {
   },
 ];
 
+/** Authorize rows before they reach either the visual board or the local CSV exporter. */
 export default async function BoardPage({
   searchParams,
 }: {

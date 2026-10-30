@@ -3,6 +3,7 @@ import { useState, type ReactNode } from "react";
 import {
   chronologicalStages,
   isCompletedStage,
+  isActiveStage,
   timelineBarPosition,
 } from "@/lib/timeline";
 import { CheckCircle2, Circle, RotateCcw } from "lucide-react";
@@ -24,6 +25,7 @@ type Stage = {
   scheduled: boolean;
   href?: string;
 };
+/** Animate recorded progress separately from the real dates used to plot duration. */
 export function ProjectJourney({
   stages,
   milestones,
@@ -44,9 +46,7 @@ export function ProjectJourney({
     stages.filter(
       (s) =>
         filter === "all" ||
-        (filter === "completed"
-          ? complete(s.status)
-          : !complete(s.status) && s.status !== "REJECTED"),
+        (filter === "completed" ? complete(s.status) : isActiveStage(s.status)),
     ),
   );
   const dates = [
@@ -147,7 +147,14 @@ export function ProjectJourney({
                   {complete(stage.status) ? (
                     <CheckCircle2 className="h-4 w-4 shrink-0 text-primary" />
                   ) : (
-                    <Circle className="h-4 w-4 shrink-0 text-brand-orange" />
+                    <Circle
+                      className={cn(
+                        "h-4 w-4 shrink-0",
+                        isActiveStage(stage.status)
+                          ? "text-brand-orange"
+                          : "text-muted-foreground",
+                      )}
+                    />
                   )}
                   <span>
                     {index === 0 && stage.kind === "Original delivery"
@@ -263,7 +270,7 @@ export function ProjectJourney({
                         "journey-draw absolute top-1 h-6 rounded-md",
                         complete(s.status)
                           ? "bg-brand-navy"
-                          : s.status === "REJECTED"
+                          : ["REJECTED", "ARCHIVED"].includes(s.status)
                             ? "bg-muted-foreground"
                             : s.kind === "Original delivery"
                               ? "bg-brand-navy"

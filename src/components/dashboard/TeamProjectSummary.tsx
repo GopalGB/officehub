@@ -1,6 +1,7 @@
 import type { summarizePeopleProjects } from "@/lib/project-summary";
 import { formatDate } from "@/lib/utils";
 
+/** Keep the manager's portfolio overview compact with counts rather than titles. */
 export function TeamProjectSummary({
   rows,
   asOf,

@@ -53,6 +53,7 @@ const STATUS_TILES: { label: string; key: ProjectStatus; tone: string }[] = [
   },
 ];
 
+/** Guard before querying team work; the aggregate and detailed views share that boundary. */
 export default async function ManagerPage({
   searchParams,
 }: {

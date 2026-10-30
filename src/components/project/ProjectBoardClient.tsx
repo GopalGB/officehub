@@ -52,6 +52,7 @@ type Column = {
   wipLimit?: number;
 };
 
+/** Portal fixed drag feedback outside transformed page ancestors and reuse scoped data. */
 export function ProjectBoardClient({
   columns,
   initialProjects,
@@ -111,6 +112,7 @@ export function ProjectBoardClient({
   );
 
   const knownStatuses = useMemo(() => columns.map((c) => c.status), [columns]);
+  /** Pointer proximity alone must not turn an outside drop into an implicit move. */
   const collisions: CollisionDetection = (args) => {
     if (!args.pointerCoordinates) return closestCorners(args);
     const board = boardRef.current?.getBoundingClientRect();
@@ -138,10 +140,12 @@ export function ProjectBoardClient({
     }));
   }, [columns, projects]);
 
+  /** Honor the server's roster-aware permission rather than testing ownership alone. */
   function canMove(p: ProjectWithOwner): boolean {
     return p.canEdit ?? (canEditByOwner || p.ownerId === viewerId);
   }
 
+  /** Reparenting recreates handles, so focus after the DOM has settled. */
   function restoreFocus(cardId: string) {
     if (typeof window === "undefined") return;
     window.requestAnimationFrame(() => {
@@ -152,11 +156,13 @@ export function ProjectBoardClient({
     });
   }
 
+  /** Snapshot this drag so cancellation cannot undo an earlier successful save. */
   function onDragStart(e: DragStartEvent) {
     dragStartRef.current = projects;
     setActiveId(String(e.active.id));
   }
 
+  /** Preview column changes locally; the server receives only the final drop. */
   function onDragOver(e: DragOverEvent) {
     // Cross-column live preview: move the active card into the over column so
     // sibling reflows feel native (Jira/Trello-style).
@@ -184,6 +190,7 @@ export function ProjectBoardClient({
     });
   }
 
+  /** Reconcile optimistic order with the authorized server write, rolling back failures. */
   function onDragEnd(e: DragEndEvent) {
     setActiveId(null);
     const { active, over } = e;
@@ -297,6 +304,7 @@ export function ProjectBoardClient({
     });
   }
 
+  /** Escape restores the latest snapshot and preserves the user's keyboard location. */
   function onDragCancel() {
     if (activeId) restoreFocus(activeId);
     setActiveId(null);
@@ -339,6 +347,7 @@ export function ProjectBoardClient({
     ? projects.find((p) => p.id === activeId)
     : null;
 
+  /** Export the current confirmed board rather than fetching a broader dataset. */
   function exportCSV() {
     try {
       const csv = projectBoardCSV(
@@ -443,6 +452,7 @@ export function ProjectBoardClient({
   );
 }
 
+/** Bound long lists so completed work cannot push every other column off-screen. */
 function BoardColumn({
   column,
   isDragging,
@@ -531,6 +541,7 @@ function EmptyHint({
   );
 }
 
+/** Separate move gestures from links and touch scrolling with an explicit handle. */
 function SortableCard({
   project,
   canMove,
@@ -592,6 +603,7 @@ function SortableCard({
   );
 }
 
+/** Use matching card geometry for the normal card and the fixed drag preview. */
 function CardBody({
   project,
   locked,

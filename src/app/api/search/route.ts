@@ -5,6 +5,7 @@ import { isManagerOrAbove, projectAccessWhere } from "@/lib/rbac";
 
 export const dynamic = "force-dynamic";
 
+/** Reuse project access so sub-owner search stays consistent without widening member reads. */
 export async function GET(req: Request) {
   const session = await auth();
   if (!session?.user) {
