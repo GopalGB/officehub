@@ -8,6 +8,10 @@ Each project has an owner and optional sub-owner. Owners, sub-owners, explicit c
 
 A project records its type (new project, enhancement, or support/maintenance), optional source project, department, summary, rich description, success criteria, status, priority, start date, deadline, estimated effort, and expected hours saved per week. The source selector rejects self-links and circular lineage. Manager assignments create projects owned by the selected active person.
 
+Use **Additional details → Add field** on the create/edit form for extra spreadsheet columns or project-specific information. Labels and values stay in their entered order, including leading zeros, multiline text, and file references. Up to 50 fields are supported, with 100 characters per label and 5,000 per value. Duplicate field names are rejected. Additional details and sub-team are saved in project versions, can be restored, and are preserved when an unrelated API update omits them. The actual Excel mapping/import still requires the supplied workbook; these fields provide its storage rather than an invented dataset.
+
+Use **+ Add member** in the project header or the **Project team** card on Overview to select another registered active person. The header shortcut opens Overview and scrolls to that card. Profiles/designations and the official team/sub-team choice list are separate follow-up work; sub-team currently accepts text.
+
 The main project page has six sections:
 
 - **Overview:** delivery facts, a visual project journey, delivery milestones, and success criteria.
@@ -23,7 +27,9 @@ Archive a project to remove it from active lists while keeping its history. Arch
 
 The original delivery has its own timeline row. An improvement can start before that delivery ends or after it is completed; it never overwrites the original completion date. Improvements created as separate projects can reference a source project and appear as linked rows in the source's journey. Related projects remain subject to access checks.
 
-Every stage includes textual status and dates, in addition to color. A stage without planned dates is shown at its logged date and explicitly labeled unscheduled. Filters show all, active, or completed stages; milestone markers and the today line give context.
+Every stage includes textual status and dates, in addition to color. A stage without planned dates retains its logged date as text and is explicitly labeled unscheduled, with no invented duration. Filters show all, active, or completed stages; milestone markers and the today line give context.
+
+The timeline is the first section of Overview. Open **+ Add change to timeline** above the chart to add a request during the original work or after delivery. Each change has its own title, scope, release label, start, deadline, and status; its row links to the editable enhancement. The original delivery remains first, followed by changes in date order. A deadline-only record is shown as a point with “start not set”; undated records have no invented duration. Use **Set or edit project dates** to schedule the original delivery.
 
 ## Reports replace task screens
 

@@ -1,4 +1,5 @@
 import { assignablePeopleWhere } from "@/lib/project-people";
+import { additionalDetailsSchema } from "@/lib/additional-details";
 import { notFound, redirect } from "next/navigation";
 import type { Block } from "@blocknote/core";
 import { auth } from "../../../../../../auth";
@@ -78,6 +79,9 @@ export default async function EditProjectPage({
         submitLabel="Save changes"
         initial={{
           ...project,
+          additionalDetails: additionalDetailsSchema.parse(
+            project.additionalDetails,
+          ),
           ownerName: project.owner.name,
           coOwnerName: project.coOwner?.name,
           title: project.title,

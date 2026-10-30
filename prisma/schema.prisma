@@ -141,6 +141,8 @@ model Project {
   estimatedHours     Float?
   savedHours         Float?
   department         String?
+  subTeam            String?
+  additionalDetails  Json          @default("[]")
   acceptanceCriteria String?
   version            Int           @default(1)
   members            User[]        @relation("ProjectMembers")
@@ -411,6 +413,7 @@ model ProjectRequest {
   submitterEmail  String
   managerName     String?
   department      String?
+  subTeam         String?
   sopLocation     String?
   requiredFilesLocation String?
   sopFileName     String?

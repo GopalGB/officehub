@@ -144,6 +144,10 @@ export function RequestForm({
             placeholder="e.g. Business Intelligence"
           />
         </label>
+        <label className="field sm:col-span-2">
+          Sub-team (optional)
+          <input name="subTeam" maxLength={100} placeholder="Your sub-team" />
+        </label>
       </FormSection>
       <FormSection
         number="02"

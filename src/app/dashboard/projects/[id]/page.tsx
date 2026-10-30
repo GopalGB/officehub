@@ -14,7 +14,13 @@ import {
   ProjectStatusBadge,
 } from "@/components/project/StatusBadge";
 import { UpdateList } from "@/components/project/UpdateList";
-import { EnhancementList } from "@/components/project/EnhancementList";
+import { additionalDetailsSchema } from "@/lib/additional-details";
+import { deliveryRange } from "@/lib/timeline";
+import { ActionForm } from "@/components/ui/action-form";
+import {
+  EnhancementList,
+  EnhancementFields,
+} from "@/components/project/EnhancementList";
 import { MilestoneList } from "@/components/project/MilestoneList";
 import { CommentThread } from "@/components/project/CommentThread";
 import { TagPicker } from "@/components/project/TagPicker";
@@ -205,49 +211,49 @@ export default async function ProjectDetailPage({
     ...project.derivedProjects.map((p) => [p.id, p.title] as const),
     ...(source ? [[source.id, source.title] as const] : []),
   ]);
+  const additionalDetails = additionalDetailsSchema.parse(
+    project.additionalDetails,
+  );
   const stages = [
     {
       id: project.id,
       title: "Original delivery",
       status: project.status,
       kind: "Original delivery" as const,
-      start: (project.startDate ?? project.createdAt).toISOString(),
-      end: (
-        project.actualEndDate ??
-        project.targetDate ??
-        project.startDate ??
-        project.createdAt
-      ).toISOString(),
-      scheduled: !!project.startDate || !!project.targetDate,
+      ...deliveryRange({
+        startDate: project.startDate,
+        targetDate: project.targetDate,
+        completedAt: project.actualEndDate,
+        createdAt: project.createdAt,
+      }),
     },
-    ...project.enhancements.map((e) => ({
-      id: e.id,
-      title: e.releaseLabel ? `${e.releaseLabel} · ${e.title}` : e.title,
-      status: e.status,
+    ...project.enhancements.map((enhancement) => ({
+      id: enhancement.id,
+      title: enhancement.releaseLabel
+        ? `${enhancement.releaseLabel} · ${enhancement.title}`
+        : enhancement.title,
+      status: enhancement.status,
       kind: "Enhancement" as const,
-      start: (e.startDate ?? e.createdAt).toISOString(),
-      end: (
-        e.completedAt ??
-        e.targetDate ??
-        e.startDate ??
-        e.createdAt
-      ).toISOString(),
-      scheduled: !!e.startDate || !!e.targetDate,
+      href: `?tab=enhancements#enhancement-${enhancement.id}`,
+      ...deliveryRange({
+        startDate: enhancement.startDate,
+        targetDate: enhancement.targetDate,
+        completedAt: enhancement.completedAt,
+        createdAt: enhancement.createdAt,
+      }),
     })),
-    ...project.derivedProjects.map((p) => ({
-      id: p.id,
-      title: p.title,
-      status: p.status,
+    ...project.derivedProjects.map((related) => ({
+      id: related.id,
+      title: related.title,
+      status: related.status,
       kind: "Linked project" as const,
-      start: (p.startDate ?? p.createdAt).toISOString(),
-      end: (
-        p.actualEndDate ??
-        p.targetDate ??
-        p.startDate ??
-        p.createdAt
-      ).toISOString(),
-      scheduled: !!p.startDate || !!p.targetDate,
-      href: `/dashboard/projects/${p.id}`,
+      href: `/dashboard/projects/${related.id}`,
+      ...deliveryRange({
+        startDate: related.startDate,
+        targetDate: related.targetDate,
+        completedAt: related.actualEndDate,
+        createdAt: related.createdAt,
+      }),
     })),
   ];
   return (
@@ -272,6 +278,16 @@ export default async function ProjectDetailPage({
             )}
           </div>
           <div className="flex shrink-0 items-center gap-2">
+            {(project.ownerId === session.user.id ||
+              isManagerOrAbove(session.user.role)) && (
+              <Button variant="outline" size="sm" asChild>
+                <Link
+                  href={`/dashboard/projects/${project.id}?tab=overview#project-team`}
+                >
+                  + Add member
+                </Link>
+              </Button>
+            )}
             {canEdit && (
               <Button asChild variant="outline" size="sm">
                 <Link href={`/dashboard/projects/${project.id}/edit`}>
@@ -329,6 +345,51 @@ export default async function ProjectDetailPage({
       </nav>
       {tab === "overview" && (
         <>
+          <section className="surface">
+            <ProjectJourney
+              key={project.enhancements.length}
+              controls={
+                canEdit ? (
+                  <>
+                    <p className="mt-4 text-xs text-muted-foreground">
+                      <Link
+                        className="text-link"
+                        href={`/dashboard/projects/${id}/edit#timeline-dates`}
+                      >
+                        Set or edit project dates
+                      </Link>{" "}
+                      · Add a change with its own start and deadline, during or
+                      after delivery.
+                    </p>
+                    <details className="mt-5 rounded-xl border bg-secondary/20 p-4">
+                      <summary className="cursor-pointer text-sm font-semibold">
+                        + Add change to timeline
+                      </summary>
+                      <div className="mt-4">
+                        <ActionForm
+                          action={addEnhancement.bind(null, project.id)}
+                          label="Add change"
+                          successMessage="Change added to the project timeline."
+                        >
+                          <EnhancementFields />
+                        </ActionForm>
+                      </div>
+                    </details>
+                  </>
+                ) : undefined
+              }
+              stages={stages}
+              fiscalConfigs={fiscalConfigs}
+              milestones={project.milestones
+                .filter((m) => m.dueDate)
+                .map((m) => ({
+                  id: m.id,
+                  title: m.title,
+                  date: m.dueDate!.toISOString(),
+                  completed: m.completed,
+                }))}
+            />
+          </section>
           {project.requests.map((request) => (
             <RequestContext key={request.id} request={request} />
           ))}
@@ -371,20 +432,47 @@ export default async function ProjectDetailPage({
               </Link>
             </p>
           )}
-          <section className="surface">
-            <ProjectJourney
-              stages={stages}
-              fiscalConfigs={fiscalConfigs}
-              milestones={project.milestones
-                .filter((m) => m.dueDate)
-                .map((m) => ({
-                  id: m.id,
-                  title: m.title,
-                  date: m.dueDate!.toISOString(),
-                  completed: m.completed,
-                }))}
+
+          <section id="project-team" className="surface space-y-4 scroll-mt-24">
+            <div>
+              <h2 className="section-title">Project team</h2>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Add another person using + Add member.
+              </p>
+            </div>
+            <MembersPicker
+              projectId={project.id}
+              ownerName={project.owner.name}
+              allUsers={members.filter(
+                (person) => person.id !== project.ownerId,
+              )}
+              selectedIds={memberIds}
+              existingMembers={project.members.filter(
+                (person) => person.id !== project.ownerId,
+              )}
+              canEdit={
+                project.ownerId === session.user.id ||
+                isManagerOrAbove(session.user.role)
+              }
             />
           </section>
+          {!!additionalDetails.length && (
+            <section className="surface">
+              <h2 className="section-title">Additional details</h2>
+              <dl className="mt-4 grid gap-4 sm:grid-cols-2">
+                {additionalDetails.map((field) => (
+                  <div key={field.label} className="min-w-0">
+                    <dt className="text-xs text-muted-foreground">
+                      {field.label}
+                    </dt>
+                    <dd className="mt-1 whitespace-pre-wrap break-words text-sm">
+                      {field.value || "—"}
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+            </section>
+          )}
           <section className="surface space-y-4">
             <h2 className="section-title">Delivery milestones</h2>
             <MilestoneList
@@ -417,6 +505,9 @@ export default async function ProjectDetailPage({
               </p>
               {project.department && (
                 <p className="mt-2 text-sm">Team: {project.department}</p>
+              )}
+              {project.subTeam && (
+                <p className="mt-2 text-sm">Sub-team: {project.subTeam}</p>
               )}
             </div>
           </div>

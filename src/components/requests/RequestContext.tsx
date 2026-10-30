@@ -7,6 +7,7 @@ export function RequestContext({
     id: string;
     managerName: string | null;
     department: string | null;
+    subTeam: string | null;
     sopLocation: string | null;
     requiredFilesLocation: string | null;
     sopFileName: string | null;
@@ -16,6 +17,7 @@ export function RequestContext({
   if (
     !request.managerName &&
     !request.department &&
+    !request.subTeam &&
     !request.sopLocation &&
     !request.requiredFilesLocation &&
     !request.sopFileName
@@ -28,6 +30,7 @@ export function RequestContext({
         {[
           ["Requester’s manager", request.managerName],
           ["Team / department", request.department],
+          ["Sub-team", request.subTeam],
         ].map(
           ([label, value]) =>
             value && (

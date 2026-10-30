@@ -141,7 +141,7 @@ function parseJSON<T = unknown>(v: FormDataEntryValue | null): T | null {
 // ---------------- Projects ----------------
 
 function workspaceFields(fd: FormData) {
-  return Object.fromEntries(
+  const fields = Object.fromEntries(
     [
       "ownerId",
       "coOwnerId",
@@ -150,12 +150,19 @@ function workspaceFields(fd: FormData) {
       "estimatedHours",
       "savedHours",
       "department",
+      "subTeam",
       "acceptanceCriteria",
       "expectedVersion",
     ]
       .filter((key) => fd.has(key))
       .map((key) => [key, formText(fd, key)]),
   );
+  return {
+    ...fields,
+    ...(fd.has("additionalDetails") && {
+      additionalDetails: parseJSON(fd.get("additionalDetails")),
+    }),
+  };
 }
 function checkedRange(
   start: string | Date | null | undefined,
@@ -237,6 +244,8 @@ export async function createProject(formData: FormData) {
         estimatedHours: parsed.estimatedHours,
         savedHours: parsed.savedHours,
         department: parsed.department,
+        subTeam: parsed.subTeam,
+        additionalDetails: parsed.additionalDetails ?? [],
         acceptanceCriteria: parsed.acceptanceCriteria,
         // A member who creates a project with a different co-owner keeps access.
         members: isAdmin(user.role) ? undefined : { connect: { id: user.id } },
@@ -2038,6 +2047,7 @@ export async function decideProjectRequest(fd: FormData) {
             estimatedHours: request.estimatedHours,
             savedHours: request.savedHours,
             department: request.department,
+            subTeam: request.subTeam,
             targetDate: request.requestedDate,
             priority: request.priority,
           },

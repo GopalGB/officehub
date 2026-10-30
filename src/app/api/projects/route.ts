@@ -91,6 +91,7 @@ export async function POST(req: Request) {
         title: parsed.data.title,
         summary: parsed.data.summary ?? null,
         description: parsed.data.description ?? undefined,
+        additionalDetails: parsed.data.additionalDetails ?? [],
         actualEndDate: parsed.data.status === "COMPLETED" ? new Date() : null,
         status: parsed.data.status,
         priority: parsed.data.priority,

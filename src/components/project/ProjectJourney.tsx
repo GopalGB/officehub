@@ -1,5 +1,6 @@
 "use client";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
+import { chronologicalStages } from "@/lib/timeline";
 import Link from "next/link";
 import { formatDate, cn } from "@/lib/utils";
 import { fiscalLabel, type FiscalConfig } from "@/lib/fiscal";
@@ -10,6 +11,11 @@ type Stage = {
   kind: "Original delivery" | "Enhancement" | "Linked project";
   start: string;
   end: string;
+  loggedAt: string;
+  hasStart: boolean;
+  hasEnd: boolean;
+  endLabel: string;
+  invalidRange: boolean;
   scheduled: boolean;
   href?: string;
 };
@@ -17,29 +23,32 @@ export function ProjectJourney({
   stages,
   milestones,
   fiscalConfigs = [],
+  controls,
 }: {
   stages: Stage[];
   milestones: { id: string; title: string; date: string; completed: boolean }[];
   fiscalConfigs?: FiscalConfig[];
+  controls?: ReactNode;
 }) {
   const [filter, setFilter] = useState("all");
   const complete = (status: string) =>
     ["DONE", "COMPLETED", "ARCHIVED"].includes(status);
-  const visible = stages.filter(
-    (s) =>
-      filter === "all" ||
-      (filter === "completed"
-        ? complete(s.status)
-        : !complete(s.status) && s.status !== "REJECTED"),
+  const visible = chronologicalStages(
+    stages.filter(
+      (s) =>
+        filter === "all" ||
+        (filter === "completed"
+          ? complete(s.status)
+          : !complete(s.status) && s.status !== "REJECTED"),
+    ),
   );
   const dates = [
-    ...stages.flatMap((s) => [
-      new Date(s.start).getTime(),
-      new Date(s.end).getTime(),
-    ]),
+    ...stages
+      .filter((stage) => stage.scheduled && !stage.invalidRange)
+      .flatMap((s) => [new Date(s.start).getTime(), new Date(s.end).getTime()]),
     ...milestones.map((m) => new Date(m.date).getTime()),
   ];
-  const min = Math.min(...dates),
+  const min = dates.length ? Math.min(...dates) : Date.now(),
     max = Math.max(...dates, min + 7 * 86400000);
   const span = Math.max(max - min, 7 * 86400000);
   const position = (date: string) =>
@@ -49,9 +58,10 @@ export function ProjectJourney({
     <div className="space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="section-title">Project journey</h2>
+          <h2 className="section-title">Project timeline</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Original delivery and every enhancement, on one timeline.
+            Original delivery and every requested change, on one timeline.
+            Changes can overlap the original work or follow delivery.
           </p>
         </div>
         <div className="flex rounded-lg border bg-secondary p-1 text-xs">
@@ -71,12 +81,31 @@ export function ProjectJourney({
           ))}
         </div>
       </div>
+      {controls}
+      <p className="text-xs text-muted-foreground">
+        {stages.filter((stage) => stage.kind === "Enhancement").length} changes
+        / enhancements ·{" "}
+        {stages.filter((stage) => complete(stage.status)).length} completed
+        stages
+      </p>
+      {!dates.length && (
+        <p className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
+          No dates scheduled yet. Add the project start and deadline, or add a
+          dated change below, to plot its duration.
+        </p>
+      )}
+      <p className="text-xs text-muted-foreground sm:hidden">
+        Scroll the timeline horizontally to see all dates.
+      </p>
       <div className="overflow-x-auto pb-2">
         <div className="min-w-[600px]">
           <div className="ml-52 flex justify-between border-b pb-2 text-[10px] text-muted-foreground">
-            {Array.from({ length: 5 }, (_, i) => (
-              <span key={i}>{formatDate(new Date(min + (span * i) / 4))}</span>
-            ))}
+            {dates.length > 0 &&
+              Array.from({ length: 5 }, (_, i) => (
+                <span key={i}>
+                  {formatDate(new Date(min + (span * i) / 4))}
+                </span>
+              ))}
           </div>
           {visible.map((s) => (
             <div
@@ -84,7 +113,7 @@ export function ProjectJourney({
               className="grid grid-cols-[208px_1fr] items-center border-b border-border/60 py-4"
             >
               <div className="pr-4">
-                <p className="truncate text-sm font-medium">
+                <p className="truncate text-sm font-medium" title={s.title}>
                   {s.href ? (
                     <Link className="text-link" href={s.href}>
                       {s.title}
@@ -100,36 +129,53 @@ export function ProjectJourney({
               <div>
                 <div
                   className="relative h-8 rounded-md bg-secondary/70"
-                  title={`${s.title}: ${formatDate(s.start)} to ${formatDate(s.end)}`}
+                  title={
+                    s.scheduled
+                      ? `${s.title}: ${formatDate(s.start)} to ${formatDate(s.end)}`
+                      : `${s.title}: dates not scheduled`
+                  }
                 >
-                  {today >= 0 && today <= 100 && (
+                  {s.scheduled && today >= 0 && today <= 100 && (
                     <span
                       className="absolute inset-y-0 z-10 border-l-2 border-dashed border-brand-orange/50"
                       style={{ left: `${today}%` }}
                     />
                   )}
-                  <span
-                    className={cn(
-                      "absolute top-1 h-6 min-w-2 rounded-md",
-                      complete(s.status)
-                        ? "bg-emerald-600 dark:bg-emerald-500"
-                        : s.status === "REJECTED"
-                          ? "bg-slate-400 dark:bg-slate-500"
-                          : s.kind === "Original delivery"
-                            ? "bg-brand-navy dark:bg-sky-400"
-                            : "bg-brand-orange dark:bg-orange-400",
-                    )}
-                    style={{
-                      left: `${Math.min(98, position(s.start))}%`,
-                      width: `${Math.max(1, position(s.end) - position(s.start))}%`,
-                    }}
-                  />
+                  {!s.scheduled || s.invalidRange ? (
+                    <span className="absolute inset-1 flex items-center justify-center rounded border border-dashed text-[10px] text-muted-foreground">
+                      {s.invalidRange
+                        ? "Check start and end dates"
+                        : "Not scheduled"}
+                    </span>
+                  ) : (
+                    <span
+                      className={cn(
+                        "absolute top-1 h-6 min-w-2 rounded-md",
+                        complete(s.status)
+                          ? "bg-emerald-600 dark:bg-emerald-500"
+                          : s.status === "REJECTED"
+                            ? "bg-slate-400 dark:bg-slate-500"
+                            : s.kind === "Original delivery"
+                              ? "bg-brand-navy dark:bg-sky-400"
+                              : "bg-brand-orange dark:bg-orange-400",
+                      )}
+                      style={{
+                        left: `${Math.min(98, position(s.start))}%`,
+                        width: `${Math.max(1, position(s.end) - position(s.start))}%`,
+                      }}
+                    />
+                  )}
                 </div>
                 <p className="mt-1.5 text-[10px] text-muted-foreground">
                   {s.scheduled
-                    ? `${formatDate(s.start)} → ${formatDate(s.end)}`
-                    : `Logged ${formatDate(s.start)} · dates not scheduled`}{" "}
-                  · {fiscalLabel(new Date(s.start), fiscalConfigs)}
+                    ? s.hasStart && s.hasEnd
+                      ? `${formatDate(s.start)} → ${formatDate(s.end)}`
+                      : s.hasStart
+                        ? `Starts ${formatDate(s.start)} · deadline not set`
+                        : `${s.endLabel} ${formatDate(s.end)} · start not set`
+                    : `Logged ${formatDate(s.loggedAt)} · dates not scheduled`}
+                  {s.scheduled &&
+                    ` · ${fiscalLabel(new Date(s.start), fiscalConfigs)}`}
                 </p>
               </div>
             </div>

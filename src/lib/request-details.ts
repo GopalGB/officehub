@@ -8,6 +8,7 @@ export const requestDetailsSelect = {
   submitterEmail: true,
   managerName: true,
   department: true,
+  subTeam: true,
   title: true,
   description: true,
   projectType: true,
