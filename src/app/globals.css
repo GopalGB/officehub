@@ -71,6 +71,17 @@
   animation: slide-in-right 240ms ease-out both;
 }
 
+@keyframes journey-stage {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes journey-draw {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+.journey-stage { animation: journey-stage 260ms ease-out both; }
+.journey-draw { transform-origin: left center; animation: journey-draw 650ms ease-out both; }
+
 /* Global gentle hover lift on cards/buttons that opt in via .hover-lift */
 .hover-lift {
   transition: transform 180ms ease-out, box-shadow 180ms ease-out, border-color 180ms ease-out;
@@ -84,6 +95,8 @@
   .animate-fade-in,
   .animate-fade-in-fast,
   .animate-slide-in-right,
+  .journey-stage,
+  .journey-draw,
   .hover-lift {
     animation: none !important;
     transition: none !important;

@@ -21,6 +21,7 @@ export function deliveryRange(input: {
   };
 }
 
+/** Retain original delivery first without inventing planned dates for logged changes. */
 export function chronologicalStages<
   T extends {
     kind: string;
@@ -39,4 +40,35 @@ export function chronologicalStages<
       Date.parse(a.loggedAt) - Date.parse(b.loggedAt)
     );
   });
+}
+
+/** Archiving closes work without proving delivery; only explicit done states count. */
+export function isCompletedStage(status: string) {
+  return ["DONE", "COMPLETED"].includes(status);
+}
+
+/** Closed stages remain available in All stages without appearing as active work. */
+export function isActiveStage(status: string) {
+  return (
+    !isCompletedStage(status) && !["ARCHIVED", "REJECTED"].includes(status)
+  );
+}
+
+/** Keep minimum-width markers inside the track, including a point at its end. */
+export function timelineBarPosition(
+  start: string,
+  end: string,
+  min: number,
+  span: number,
+) {
+  const position = (value: string) =>
+    Math.min(
+      100,
+      Math.max(0, ((Date.parse(value) - min) / Math.max(span, 1)) * 100),
+    );
+  const left = Math.min(98, position(start));
+  return {
+    left,
+    width: Math.min(100 - left, Math.max(2, position(end) - left)),
+  };
 }

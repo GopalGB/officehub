@@ -45,6 +45,14 @@ Every stage includes textual status and dates, in addition to color. A stage wit
 
 The timeline is the first section of Overview. Open **+ Add change to timeline** above the chart to add a request during the original work or after delivery. Each change has its own title, scope, release label, start, deadline, and status; its row links to the editable enhancement. The original delivery remains first, followed by changes in date order. A deadline-only record is shown as a point with “start not set”; undated records have no invented duration. Use **Set or edit project dates** to schedule the original delivery.
 
+## Board movement and CSV export
+
+Use the move handle on a project card to change status or order. Click its title to open the project. Keyboard users can Tab to a handle, press Space to pick up, use arrows to move, and press Space to save or Escape to cancel. Touch users can hold the handle; the rest of the board remains available for scrolling. The preview follows the pointer and stays in the window. Long columns scroll vertically inside the board, with horizontal scrolling on smaller screens. Dropping outside the board cancels the move. While a move saves, handles and export are temporarily disabled; server errors restore the last saved state.
+
+**Export CSV** downloads the projects currently shown on the board, using the selected scope and owner filter, up to the board’s 500-row display limit. It includes ownership, collaborators, dates, status, priority, hours, team/sub-team, version, and every additional field. UTF-8 CSV supports Excel, quoted/multiline values, and neutralizes formula-like text. The file is generated locally from the already-authorized displayed data. Managers can select all team work; ordinary members can only view/export projects they own, sub-own, or explicitly collaborate on. Archived projects are excluded. Changing URL filters cannot widen a member's access.
+
+The project journey shows the original delivery and each recorded change with a completion count and a small animated stage graph. **Replay** restarts it. Animation is disabled when the browser prefers reduced motion. Dates and chart bars stay independent for every change; missing dates remain unscheduled.
+
 ## Reports replace task screens
 
 The sidebar and search use Reports. Existing `/dashboard/tasks` and `/dashboard/tasks/board` bookmarks redirect to the corresponding report screens. Previous work remains in the existing database table, with the same IDs, status, assignments, due dates, descriptions, hierarchy, and legacy story points. New fields store estimated hours and report links separately; story points are not silently converted to hours.
@@ -60,6 +68,8 @@ Use **Change this day** to alter only that date's project, focus, start time, du
 Daily capacity bars use an eight-hour reference and the team overview uses a forty-hour week reference. These are planning guides, not time-clock attendance or contractual working-hours rules. Overlaps are flagged. The local Windows server calendar day determines Today; the server should use the office's correct time zone.
 
 Managers can choose a date in **Team overview** and see every active person's project ownership/collaboration, open reports, weekly load, daily focus, and whether that date was adjusted. Users edit their own weekly and daily commitments; management reviews and assigns project ownership.
+
+**Projects by person** appears above Team commitments. It shows each active delivery person's total, completed, left, planning, in-progress, blocked, on-hold, and overdue projects, with a small completion bar and no project names. A project counts once for a person even if they have several roles on it. Shared projects count for each assigned person, so per-person totals should not be summed as a unique portfolio total. Archived projects and administrative accounts are excluded; people with no work remain visible with zeros. The summary reflects current project status, and a deadline due today is not overdue. Members cannot open the manager page or other users' commitments.
 
 ## Fiscal calendar
 
