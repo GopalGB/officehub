@@ -53,3 +53,11 @@ The font stack is Helvetica Neue, Helvetica, Arial, sans-serif, without external
 The homepage links [a white Catalyst Brands logo](https://www.catalystbrands.com/images/catalystbrands_white_logo.png). It is provided here as a source reference; supply your chosen approved artwork as `logo.png`.
 
 Theme tokens live in `src/app/globals.css` and `tailwind.config.ts`. The shared logo slot is `src/components/layout/BrandIdentity.tsx`; the logo endpoint is `src/app/brand/logo/route.ts`.
+
+## Everyday workspace
+
+Use one main navy action per section and orange selected states. Project cards
+use a thin status accent, paired with a readable badge. Keep broad surfaces quiet
+and reserve blue for links and active work. Overview, Work, and History are the
+three project sections; optional metadata, schedule, and work breakdowns expand
+on demand. The supplied transparent logo keeps its original transparent surface.

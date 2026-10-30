@@ -196,7 +196,7 @@ Same shape as existing endpoints. Use `requireApiAuth`.
 | Permissions | Always go through `src/lib/rbac.ts` helpers. Pass `memberIds` to `canEditProject`. |
 | Loading | Use `<Skeleton />` for placeholders. |
 | Animations | Add `.hover-lift` to cards. Use `.animate-fade-in` for page reveals. Respect `prefers-reduced-motion` — handled in globals.css. |
-| Dark mode | All custom colors must have a `dark:` variant. Use shadcn-style HSL CSS vars. |
+| Dark mode | Dark mode is disabled. Use Catalyst theme tokens; see `docs/BRANDING.md`. |
 
 ---
 
@@ -244,7 +244,7 @@ Before opening a PR:
 - [ ] Every new server action checks RBAC before mutating
 - [ ] Every project-touching server action passes `memberIds` to `canEditProject`
 - [ ] No `.env` or credential files in the diff
-- [ ] Dark mode: every new color has a `dark:` variant
+- [ ] Catalyst tokens and semantic status colors keep readable contrast
 - [ ] Mobile: layout works at 375px (test via DevTools responsive)
 - [ ] BlockNote-touching code respects the mount-guard pattern
 - [ ] If you added a route, sidebar + mobile nav include it (if user-facing)
@@ -343,3 +343,15 @@ and deployment instructions. Use theme tokens for new controls and keep text con
 - Use per-command `maintenance.auto=false` / `gc.auto=0` and fetch `--no-auto-gc` in the Windows updater and its bootstrap to avoid locked-pack cleanup prompts. Do not persist those settings or delete Git object files. Locate existing PostgreSQL utilities through service/installation metadata as well as product directories; do not assume C: or a fixed list of PostgreSQL major versions.
 - Preserve the explicit PostgreSQL utility override. Probe automatic candidates against the configured database with `backup-db.mjs --check-client` and skip incompatible clients. The probe discards a read-only schema export; the full database backup must still succeed before applying schema changes. Mock PATH lookup in service-discovery tests so installed developer tools cannot mask the fixture.
 - Keep the logo wrapper transparent. The root `logo.png` is local deployment content and ignored by Git.
+
+## Simple project presentation (2026-10-30)
+
+- Primary project sections are Overview, Work, History. Legacy details/reports/
+  enhancements/activity links must still open the relevant content. Timeline
+  change links depend on this behavior. Keep optional metadata and schedule in
+  accessible disclosures; do not delete data to simplify the interface.
+- Closed optional form sections remain mounted and submitted. Reveal ancestor
+  disclosures during native validation and reveal optional details for action
+  errors so invalid fields can be corrected.
+- Projects contains the Cards/Board switch and manager Excel import entrypoint;
+  these do not need duplicate primary navigation items.

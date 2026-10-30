@@ -19,81 +19,75 @@ export function TeamProjectSummary({
           Projects by person
         </h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Current project counts, without project names. Overdue is measured as
-          of {formatDate(asOf)}.
+          Completion and remaining work · {formatDate(asOf)}
         </p>
       </div>
-      <div className="max-w-full overflow-x-auto">
-        <table className="w-full min-w-[780px] text-left text-sm">
-          <caption className="sr-only">
-            Project completion and remaining work for each team member
-          </caption>
-          <thead className="border-b text-xs text-muted-foreground">
-            <tr>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        {rows.map((person) => (
+          <article
+            key={person.id}
+            data-person-summary={person.id}
+            className="min-w-0 rounded-xl border bg-secondary/20 p-4"
+          >
+            <h3 className="break-words text-sm font-semibold">{person.name}</h3>
+            <dl className="mt-4 grid grid-cols-3 gap-2 text-sm">
               {[
-                "Team member",
-                "Total",
-                "Completed",
-                "Left",
-                "Planning",
-                "In progress",
-                "Blocked",
-                "On hold",
-                "Overdue",
-              ].map((label) => (
-                <th key={label} scope="col" className="px-3 py-3 font-medium">
-                  {label}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody className="divide-y">
-            {rows.map((person) => (
-              <tr key={person.id} data-person-summary={person.id}>
-                <th scope="row" className="min-w-[180px] px-3 py-4 font-medium">
-                  <span>{person.name}</span>
-                  <div
-                    className="mt-2 h-1.5 overflow-hidden rounded-full bg-secondary"
-                    role="progressbar"
-                    aria-label={`${person.name}: completed projects`}
-                    aria-valuemin={0}
-                    aria-valuemax={Math.max(1, person.total)}
-                    aria-valuenow={person.completed}
-                    aria-valuetext={
-                      person.total
-                        ? `${person.completed} of ${person.total} completed`
-                        : "No projects"
-                    }
-                  >
-                    <div
-                      className="h-full rounded-full bg-brand-orange"
-                      style={{
-                        width: `${person.total ? (person.completed / person.total) * 100 : 0}%`,
-                      }}
-                    />
-                  </div>
-                </th>
-                {[
-                  person.total,
-                  person.completed,
-                  person.remaining,
-                  person.planning,
-                  person.inProgress,
-                  person.blocked,
-                  person.onHold,
-                  person.overdue,
-                ].map((count, index) => (
-                  <td
-                    key={index}
-                    className={`px-3 py-4 tabular-nums ${index === 2 ? "font-semibold" : "text-muted-foreground"}`}
+                ["Total", person.total],
+                ["Completed", person.completed],
+                ["Left", person.remaining],
+              ].map(([label, count]) => (
+                <div key={label}>
+                  <dt className="text-xs text-muted-foreground">{label}</dt>
+                  <dd
+                    className={`mt-1 text-xl font-semibold tabular-nums ${label === "Left" ? "text-brand-link" : "text-brand-navy"}`}
                   >
                     {count}
-                  </td>
+                  </dd>
+                </div>
+              ))}
+            </dl>
+            <div
+              className="mt-3 h-1.5 overflow-hidden rounded-full bg-secondary"
+              role="progressbar"
+              aria-label={`${person.name}: completed projects`}
+              aria-valuemin={0}
+              aria-valuemax={Math.max(1, person.total)}
+              aria-valuenow={person.completed}
+              aria-valuetext={
+                person.total
+                  ? `${person.completed} of ${person.total} completed`
+                  : "No projects"
+              }
+            >
+              <div
+                className="h-full rounded-full bg-brand-orange"
+                style={{
+                  width: `${person.total ? (person.completed / person.total) * 100 : 0}%`,
+                }}
+              />
+            </div>
+            <details className="mt-3 text-xs">
+              <summary className="cursor-pointer text-brand-link">
+                Status breakdown
+                {person.overdue > 0 ? ` · ${person.overdue} overdue` : ""}
+              </summary>
+              <dl className="mt-3 grid grid-cols-2 gap-2 text-muted-foreground">
+                {[
+                  ["Planning", person.planning],
+                  ["In progress", person.inProgress],
+                  ["Blocked", person.blocked],
+                  ["On hold", person.onHold],
+                  ["Overdue", person.overdue],
+                ].map(([label, count]) => (
+                  <div key={label} className="flex gap-2">
+                    <dt>{label}</dt>
+                    <dd className="font-medium text-foreground">{count}</dd>
+                  </div>
                 ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
+              </dl>
+            </details>
+          </article>
+        ))}
         {!rows.length && (
           <p className="py-6 text-sm text-muted-foreground">
             No active delivery team members yet.

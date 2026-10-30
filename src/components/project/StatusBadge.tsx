@@ -9,10 +9,8 @@ import { Badge } from "@/components/ui/badge";
 const tone = {
   neutral:
     "border-slate-200 bg-slate-50 text-slate-700 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200",
-  active:
-    "border-sky-200 bg-sky-50 text-sky-800 dark:border-sky-700 dark:bg-sky-950 dark:text-sky-200",
-  waiting:
-    "border-orange-200 bg-orange-50 text-orange-900 dark:border-orange-700 dark:bg-orange-950 dark:text-orange-200",
+  active: "border-brand-blue/25 bg-brand-blue/10 text-brand-link",
+  waiting: "border-brand-orange/25 bg-brand-tint text-brand-navy",
   done: "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-700 dark:bg-emerald-950 dark:text-emerald-200",
   blocked:
     "border-red-200 bg-red-50 text-red-800 dark:border-red-700 dark:bg-red-950 dark:text-red-200",
@@ -140,7 +138,7 @@ export const ENHANCEMENT_STATUS_OPTIONS = Object.entries(ENH_LABEL).map(
   }),
 );
 
-// Task labels + monochrome variants
+// Report labels and semantic status colors
 export const TASK_STATUS_LABEL: Record<TaskStatus, string> = {
   TODO: "To Do",
   IN_PROGRESS: "In Progress",

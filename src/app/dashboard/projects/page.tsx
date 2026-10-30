@@ -63,23 +63,31 @@ export default async function ProjectsPage({
     <div className="mx-auto max-w-6xl space-y-6">
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <p className="eyebrow">Portfolio</p>
           <h1 className="page-title">Projects</h1>
           <p className="page-subtitle">
-            {count} projects. Ownership, delivery, and every next iteration.
+            {count} projects · Pick one to see progress and updates.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          {isManagerOrAbove(session.user.role) && <Button variant="outline" asChild><Link href="/dashboard/projects/import">Import Excel</Link></Button>}
-          <Button variant="outline" asChild>
-            <Link href="/dashboard/board">Board view</Link>
-          </Button>
+          {isManagerOrAbove(session.user.role) && (
+            <Button variant="outline" asChild>
+              <Link href="/dashboard/projects/import">Import Excel</Link>
+            </Button>
+          )}
           <Button asChild>
             <Link href="/dashboard/projects/new">New project</Link>
           </Button>
         </div>
       </header>
-      <form className="surface flex flex-wrap items-end gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <nav className="view-switch" aria-label="Project views">
+          <Link href="/dashboard/projects" aria-current="page">
+            Cards
+          </Link>
+          <Link href="/dashboard/board">Board</Link>
+        </nav>
+      </div>
+      <form className="flex flex-wrap items-end gap-3 rounded-xl border bg-card p-4">
         <label className="field min-w-0 flex-1">
           Find a project
           <input
@@ -89,7 +97,7 @@ export default async function ProjectsPage({
             defaultValue={params.q}
           />
         </label>
-        <label className="field">
+        <label className="field w-full sm:w-auto">
           Status
           <select
             name="status"
@@ -107,7 +115,7 @@ export default async function ProjectsPage({
           Filter
         </Button>
       </form>
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {projects.map((p) => (
           <ProjectCard key={p.id} project={p} />
         ))}

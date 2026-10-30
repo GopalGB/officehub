@@ -16,19 +16,23 @@ const COLUMNS: {
   tone: string;
   wipLimit?: number;
 }[] = [
-  { status: "PLANNING", label: "Planning", tone: "bg-white ring-black/10" },
+  { status: "PLANNING", label: "Planning", tone: "bg-slate-50 ring-slate-200" },
   {
     status: "IN_PROGRESS",
     label: "In Progress",
-    tone: "bg-neutral-50 ring-black/15",
+    tone: "bg-sky-50/70 ring-sky-200",
     wipLimit: 8,
   },
-  { status: "BLOCKED", label: "Blocked", tone: "bg-white ring-black" },
-  { status: "ON_HOLD", label: "On Hold", tone: "bg-neutral-50 ring-black/10" },
+  { status: "BLOCKED", label: "Blocked", tone: "bg-red-50/60 ring-red-200" },
+  {
+    status: "ON_HOLD",
+    label: "On Hold",
+    tone: "bg-brand-tint/70 ring-orange-200",
+  },
   {
     status: "COMPLETED",
     label: "Completed",
-    tone: "bg-neutral-50 ring-black/30",
+    tone: "bg-emerald-50/60 ring-emerald-200",
   },
 ];
 
@@ -75,11 +79,9 @@ export default async function BoardPage({
     <div className="min-w-0 max-w-full space-y-4">
       <header className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Board</h1>
+          <h1 className="page-title">Projects</h1>
           <p className="text-sm text-slate-500">
-            Use a card’s move handle to change its status or order. Open its
-            title to track delivery. Keyboard: Tab to a move handle, Space to
-            grab, arrows to move, Space to drop, Esc to cancel.
+            Move work forward. Open a project to see its timeline.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -118,6 +120,21 @@ export default async function BoardPage({
         </div>
       </header>
 
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <nav className="view-switch" aria-label="Project views">
+          <Link href="/dashboard/projects">Cards</Link>
+          <Link href="/dashboard/board" aria-current="page">
+            Board
+          </Link>
+        </nav>
+        <details className="text-xs text-muted-foreground">
+          <summary className="cursor-pointer">How to move a project</summary>
+          <p className="mt-2 max-w-lg">
+            Drag a card’s move handle. With a keyboard, focus the handle, press
+            Space to grab, use arrows to move, and Space to drop. Esc cancels.
+          </p>
+        </details>
+      </div>
       <ProjectBoardClient
         columns={COLUMNS}
         initialProjects={projects.map((project) => ({
