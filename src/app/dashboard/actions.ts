@@ -11,6 +11,9 @@ import {
 import { assertAssignablePeople } from "@/lib/project-people";
 import { requestDetailsSelect } from "@/lib/request-details";
 import { readSopUpload } from "@/lib/sop-upload";
+import { readProjectWorkbook } from "@/lib/project-workbook";
+import { importCommitSchema, importOptionsSchema } from "@/lib/project-import";
+import { prepareProjectImport, applyProjectImport } from "@/lib/project-import-service";
 import { z } from "zod";
 import { formText } from "@/lib/utils";
 import { revalidatePath } from "next/cache";
@@ -139,6 +142,35 @@ function parseJSON<T = unknown>(v: FormDataEntryValue | null): T | null {
 }
 
 // ---------------- Projects ----------------
+
+export async function previewProjectImport(formData: FormData) {
+  const user = await requireSession();
+  if (!isManagerOrAbove(user.role)) return { error: "Only managers and administrators can import projects." };
+  try {
+    const options = importOptionsSchema.parse(Object.fromEntries(formData));
+    const file = formData.get("workbook");
+    if (!(file instanceof File)) return { error: "Choose an Excel workbook." };
+    const workbook = await readProjectWorkbook(file);
+    const preview = await prepareProjectImport(user, options, { ...workbook, fileName: file.name });
+    return { preview };
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : "Could not read workbook." };
+  }
+}
+
+export async function commitProjectImport(formData: FormData) {
+  const user = await requireSession();
+  if (!isManagerOrAbove(user.role)) return { error: "Only managers and administrators can import projects." };
+  try {
+    const parsed = importCommitSchema.parse({ importId: formData.get("importId"), updateExisting: formData.get("updateExisting") === "on" });
+    const result = await applyProjectImport(user, parsed.importId, parsed.updateExisting);
+    refreshWorkspace();
+    return { result };
+  } catch (error) {
+    if (error instanceof Error && "code" in error && ["P2034", "P2002"].includes(String(error.code))) return { error: "Another import or edit ran at the same time. Upload again to refresh your preview." };
+    return { error: error instanceof Error ? error.message : "Import could not be saved." };
+  }
+}
 
 function workspaceFields(fd: FormData) {
   const fields = Object.fromEntries(

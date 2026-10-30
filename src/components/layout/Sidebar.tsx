@@ -16,6 +16,7 @@ import {
   CheckSquare,
   BookOpen,
   Calendar,
+  FileSpreadsheet,
 } from "lucide-react";
 
 export function Sidebar({ role }: { role: Role }) {
@@ -48,6 +49,12 @@ export function Sidebar({ role }: { role: Role }) {
           label: "Projects",
           icon: Folders,
           show: true,
+        },
+        {
+          href: "/dashboard/projects/import",
+          label: "Import Excel",
+          icon: FileSpreadsheet,
+          show: isManagerOrAbove(role),
         },
         {
           href: "/dashboard/planner",
@@ -139,7 +146,14 @@ export function Sidebar({ role }: { role: Role }) {
                 {visible.map((l) => {
                   const active = l.exact
                     ? pathname === l.href
-                    : pathname === l.href || pathname.startsWith(l.href + "/");
+                    : (pathname === l.href ||
+                        pathname.startsWith(l.href + "/")) &&
+                      !visible.some(
+                        (other) =>
+                          other.href.length > l.href.length &&
+                          (pathname === other.href ||
+                            pathname.startsWith(other.href + "/")),
+                      );
                   const Icon = l.icon;
                   return (
                     <Link
