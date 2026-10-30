@@ -8,6 +8,11 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { BlockField } from "@/components/editor/BlockField";
+import { AdditionalDetailsEditor } from "@/components/project/AdditionalDetailsEditor";
+import {
+  additionalDetailsSchema,
+  type AdditionalDetail,
+} from "@/lib/additional-details";
 import { PRIORITY_OPTIONS, PROJECT_STATUS_OPTIONS } from "./StatusBadge";
 import type { Priority, ProjectStatus } from "@prisma/client";
 import {
@@ -28,6 +33,8 @@ interface Props {
     estimatedHours?: number | null;
     savedHours?: number | null;
     department?: string | null;
+    subTeam?: string | null;
+    additionalDetails?: AdditionalDetail[];
     acceptanceCriteria?: string | null;
     version?: number;
     summary?: string | null;
@@ -72,10 +79,25 @@ export function ProjectForm({
 
   return (
     <form
-      action={(fd) =>
+      onSubmit={(event) => {
+        event.preventDefault();
+        const fd = new FormData(event.currentTarget);
         start(async () => {
           setError(null);
           try {
+            const raw = fd.get("additionalDetails");
+            if (typeof raw === "string") {
+              const checked = additionalDetailsSchema.safeParse(
+                JSON.parse(raw),
+              );
+              if (!checked.success) {
+                setError(
+                  checked.error.issues[0]?.message ??
+                    "Check additional details",
+                );
+                return;
+              }
+            }
             await action(preserveCurrentAllocations(fd));
           } catch (cause) {
             // Next handles successful action redirects before resolving this call.
@@ -83,8 +105,8 @@ export function ProjectForm({
               cause instanceof Error ? cause.message : "Could not save project",
             );
           }
-        })
-      }
+        });
+      }}
       className="space-y-6"
     >
       {initial?.version && (
@@ -146,7 +168,10 @@ export function ProjectForm({
         <div />
       </div>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+      <div
+        id="timeline-dates"
+        className="grid grid-cols-1 gap-4 md:grid-cols-2"
+      >
         <div className="space-y-2">
           <Label htmlFor="startDate">Start date</Label>
           <Input
@@ -287,13 +312,23 @@ export function ProjectForm({
             defaultValue={initial?.savedHours ?? ""}
           />
         </div>
-        <div className="space-y-2 md:col-span-2">
+        <div className="space-y-2">
           <Label htmlFor="department">Team / department</Label>
           <Input
             id="department"
             name="department"
             maxLength={100}
             defaultValue={initial?.department ?? ""}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="subTeam">Sub-team</Label>
+          <Input
+            id="subTeam"
+            name="subTeam"
+            maxLength={100}
+            defaultValue={initial?.subTeam ?? ""}
+            placeholder="Optional"
           />
         </div>
         <div className="space-y-2 md:col-span-2">
@@ -310,6 +345,8 @@ export function ProjectForm({
           />
         </div>
       </div>
+
+      <AdditionalDetailsEditor initial={initial?.additionalDetails} />
 
       <div className="space-y-2">
         <Label>Description</Label>

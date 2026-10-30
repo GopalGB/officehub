@@ -22,6 +22,8 @@ const labels: Record<string, string> = {
   savedHours: "Hours saved / week",
   acceptanceCriteria: "Success criteria",
   department: "Department",
+  subTeam: "Sub-team",
+  additionalDetails: "Additional details",
   completed: "Completed",
   completedAt: "Completed on",
   dueDate: "Due date",
@@ -62,6 +64,20 @@ function display(value: unknown, names: Record<string, string>): string {
       names[value] ??
       (/^\d{4}-\d\d-\d\dT/.test(value) ? formatDateTime(value) : value)
     );
+  if (
+    Array.isArray(value) &&
+    value.some(
+      (item) =>
+        typeof object(item).label === "string" &&
+        typeof object(item).value === "string",
+    )
+  )
+    return value
+      .map(
+        (item) =>
+          `${String(object(item).label)}: ${String(object(item).value)}`,
+      )
+      .join("\n");
   if (
     Array.isArray(value) &&
     value.some((v) => typeof object(v).type === "string")

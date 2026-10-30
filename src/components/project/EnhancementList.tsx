@@ -8,14 +8,14 @@ import {
 } from "./StatusBadge";
 import { formatDate } from "@/lib/utils";
 type Item = Enhancement & { author: Pick<User, "id" | "name"> };
-function Fields({ item }: { item?: Item }) {
+export function EnhancementFields({ item }: { item?: Item }) {
   return (
     <div className="grid gap-4 sm:grid-cols-2">
       {item && (
         <input type="hidden" name="expectedVersion" value={item.version} />
       )}
       <label className="field sm:col-span-2">
-        Enhancement title
+        Change / enhancement title
         <input
           name="title"
           required
@@ -145,13 +145,17 @@ export function EnhancementList({
               label="Add enhancement"
               successMessage="Enhancement added to the project journey."
             >
-              <Fields />
+              <EnhancementFields />
             </ActionForm>
           </div>
         </details>
       )}
       {items.map((item) => (
-        <article key={item.id} className="surface">
+        <article
+          id={`enhancement-${item.id}`}
+          key={item.id}
+          className="surface scroll-mt-24"
+        >
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <div className="flex flex-wrap items-center gap-2">
@@ -191,7 +195,7 @@ export function EnhancementList({
                   action={onUpdate.bind(null, item.id, projectId)}
                   successMessage="Enhancement updated."
                 >
-                  <Fields item={item} />
+                  <EnhancementFields item={item} />
                 </ActionForm>
                 <button
                   type="button"

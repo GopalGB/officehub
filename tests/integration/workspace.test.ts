@@ -13,7 +13,7 @@ process.env.DATABASE_URL = url;
 const db = new PrismaClient({ datasourceUrl: url });
 const suffix = randomUUID();
 const ids: string[] = [];
-let projectId: string;
+let projectId = "";
 let userId: string;
 let coOwnerId: string;
 before(async () => {
@@ -34,10 +34,15 @@ before(async () => {
   projectId = project.id;
 });
 after(async () => {
-  await db.auditLog.deleteMany({ where: { projectId } });
-  await db.project.deleteMany({ where: { id: projectId } });
-  await db.user.deleteMany({ where: { id: { in: ids } } });
-  await db.$disconnect();
+  try {
+    if (projectId) {
+      await db.auditLog.deleteMany({ where: { projectId } });
+      await db.project.deleteMany({ where: { id: projectId } });
+    }
+    await db.user.deleteMany({ where: { id: { in: ids } } });
+  } finally {
+    await db.$disconnect();
+  }
 });
 void test("co-owner access is enforced by both database predicate and shared write guard", async () => {
   const { requireProjectEditor } = await import("@/lib/access");
@@ -207,4 +212,45 @@ void test("weekly baseline and per-date overrides persist independently", async 
   );
   await db.workPlan.delete({ where: { id: plan.id } });
   assert.equal(await db.dailyOverride.count({ where: { planId: plan.id } }), 0);
+});
+
+void test("extra project columns persist in history and survive unrelated edits", async () => {
+  const { reviseProject } = await import("@/lib/history");
+  const before = await db.project.findUniqueOrThrow({
+    where: { id: projectId },
+  });
+  const fields = [
+    { label: "Source system", value: String.raw`\\server\reports\input.xlsx` },
+    { label: "External reference", value: "000042" },
+  ];
+  const changed = await db.$transaction((tx) =>
+    reviseProject(
+      tx,
+      { id: userId, role: "MEMBER" },
+      projectId,
+      { additionalDetails: fields, subTeam: "Planning" },
+      "Additional spreadsheet details saved",
+      before.version,
+    ),
+  );
+  assert.deepEqual(changed.additionalDetails, fields);
+  const revision = await db.projectRevision.findUniqueOrThrow({
+    where: { projectId_version: { projectId, version: changed.version } },
+  });
+  assert.deepEqual(
+    (revision.snapshot as { additionalDetails: unknown }).additionalDetails,
+    fields,
+  );
+  const edited = await db.$transaction((tx) =>
+    reviseProject(
+      tx,
+      { id: userId, role: "MEMBER" },
+      projectId,
+      { summary: "Unrelated detail" },
+      "Summary updated",
+      changed.version,
+    ),
+  );
+  assert.deepEqual(edited.additionalDetails, fields);
+  assert.equal(edited.subTeam, "Planning");
 });

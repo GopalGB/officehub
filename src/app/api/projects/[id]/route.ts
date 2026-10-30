@@ -90,6 +90,8 @@ export async function PATCH(
     data.summary = parsed.data.summary ?? null;
   if (parsed.data.description !== undefined)
     data.description = parsed.data.description ?? null;
+  if (parsed.data.additionalDetails !== undefined)
+    data.additionalDetails = parsed.data.additionalDetails;
   if (parsed.data.status !== undefined) data.status = parsed.data.status;
   if (parsed.data.priority !== undefined) data.priority = parsed.data.priority;
   if (parsed.data.startDate !== undefined)

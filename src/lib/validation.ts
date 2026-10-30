@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { additionalDetailsSchema } from "@/lib/additional-details";
 
 export const loginSchema = z.object({
   email: z.string().email("Enter a valid email"),
@@ -69,6 +70,7 @@ export const projectCreateSchema = z.object({
   startDate: isoDate,
   targetDate: isoDate,
   ownerId: z.string().cuid().optional(),
+  additionalDetails: additionalDetailsSchema.optional(),
 });
 export type ProjectCreateInput = z.infer<typeof projectCreateSchema>;
 
@@ -235,6 +237,7 @@ export const workspaceProjectFields = {
   estimatedHours: optionalHours,
   savedHours: optionalHours,
   department: z.string().trim().max(100).nullable().optional(),
+  subTeam: z.string().trim().max(100).nullable().optional(),
   acceptanceCriteria: z.string().trim().max(5000).nullable().optional(),
   expectedVersion: z.coerce.number().int().positive().optional(),
 };
@@ -305,6 +308,7 @@ export const requestLinkSchema = z.object({
   days: z.coerce.number().int().min(1).max(90),
 });
 export const publicRequestSchema = z.object({
+  subTeam: z.string().trim().max(100).optional().nullable(),
   submitterName: z.string().trim().min(2).max(100),
   submitterEmail: z.email().max(254),
   managerName: z.string().trim().min(2, "Enter your manager's name").max(100),
