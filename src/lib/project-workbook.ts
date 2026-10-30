@@ -1,5 +1,6 @@
-import readExcelFile from "read-excel-file/node";
+import readExcelFile from "read-excel-file/universal";
 import { unzipSync, strFromU8 } from "fflate";
+import { SaxesParser } from "saxes";
 import { parseProjectSheet } from "@/lib/project-import";
 
 const MAX_UPLOAD = 3 * 1024 * 1024;
@@ -30,25 +31,61 @@ export async function readProjectWorkbook(file: File) {
     },
   });
   // fflate 0.8.3 declares generic Uint8Arrays (TS 5.7+); this repo uses TS 5.6.
-  const sheets = unzipSync(buffer, {
-    filter: (entry) => /^xl\/worksheets\/[^/]+\.xml$/.test(entry.name),
+  const xmlParts = unzipSync(buffer, {
+    filter: (entry) => entry.name.endsWith(".xml"),
   }) as Record<string, Uint8Array>;
-  if (Object.keys(sheets).length > 4)
-    throw new Error("Use a workbook with at most four sheets.");
-  for (const bytes of Object.values(sheets)) {
+  let declaredSheets = 0;
+  for (const bytes of Object.values(xmlParts)) {
     const xml = strFromU8(bytes);
-    for (const match of xml.matchAll(/\br="([A-Z]*)(\d+)"/g)) {
-      const col = [...match[1]].reduce(
-        (value, letter) => value * 26 + letter.charCodeAt(0) - 64,
-        0,
+    let rowCount = 0,
+      cellCount = 0;
+    const parser = new SaxesParser({ xmlns: false });
+    parser.on("doctype", () => {
+      throw new Error(
+        "Workbook XML must not contain a document type declaration.",
       );
-      if (col > 52 || Number(match[2]) > 2000)
+    });
+    parser.on("opentag", (tag) => {
+      const name = tag.name.split(":").at(-1);
+      if (name === "sheet" && ++declaredSheets > 4)
+        throw new Error("Use a workbook with at most four sheets.");
+      if (name !== "row" && name !== "c") return;
+      if (name === "row") rowCount++;
+      else cellCount++;
+      const reference = tag.attributes.r;
+      // SAX decodes entities and handles either quoting style, unlike a text scan.
+      const match =
+        reference === undefined
+          ? null
+          : name === "row"
+            ? /^(\d+)$/.exec(reference)
+            : /^([A-Z]+)(\d+)$/.exec(reference);
+      if (reference !== undefined && !match)
+        throw new Error("Invalid worksheet row or cell reference.");
+      const rowNumber = match ? Number(match.at(-1)) : 1;
+      const column =
+        name === "c" && match
+          ? [...match[1]].reduce(
+              (value, letter) => value * 26 + letter.charCodeAt(0) - 64,
+              0,
+            )
+          : 1;
+      if (
+        rowNumber < 1 ||
+        rowNumber > 2000 ||
+        column > 52 ||
+        rowCount > 2000 ||
+        cellCount > 104000
+      )
         throw new Error(
           "Keep project data within 2,000 rows and 52 columns. Remove unused formatted rows or columns.",
         );
-    }
+    });
+    parser.write(xml).close();
   }
-  const workbook = await readExcelFile(buffer, {
+  // The universal reader uses the same bounded fflate ZIP decoding as preflight.
+  // No paths from workbook relationships are read from disk or fetched remotely.
+  const workbook = await readExcelFile(file, {
     trim: false,
     parseNumber: (value) => value,
   });

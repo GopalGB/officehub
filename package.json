@@ -45,7 +45,8 @@
     "@mantine/core": "8.3.18",
     "@mantine/hooks": "8.3.18",
     "fflate": "0.8.3",
-    "read-excel-file": "9.3.14"
+    "read-excel-file": "9.3.14",
+    "saxes": "6.0.0"
   },
   "devDependencies": {
     "@types/bcryptjs": "2.4.6",

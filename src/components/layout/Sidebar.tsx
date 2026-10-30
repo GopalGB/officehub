@@ -146,7 +146,14 @@ export function Sidebar({ role }: { role: Role }) {
                 {visible.map((l) => {
                   const active = l.exact
                     ? pathname === l.href
-                    : pathname === l.href || pathname.startsWith(l.href + "/");
+                    : (pathname === l.href ||
+                        pathname.startsWith(l.href + "/")) &&
+                      !visible.some(
+                        (other) =>
+                          other.href.length > l.href.length &&
+                          (pathname === other.href ||
+                            pathname.startsWith(other.href + "/")),
+                      );
                   const Icon = l.icon;
                   return (
                     <Link

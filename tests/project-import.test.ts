@@ -155,3 +155,15 @@ void test("sparse worksheet coordinates and unsupported file types are rejected 
     /3 MB/,
   );
 });
+
+void test("XML coordinate limits cover single quotes, encoded references and implicit rows", async () => {
+  for (const xml of [
+    "<worksheet><sheetData><row r='1048576'/></sheetData></worksheet>",
+    '<worksheet><sheetData><row r="1"><c r="&#88;FD1048576"/></row></sheetData></worksheet>',
+    `<worksheet><sheetData>${"<row/>".repeat(2001)}</sheetData></worksheet>`,
+  ])
+    await assert.rejects(
+      readProjectWorkbook(workbookFile([], { sheetXml: xml })),
+      /2,000 rows/,
+    );
+});

@@ -315,7 +315,7 @@ export async function applyProjectImport(
       }
       await tx.projectImport.update({
         where: { id: draft.id, appliedAt: null },
-        data: { appliedAt: new Date(), result },
+        data: { appliedAt: new Date(), result, rows: [] },
       });
       return result;
     },

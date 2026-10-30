@@ -139,8 +139,15 @@ export function MobileNav({ role }: { role: Role }) {
             <nav className="flex flex-col gap-1 overflow-y-auto">
               {links.map((l) => {
                 const active =
-                  pathname === l.href ||
-                  (l.href !== "/dashboard" && pathname.startsWith(l.href));
+                  (pathname === l.href ||
+                    (l.href !== "/dashboard" &&
+                      pathname.startsWith(l.href + "/"))) &&
+                  !links.some(
+                    (other) =>
+                      other.href.length > l.href.length &&
+                      (pathname === other.href ||
+                        pathname.startsWith(other.href + "/")),
+                  );
                 const Icon = l.icon;
                 return (
                   <Link
