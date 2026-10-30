@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { AdditionalDetail } from "@/lib/additional-details";
@@ -9,6 +9,7 @@ export function AdditionalDetailsEditor({
 }: {
   initial?: AdditionalDetail[];
 }) {
+  const nextId = useRef(initial.length);
   const [fields, setFields] = useState(() =>
     initial.map((field, index) => ({ ...field, id: String(index) })),
   );
@@ -89,12 +90,10 @@ export function AdditionalDetailsEditor({
         size="sm"
         variant="outline"
         disabled={fields.length >= 50}
-        onClick={() =>
-          setFields((current) => [
-            ...current,
-            { id: crypto.randomUUID(), label: "", value: "" },
-          ])
-        }
+        onClick={() => {
+          const id = String(nextId.current++);
+          setFields((current) => [...current, { id, label: "", value: "" }]);
+        }}
       >
         <Plus className="h-4 w-4" /> Add field
       </Button>

@@ -90,8 +90,9 @@ export function ProjectJourney({
       </p>
       {!dates.length && (
         <p className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
-          No dates scheduled yet. Add the project start and deadline, or add a
-          dated change below, to plot its duration.
+          {stages.some((stage) => stage.scheduled && stage.invalidRange)
+            ? "Scheduled dates need correction. Check the start and end dates below."
+            : "No dates scheduled yet. Add the project start and deadline, or add a dated change, to plot its duration."}
         </p>
       )}
       <p className="text-xs text-muted-foreground sm:hidden">
