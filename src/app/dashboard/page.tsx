@@ -1,4 +1,5 @@
 import { TodayFocus } from "@/components/dashboard/TodayFocus";
+import { RemindersPanel } from "@/components/dashboard/RemindersPanel";
 import Link from "next/link";
 import { auth } from "../../../auth";
 import { projectAccessWhere } from "@/lib/rbac";
@@ -175,7 +176,12 @@ export default async function DashboardPage({
         </Button>
       </div>
 
-      {!q && <TodayFocus viewer={session.user} />}
+      {!q && (
+        <div className="grid items-start gap-5 lg:grid-cols-[1.4fr_1fr]">
+          <TodayFocus viewer={session.user} />
+          <RemindersPanel userId={session.user.id} />
+        </div>
+      )}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
         {[
           { label: "Planning", key: "PLANNING" },

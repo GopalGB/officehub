@@ -11,7 +11,8 @@ import {
 import { assertAssignablePeople } from "@/lib/project-people";
 import { requestDetailsSelect } from "@/lib/request-details";
 import { readSopUpload } from "@/lib/sop-upload";
-import { readProjectWorkbook } from "@/lib/project-workbook";
+import { resolveBrandId } from "@/lib/brands";
+import { readProjectWorkbook, readBoundedWorkbook } from "@/lib/project-workbook";
 import { importCommitSchema, importOptionsSchema } from "@/lib/project-import";
 import { prepareProjectImport, applyProjectImport } from "@/lib/project-import-service";
 import { z } from "zod";
@@ -50,7 +51,32 @@ import {
   fiscalConfigSchema,
   idSchema,
   restoreRevisionSchema,
+  stageCommentSchema,
+  meetingSchema,
+  trainingSchema,
+  contactSchema,
+  helpRequestSchema,
+  helpAssignSchema,
+  feedbackSchema,
+  feedbackResponseSchema,
+  leaveSchema,
+  credentialSchema,
+  userTeamSchema,
+  excelLinkSchema,
 } from "@/lib/validation";
+import { reminderSchema, nextOccurrence } from "@/lib/reminders";
+import { teamAvailability, pickFree } from "@/lib/pool";
+import { FREE_PERSON } from "@/lib/free-person";
+import { encryptSecret, decryptSecret } from "@/lib/vault";
+import {
+  analyzeSheet,
+  downloadUrl,
+  fetchWorkbook,
+  LEAVE_FIELDS,
+  mappingsSchema,
+  SheetPurposeEnum,
+  syncExcelLink,
+} from "@/lib/excel-link";
 import {
   generateInviteToken,
   inviteExpiry,
@@ -62,6 +88,7 @@ import {
   isAdmin,
   isManagerOrAbove,
   projectAccessWhere,
+  reportAccessWhere,
 } from "@/lib/rbac";
 import { requireProjectEditor, requirePageEditor } from "@/lib/access";
 import type { Prisma, ProjectStatus, TaskStatus, Role } from "@prisma/client";
@@ -259,8 +286,10 @@ export async function createProject(formData: FormData) {
   );
   checkedRange(parsed.startDate, parsed.targetDate);
   const project = await db.$transaction(async (tx) => {
+    const brandId = await resolveBrandId(tx, formData);
     const created = await tx.project.create({
       data: {
+        brandId: brandId ?? null,
         title: parsed.title,
         summary: parsed.summary,
         description: parsed.description ?? undefined,
@@ -349,13 +378,17 @@ export async function updateProject(projectId: string, formData: FormData) {
   void _owner;
   void _coOwner;
   void _source;
-  await db.$transaction((tx) =>
-    reviseProject(
+  await db.$transaction(async (tx) => {
+    const brandId = await resolveBrandId(tx, formData);
+    return reviseProject(
       tx,
       user,
       projectId,
       {
         ...fields,
+        ...(brandId !== undefined && {
+          brand: brandId ? { connect: { id: brandId } } : { disconnect: true },
+        }),
         ...(description !== undefined && { description: description ?? [] }),
         ...(startDate !== undefined && {
           startDate: startDate ? new Date(startDate) : null,
@@ -373,8 +406,8 @@ export async function updateProject(projectId: string, formData: FormData) {
       },
       "Project details updated",
       expectedVersion ?? existing.version,
-    ),
-  );
+    );
+  });
   refreshWorkspace(projectId);
 }
 
@@ -1086,9 +1119,17 @@ export async function moveProject(args: MoveProjectArgs) {
 export async function createTask(projectId: string, formData: FormData) {
   const user = await requireSession();
   await requireProjectEditor(user, projectId);
+  // "Whoever is free" picks the least-loaded teammate who is not on leave.
+  if (formData.get("assigneeId") === FREE_PERSON) {
+    const free = pickFree(await teamAvailability(db));
+    if (!free) throw new Error("Nobody is free right now. Choose an owner instead.");
+    formData.set("assigneeId", free.id);
+  }
   const parsed = reportCreateSchema.safeParse({
     reportUrl: formData.get("reportUrl") || null,
     estimatedHours: formData.get("estimatedHours") || null,
+    kind: formData.get("kind") || undefined,
+    statusNote: formData.get("statusNote") || null,
     title: formData.get("title"),
     description: formData.get("description") || null,
     status: formData.get("status") || "TODO",
@@ -1118,9 +1159,14 @@ export async function createTask(projectId: string, formData: FormData) {
       orderBy: { orderIndex: "desc" },
       select: { orderIndex: true },
     });
+    const brandId = await resolveBrandId(tx, formData);
     const report = await tx.task.create({
       data: {
         projectId,
+        brandId: brandId ?? null,
+        kind: parsed.data.kind ?? "REPORT",
+        statusNote: parsed.data.statusNote ?? null,
+        statusChangedAt: new Date(),
         completedAt: parsed.data.status === "DONE" ? new Date() : null,
         reportUrl: parsed.data.reportUrl,
         estimatedHours: parsed.data.estimatedHours,
@@ -1181,6 +1227,10 @@ export async function updateTask(taskId: string, formData: FormData) {
     ...(formData.has("estimatedHours") && {
       estimatedHours: formData.get("estimatedHours"),
     }),
+    ...(formData.has("kind") && { kind: formData.get("kind") }),
+    ...(formData.has("statusNote") && {
+      statusNote: formData.get("statusNote"),
+    }),
     title: formData.get("title") ?? undefined,
     description: formData.get("description") ?? undefined,
     status: formData.get("status") ?? undefined,
@@ -1238,7 +1288,14 @@ export async function updateTask(taskId: string, formData: FormData) {
     data.reportUrl = parsed.data.reportUrl;
   if (parsed.data.estimatedHours !== undefined)
     data.estimatedHours = parsed.data.estimatedHours;
+  if (parsed.data.kind !== undefined) data.kind = parsed.data.kind;
+  if (parsed.data.statusNote !== undefined)
+    data.statusNote = parsed.data.statusNote ?? null;
+  if (parsed.data.status !== undefined && parsed.data.status !== task.status)
+    data.statusChangedAt = new Date();
   await db.$transaction(async (tx) => {
+    const brandId = await resolveBrandId(tx, formData);
+    if (brandId !== undefined) data.brandId = brandId;
     const after = await tx.task.update({
       where: { id: taskId, version: task.version },
       data: { ...data, version: { increment: 1 } },
@@ -1302,7 +1359,12 @@ export async function quickChangeTaskStatus(
           : fresh.completedAt;
     const after = await tx.task.update({
       where: { id: taskId },
-      data: { status, completedAt, version: { increment: 1 } },
+      data: {
+        status,
+        completedAt,
+        version: { increment: 1 },
+        ...(fresh.status !== status && { statusChangedAt: new Date() }),
+      },
     });
     await recordAudit(
       tx,
@@ -1420,6 +1482,7 @@ export async function moveTask(args: MoveTaskArgs) {
       const data: Prisma.TaskUpdateInput = {
         status: toStatus,
         orderIndex: newOrderIndex,
+        ...(toStatus !== task.status && { statusChangedAt: new Date() }),
       };
       if (toStatus === "DONE" && task.status !== "DONE") {
         data.completedAt = new Date();
@@ -2279,4 +2342,529 @@ export async function updateMilestone(
       }),
   );
   refreshWorkspace(projectId);
+}
+
+// ================= Office operations (2026-11) =================
+
+function formIds(fd: FormData, key: string) {
+  return [...new Set(fd.getAll(key).filter((v): v is string => typeof v === "string" && v !== ""))];
+}
+function localDate(value: string) {
+  // Form datetime-local values are office-local; store them as entered (UTC).
+  return new Date(`${value}:00.000Z`);
+}
+
+// ---------------- Reminders ----------------
+
+async function canSeeCredential(user: { id: string }, credentialId: string) {
+  const me = await db.user.findUnique({ where: { id: user.id }, select: { team: true } });
+  const credential = await db.credential.findUnique({ where: { id: credentialId } });
+  if (!credential) return null;
+  const visible =
+    credential.ownerId === user.id ||
+    (credential.scope === "TEAM" && !!credential.team && credential.team === me?.team);
+  return visible ? credential : null;
+}
+
+export async function createReminder(fd: FormData) {
+  const user = await requireSession();
+  const input = reminderSchema.parse(Object.fromEntries(fd));
+  if (input.taskId) {
+    const task = await db.task.findFirst({
+      where: { id: input.taskId, AND: [reportAccessWhere(user)] },
+      select: { id: true },
+    });
+    if (!task) throw new Error("Report not found");
+  }
+  if (input.credentialId && !(await canSeeCredential(user, input.credentialId)))
+    throw new Error("Login not found");
+  await db.reminder.create({
+    data: {
+      userId: user.id,
+      title: input.title,
+      dueAt: new Date(input.dueAt),
+      repeat: input.repeat,
+      taskId: input.taskId ?? null,
+      credentialId: input.credentialId ?? null,
+    },
+  });
+  revalidatePath("/dashboard", "layout");
+}
+
+export async function completeReminder(id: string) {
+  const user = await requireSession();
+  idSchema.parse(id);
+  const reminder = await db.reminder.findUnique({ where: { id } });
+  if (!reminder || reminder.userId !== user.id) throw new Error("Reminder not found");
+  const next = nextOccurrence(reminder.dueAt, reminder.repeat);
+  await db.reminder.update({
+    where: { id },
+    data: next ? { dueAt: next } : { doneAt: new Date() },
+  });
+  revalidatePath("/dashboard", "layout");
+}
+
+export async function deleteReminder(id: string) {
+  const user = await requireSession();
+  idSchema.parse(id);
+  await db.reminder.deleteMany({ where: { id, userId: user.id } });
+  revalidatePath("/dashboard", "layout");
+}
+
+// ---------------- Manager comments on project stages ----------------
+
+export async function addStageComment(projectId: string, fd: FormData) {
+  const user = await requireSession();
+  if (!isManagerOrAbove(user.role))
+    throw new Error("Only managers can add stage comments");
+  idSchema.parse(projectId);
+  const input = stageCommentSchema.parse(Object.fromEntries(fd));
+  const project = await db.project.findUnique({
+    where: { id: projectId },
+    select: {
+      id: true,
+      enhancements: { select: { id: true } },
+      derivedProjects: { select: { id: true } },
+    },
+  });
+  if (!project) throw new Error("Project not found");
+  const stages = [project.id, ...project.enhancements.map((e) => e.id), ...project.derivedProjects.map((p) => p.id)];
+  if (!stages.includes(input.stageId)) throw new Error("Stage not found");
+  await db.$transaction(async (tx) => {
+    const after = await tx.stageComment.create({
+      data: { projectId, stageId: input.stageId, authorId: user.id, content: input.content },
+    });
+    await recordAudit(tx, user, "Manager stage comment added", "StageComment", after.id, projectId, null, after);
+  });
+  revalidatePath(`/dashboard/projects/${projectId}`);
+}
+
+export async function deleteStageComment(id: string, projectId: string) {
+  const user = await requireSession();
+  idSchema.parse(id);
+  const existing = await db.stageComment.findUnique({ where: { id } });
+  if (!existing || existing.projectId !== projectId) throw new Error("Not found");
+  if (existing.authorId !== user.id && !isAdmin(user.role)) throw new Error("Forbidden");
+  await db.$transaction(async (tx) => {
+    await tx.stageComment.delete({ where: { id } });
+    await recordAudit(tx, user, "Manager stage comment removed", "StageComment", id, projectId, existing, null);
+  });
+  revalidatePath(`/dashboard/projects/${projectId}`);
+}
+
+// ---------------- Meetings ----------------
+
+export async function createMeeting(fd: FormData) {
+  const user = await requireSession();
+  const input = meetingSchema.parse({
+    ...Object.fromEntries(fd),
+    attendeeIds: formIds(fd, "attendeeIds"),
+  });
+  if (input.projectId) await requireProjectEditor(user, input.projectId);
+  const startsAt = localDate(input.startsAt);
+  const endsAt = input.endsAt ? localDate(input.endsAt) : null;
+  if (endsAt && endsAt < startsAt) throw new Error("The meeting must end after it starts");
+  const attendees = input.attendeeIds.filter((id) => id !== user.id);
+  if (attendees.length) {
+    const count = await db.user.count({ where: { id: { in: attendees }, active: true } });
+    if (count !== attendees.length) throw new Error("Choose active teammates as attendees");
+  }
+  await db.$transaction(async (tx) => {
+    const after = await tx.meeting.create({
+      data: {
+        title: input.title,
+        kind: input.kind,
+        projectId: input.projectId,
+        organizerId: user.id,
+        startsAt,
+        endsAt,
+        link: input.link,
+        notes: input.notes,
+        attendees: { connect: [user.id, ...attendees].map((id) => ({ id })) },
+      },
+    });
+    await recordAudit(tx, user, input.kind === "ADHOC" ? "Ad-hoc meeting added" : "Meeting added", "Meeting", after.id, input.projectId, null, after);
+  });
+  revalidatePath("/dashboard", "layout");
+}
+
+export async function deleteMeeting(id: string) {
+  const user = await requireSession();
+  idSchema.parse(id);
+  const existing = await db.meeting.findUnique({ where: { id } });
+  if (!existing) throw new Error("Meeting not found");
+  if (existing.organizerId !== user.id && !isManagerOrAbove(user.role)) throw new Error("Only the organizer or a manager can remove this meeting");
+  await db.$transaction(async (tx) => {
+    await tx.meeting.delete({ where: { id } });
+    await recordAudit(tx, user, "Meeting removed", "Meeting", id, existing.projectId, existing, null);
+  });
+  revalidatePath("/dashboard", "layout");
+}
+
+// ---------------- Training ----------------
+
+export async function createTraining(fd: FormData) {
+  const user = await requireSession();
+  if (!isManagerOrAbove(user.role)) throw new Error("Only managers can add training sessions");
+  const input = trainingSchema.parse(Object.fromEntries(fd));
+  await db.training.create({
+    data: {
+      title: input.title,
+      url: input.url,
+      sessionAt: input.sessionAt ? localDate(input.sessionAt) : null,
+      description: input.description,
+      audience: input.audience,
+      createdById: user.id,
+    },
+  });
+  revalidatePath("/dashboard/training");
+}
+
+export async function deleteTraining(id: string) {
+  const user = await requireSession();
+  if (!isManagerOrAbove(user.role)) throw new Error("Forbidden");
+  idSchema.parse(id);
+  await db.training.delete({ where: { id } });
+  revalidatePath("/dashboard/training");
+}
+
+// ---------------- Whom to contact ----------------
+
+export async function createContact(fd: FormData) {
+  const user = await requireSession();
+  if (!isManagerOrAbove(user.role)) throw new Error("Only managers can edit the contact list");
+  const input = contactSchema.parse(Object.fromEntries(fd));
+  await db.contact.create({ data: input });
+  revalidatePath("/dashboard/pages");
+}
+
+export async function deleteContact(id: string) {
+  const user = await requireSession();
+  if (!isManagerOrAbove(user.role)) throw new Error("Forbidden");
+  idSchema.parse(id);
+  await db.contact.delete({ where: { id } });
+  revalidatePath("/dashboard/pages");
+}
+
+// ---------------- Help pool ----------------
+
+export async function createHelpRequest(projectId: string, fd: FormData) {
+  const user = await requireSession();
+  await requireProjectEditor(user, projectId);
+  const input = helpRequestSchema.parse(Object.fromEntries(fd));
+  await db.$transaction(async (tx) => {
+    const after = await tx.helpRequest.create({
+      data: {
+        projectId,
+        requesterId: user.id,
+        details: input.details,
+        skills: input.skills,
+        neededBy: input.neededBy ? new Date(input.neededBy) : null,
+      },
+    });
+    await recordAudit(tx, user, "Help requested", "HelpRequest", after.id, projectId, null, after);
+  });
+  revalidatePath("/dashboard/help");
+  revalidatePath(`/dashboard/projects/${projectId}`);
+}
+
+async function assignHelper(
+  user: { id: string; role: Role; name?: string | null },
+  requestId: string,
+  expectedVersion: number,
+  pick: (projectTeam: string[]) => Promise<string>,
+) {
+  let projectId = "";
+  await db.$transaction(
+    async (tx) => {
+      const request = await tx.helpRequest.findUnique({
+        where: { id: requestId },
+        include: { project: { include: { members: { select: { id: true } } } } },
+      });
+      if (!request) throw new Error("Help request not found");
+      if (request.status !== "OPEN") throw new Error("This request is already handled");
+      if (request.version !== expectedVersion) throw new Error("This request changed elsewhere. Reload and try again.");
+      projectId = request.projectId;
+      const team = [request.project.ownerId, request.project.coOwnerId, ...request.project.members.map((m) => m.id)].filter((v): v is string => !!v);
+      const helperId = await pick(team);
+      await assertAssignablePeople([helperId], tx);
+      const after = await tx.helpRequest.update({
+        where: { id: requestId, version: expectedVersion },
+        data: { assigneeId: helperId, status: "ASSIGNED", version: { increment: 1 } },
+      });
+      if (!team.includes(helperId))
+        await tx.project.update({ where: { id: request.projectId }, data: { members: { connect: { id: helperId } } } });
+      await recordAudit(tx, user, "Helper added from help pool", "HelpRequest", requestId, request.projectId, request, after);
+    },
+    { isolationLevel: "Serializable" },
+  );
+  revalidatePath("/dashboard/help");
+  revalidatePath(`/dashboard/projects/${projectId}`);
+}
+
+/** A BI teammate volunteers; they join the project as a collaborator. */
+export async function volunteerForHelp(requestId: string, expectedVersion: number) {
+  const user = await requireSession();
+  idSchema.parse(requestId);
+  await assignHelper(user, requestId, z.number().int().positive().parse(expectedVersion), async () => user.id);
+}
+
+/** Managers assign someone, or "AUTO" picks whoever is free right now. */
+export async function assignHelpRequest(requestId: string, fd: FormData) {
+  const user = await requireSession();
+  if (!isManagerOrAbove(user.role)) throw new Error("Only managers can assign helpers");
+  idSchema.parse(requestId);
+  const input = helpAssignSchema.parse(Object.fromEntries(fd));
+  await assignHelper(user, requestId, input.expectedVersion, async (team) => {
+    if (input.assigneeId !== "AUTO") return input.assigneeId;
+    const free = pickFree(await teamAvailability(db), team);
+    if (!free) throw new Error("Nobody outside the project team is free right now");
+    return free.id;
+  });
+}
+
+export async function closeHelpRequest(requestId: string) {
+  const user = await requireSession();
+  idSchema.parse(requestId);
+  const request = await db.helpRequest.findUnique({ where: { id: requestId } });
+  if (!request) throw new Error("Help request not found");
+  if (request.requesterId !== user.id && request.assigneeId !== user.id && !isManagerOrAbove(user.role))
+    await requireProjectEditor(user, request.projectId);
+  await db.$transaction(async (tx) => {
+    const after = await tx.helpRequest.update({ where: { id: requestId }, data: { status: "CLOSED", version: { increment: 1 } } });
+    await recordAudit(tx, user, "Help request closed", "HelpRequest", requestId, request.projectId, request, after);
+  });
+  revalidatePath("/dashboard/help");
+  revalidatePath(`/dashboard/projects/${request.projectId}`);
+}
+
+// ---------------- Feedback ----------------
+
+export async function submitFeedback(fd: FormData) {
+  const user = await requireSession();
+  const input = feedbackSchema.parse(Object.fromEntries(fd));
+  const recent = await db.feedback.count({ where: { authorId: user.id, createdAt: { gt: new Date(Date.now() - 3600_000) } } });
+  if (recent >= 20) throw new Error("You have sent a lot of feedback this hour. Try again later.");
+  await db.feedback.create({ data: { ...input, authorId: user.id } });
+  revalidatePath("/dashboard/feedback");
+}
+
+export async function respondFeedback(id: string, fd: FormData) {
+  const user = await requireSession();
+  if (!isManagerOrAbove(user.role)) throw new Error("Only managers can respond to feedback");
+  idSchema.parse(id);
+  const input = feedbackResponseSchema.parse(Object.fromEntries(fd));
+  await db.feedback.update({ where: { id }, data: input });
+  revalidatePath("/dashboard/feedback");
+}
+
+// ---------------- Leaves ----------------
+
+export async function createLeave(fd: FormData) {
+  const user = await requireSession();
+  const input = leaveSchema.parse(Object.fromEntries(fd));
+  const personId = input.userId ?? user.id;
+  if (personId !== user.id && !isManagerOrAbove(user.role)) throw new Error("Only managers can add leave for someone else");
+  const person = await db.user.findUnique({ where: { id: personId }, select: { id: true, name: true, active: true } });
+  if (!person?.active) throw new Error("Choose an active teammate");
+  await db.leave.create({
+    data: {
+      userId: person.id,
+      personName: person.name,
+      startDate: new Date(input.startDate),
+      endDate: new Date(input.endDate),
+      type: input.type,
+      note: input.note,
+    },
+  });
+  revalidatePath("/dashboard", "layout");
+}
+
+export async function deleteLeave(id: string) {
+  const user = await requireSession();
+  idSchema.parse(id);
+  const leave = await db.leave.findUnique({ where: { id } });
+  if (!leave) throw new Error("Leave not found");
+  if (leave.source === "EXCEL") throw new Error("This leave comes from the linked Excel sheet. Change it there.");
+  if (leave.userId !== user.id && !isManagerOrAbove(user.role)) throw new Error("Forbidden");
+  await db.leave.delete({ where: { id } });
+  revalidatePath("/dashboard", "layout");
+}
+
+// ---------------- Password vault ----------------
+
+export async function saveCredential(credentialId: string | null, fd: FormData) {
+  const user = await requireSession();
+  const input = credentialSchema.parse(Object.fromEntries(fd));
+  const me = await db.user.findUniqueOrThrow({ where: { id: user.id }, select: { team: true } });
+  if (input.scope === "TEAM" && !me.team) throw new Error("Ask an admin to set your team before sharing with it");
+  const existing = credentialId ? await canSeeCredential(user, idSchema.parse(credentialId)) : null;
+  if (credentialId && !existing) throw new Error("Login not found");
+  if (existing && existing.ownerId !== user.id && existing.scope !== "TEAM") throw new Error("Forbidden");
+  if (existing && input.expectedVersion !== undefined && input.expectedVersion !== existing.version)
+    throw new Error("This login changed elsewhere. Reload before saving.");
+  const data = {
+    label: input.label,
+    kind: input.kind,
+    host: input.host,
+    username: input.username,
+    url: input.url,
+    notes: input.notes,
+    expiresAt: input.expiresAt ? new Date(input.expiresAt) : null,
+    scope: input.scope,
+    team: input.scope === "TEAM" ? (existing?.team ?? me.team) : null,
+    ...(input.secret !== null && { secretCipher: encryptSecret(input.secret) }),
+  };
+  await db.$transaction(async (tx) => {
+    const after = existing
+      ? await tx.credential.update({ where: { id: existing.id, version: existing.version }, data: { ...data, version: { increment: 1 } } })
+      : await tx.credential.create({ data: { ...data, ownerId: user.id } });
+    // Never audit the ciphertext or the password itself.
+    const safe = (c: typeof after | null) => c && { id: c.id, label: c.label, kind: c.kind, host: c.host, username: c.username, scope: c.scope, team: c.team, expiresAt: c.expiresAt };
+    await recordAudit(tx, user, existing ? "Login updated" : "Login added", "Credential", after.id, null, safe(existing), safe(after));
+  });
+  revalidatePath("/dashboard/vault");
+}
+
+export async function revealCredential(credentialId: string): Promise<string> {
+  const user = await requireSession();
+  const credential = await canSeeCredential(user, idSchema.parse(credentialId));
+  if (!credential) throw new Error("Login not found");
+  if (!credential.secretCipher) return "";
+  const secret = decryptSecret(credential.secretCipher);
+  await db.$transaction((tx) => recordAudit(tx, user, "Password viewed", "Credential", credential.id, null, null, { label: credential.label }));
+  return secret;
+}
+
+export async function deleteCredential(credentialId: string) {
+  const user = await requireSession();
+  const credential = await canSeeCredential(user, idSchema.parse(credentialId));
+  if (!credential) throw new Error("Login not found");
+  if (credential.ownerId !== user.id) throw new Error("Only the person who added this login can remove it");
+  await db.$transaction(async (tx) => {
+    await tx.credential.delete({ where: { id: credential.id } });
+    await recordAudit(tx, user, "Login removed", "Credential", credential.id, null, { label: credential.label }, null);
+  });
+  revalidatePath("/dashboard/vault");
+}
+
+// ---------------- Team status (admin) ----------------
+
+export async function updateUserTeam(userId: string, fd: FormData) {
+  const me = await requireSession();
+  if (!isAdmin(me.role)) throw new Error("Forbidden");
+  idSchema.parse(userId);
+  const input = userTeamSchema.parse({
+    team: fd.has("team") ? fd.get("team") : undefined,
+    notActive: fd.get("notActive") === "true" ? true : fd.get("notActive") === "false" ? false : undefined,
+  });
+  await db.user.update({
+    where: { id: userId },
+    data: {
+      ...(fd.has("team") && { team: input.team }),
+      ...(input.notActive !== undefined && { notActive: input.notActive }),
+    },
+  });
+  revalidatePath("/dashboard/team");
+  revalidatePath("/dashboard/manager");
+}
+
+// ---------------- Excel live links ----------------
+
+async function requireExcelManager(linkId: string) {
+  const user = await requireSession();
+  if (!isManagerOrAbove(user.role)) throw new Error("Only managers can manage linked workbooks");
+  const link = await db.excelLink.findUnique({ where: { id: idSchema.parse(linkId) } });
+  if (!link) throw new Error("Workbook link not found");
+  if (link.ownerId !== user.id && !isAdmin(user.role)) throw new Error("Only the person who linked this workbook can change it");
+  return { user, link };
+}
+
+export async function createExcelLink(fd: FormData) {
+  const user = await requireSession();
+  if (!isManagerOrAbove(user.role)) throw new Error("Only managers can link workbooks");
+  const input = excelLinkSchema.parse({
+    ...Object.fromEntries(fd),
+    shareWithAll: fd.get("shareWithAll") === "on",
+    autoSync: fd.get("autoSync") === "on",
+    viewerIds: formIds(fd, "viewerIds"),
+  });
+  downloadUrl(input.url);
+  const link = await db.excelLink.create({
+    data: {
+      name: input.name,
+      url: input.url,
+      ownerId: user.id,
+      shareWithAll: input.shareWithAll,
+      autoSync: input.autoSync,
+      intervalMin: input.intervalMin,
+      viewers: { connect: input.viewerIds.map((id) => ({ id })) },
+    },
+  });
+  // The first read only analyses the workbook. Nothing is imported until the
+  // manager confirms what each sheet is for.
+  const result = await syncExcelLinkPreview(link.id);
+  revalidatePath("/dashboard/excel");
+  redirect(`/dashboard/excel/${link.id}${result ? "" : "?error=1"}`);
+}
+
+/** Analyse sheets without applying any purpose yet. */
+async function syncExcelLinkPreview(linkId: string) {
+  const link = await db.excelLink.findUniqueOrThrow({ where: { id: linkId } });
+  try {
+    const sheets = await readBoundedWorkbook(await fetchWorkbook(link.url), { sheets: 20, rows: 5000, columns: 60 });
+    const infos = sheets.map((s) => analyzeSheet(s.name, s.rows));
+    await db.excelLink.update({ where: { id: linkId }, data: { sheets: infos, lastError: null } });
+    return true;
+  } catch (error) {
+    await db.excelLink.update({ where: { id: linkId }, data: { lastError: (error instanceof Error ? error.message : "Could not read the workbook.").slice(0, 500) } });
+    return false;
+  }
+}
+
+export async function saveExcelMappings(linkId: string, fd: FormData) {
+  const { link } = await requireExcelManager(linkId);
+  const sheets = z.array(z.object({ name: z.string() })).catch([]).parse(link.sheets);
+  const mappings: Record<string, { purpose: string; columns: Record<string, string> }> = {};
+  sheets.forEach((sheet, i) => {
+    const purpose = SheetPurposeEnum.parse(fd.get(`purpose-${i}`) ?? "TABLE");
+    const columns: Record<string, string> = {};
+    for (const field of Object.keys(LEAVE_FIELDS)) {
+      const header = fd.get(`col-${i}-${field}`);
+      if (typeof header === "string" && header) columns[field] = header.slice(0, 200);
+    }
+    mappings[sheet.name] = { purpose, columns };
+  });
+  const parsed = mappingsSchema.parse(mappings);
+  await db.excelLink.update({
+    where: { id: link.id },
+    data: {
+      mappings: parsed,
+      lastHash: null,
+      shareWithAll: fd.get("shareWithAll") === "on",
+      autoSync: fd.get("autoSync") === "on",
+      intervalMin: z.coerce.number().int().min(5).max(1440).catch(link.intervalMin).parse(fd.get("intervalMin")),
+      viewers: { set: formIds(fd, "viewerIds").map((id) => ({ id })) },
+      version: { increment: 1 },
+    },
+  });
+  revalidatePath(`/dashboard/excel/${link.id}`);
+}
+
+export async function syncExcelLinkNow(linkId: string) {
+  const { user, link } = await requireExcelManager(linkId);
+  const actor = await db.user.findUniqueOrThrow({ where: { id: user.id }, select: { id: true, role: true, name: true, active: true } });
+  const result = await syncExcelLink(link.id, actor);
+  revalidatePath("/dashboard", "layout");
+  if (!result.ok) throw new Error(result.error);
+}
+
+export async function deleteExcelLink(linkId: string) {
+  const { link } = await requireExcelManager(linkId);
+  await db.$transaction(async (tx) => {
+    await tx.leave.deleteMany({ where: { sourceKey: { startsWith: `excel:${link.id}:` } } });
+    await tx.excelLink.delete({ where: { id: link.id } });
+  });
+  revalidatePath("/dashboard", "layout");
+  redirect("/dashboard/excel");
 }

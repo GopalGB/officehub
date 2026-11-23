@@ -4,20 +4,9 @@ import { BrandIdentity } from "@/components/layout/BrandIdentity";
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import {
-  Menu,
-  X,
-  LayoutDashboard,
-  Folders,
-  Users2,
-  Settings,
-  BarChart3,
-  CheckSquare,
-  BookOpen,
-  Calendar,
-} from "lucide-react";
+import { Menu, X } from "lucide-react";
+import { navSections, isNavActive } from "@/lib/nav";
 import { cn } from "@/lib/utils";
-import { isAdmin, isManagerOrAbove } from "@/lib/rbac";
 import type { Role } from "@prisma/client";
 
 /** Mirror the role-filtered workspace destinations in the mobile drawer. */
@@ -25,63 +14,8 @@ export function MobileNav({ role }: { role: Role }) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
 
-  const links = [
-    {
-      href: "/dashboard/planner",
-      label: "My week",
-      icon: Calendar,
-      show: true,
-    },
-    {
-      href: "/dashboard/projects",
-      label: "Projects",
-      icon: Folders,
-      show: true,
-    },
-    {
-      href: "/dashboard/requests",
-      label: "Request pool",
-      icon: Folders,
-      show: isManagerOrAbove(role),
-    },
-    {
-      href: "/dashboard",
-      label: "My workspace",
-      icon: LayoutDashboard,
-      show: true,
-    },
-    {
-      href: "/dashboard/reports",
-      label: "Reports",
-      icon: CheckSquare,
-      show: true,
-    },
-    {
-      href: "/dashboard/calendar",
-      label: "Fiscal calendar",
-      icon: Calendar,
-      show: true,
-    },
-    { href: "/dashboard/pages", label: "Wiki", icon: BookOpen, show: true },
-    {
-      href: "/dashboard/manager",
-      label: "Team overview",
-      icon: BarChart3,
-      show: isManagerOrAbove(role),
-    },
-    {
-      href: "/dashboard/team",
-      label: "Team",
-      icon: Users2,
-      show: isAdmin(role),
-    },
-    {
-      href: "/dashboard/settings",
-      label: "Settings",
-      icon: Settings,
-      show: true,
-    },
-  ].filter((l) => l.show);
+  const sections = navSections(role);
+  const links = sections.flatMap((s) => s.items);
 
   return (
     <>
@@ -123,39 +57,35 @@ export function MobileNav({ role }: { role: Role }) {
                 <X className="h-4 w-4" />
               </button>
             </div>
-            <nav className="flex flex-col gap-1 overflow-y-auto">
-              {links.map((l) => {
-                const active =
-                  (pathname === l.href ||
-                    (l.href === "/dashboard/projects" &&
-                      pathname === "/dashboard/board") ||
-                    (l.href !== "/dashboard" &&
-                      pathname.startsWith(l.href + "/"))) &&
-                  !links.some(
-                    (other) =>
-                      other.href.length > l.href.length &&
-                      (pathname === other.href ||
-                        pathname.startsWith(other.href + "/")),
-                  );
-                const Icon = l.icon;
-                return (
-                  <Link
-                    key={l.href}
-                    href={l.href}
-                    aria-current={active ? "page" : undefined}
-                    onClick={() => setOpen(false)}
-                    className={cn(
-                      "flex items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors",
-                      active
-                        ? "border-2 border-brand-orange/50 bg-brand-tint text-brand-navy font-semibold"
-                        : "text-brand-navy hover:bg-accent",
-                    )}
-                  >
-                    <Icon className="h-4 w-4" />
-                    <span>{l.label}</span>
-                  </Link>
-                );
-              })}
+            <nav className="flex flex-col gap-3 overflow-y-auto">
+              {sections.map((section) => (
+                <div key={section.heading}>
+                  <p className="mb-1 px-3 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                    {section.heading}
+                  </p>
+                  {section.items.map((l) => {
+                    const active = isNavActive(l, pathname, links);
+                    const Icon = l.icon;
+                    return (
+                      <Link
+                        key={l.href}
+                        href={l.href}
+                        aria-current={active ? "page" : undefined}
+                        onClick={() => setOpen(false)}
+                        className={cn(
+                          "flex items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors",
+                          active
+                            ? "border-2 border-brand-orange/50 bg-brand-tint text-brand-navy font-semibold"
+                            : "text-brand-navy hover:bg-accent",
+                        )}
+                      >
+                        <Icon className="h-4 w-4" />
+                        <span>{l.label}</span>
+                      </Link>
+                    );
+                  })}
+                </div>
+              ))}
             </nav>
           </aside>
         </div>

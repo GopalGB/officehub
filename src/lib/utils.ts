@@ -53,3 +53,25 @@ export function formText(form: FormData, name: string): string {
   const value = form.get(name);
   return typeof value === "string" ? value : "";
 }
+
+/** Wall-clock times typed into datetime-local fields are stored as entered
+ * (UTC) so every viewer sees the time that was typed, whatever the server zone. */
+export function formatWallTime(d: Date | string | null | undefined, fallback = "—") {
+  if (!d) return fallback;
+  const date = new Date(d);
+  if (Number.isNaN(date.getTime())) return fallback;
+  return format(
+    new Date(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), date.getUTCHours(), date.getUTCMinutes()),
+    "EEE dd MMM yyyy, HH:mm",
+  );
+}
+
+export function wallTimeInput(d: Date | null | undefined) {
+  return d ? new Date(d).toISOString().slice(0, 16) : "";
+}
+
+/** "Now" in the same stored-as-typed convention, for defaults and comparisons. */
+export function wallNow() {
+  const now = new Date();
+  return new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours(), now.getMinutes()));
+}

@@ -4,10 +4,11 @@ import { db } from "@/lib/db";
 import { projectAccessWhere, isManagerOrAbove } from "@/lib/rbac";
 import { createProject } from "@/app/dashboard/actions";
 import { ProjectForm } from "@/components/project/ProjectForm";
+import { listBrandNames } from "@/lib/brands";
 export default async function NewProjectPage() {
   const session = await auth();
   if (!session?.user) return null;
-  const [people, projects] = await Promise.all([
+  const [people, projects, brands] = await Promise.all([
     db.user.findMany({
       where: assignablePeopleWhere,
       select: { id: true, name: true },
@@ -18,6 +19,7 @@ export default async function NewProjectPage() {
       select: { id: true, title: true },
       orderBy: { title: "asc" },
     }),
+    listBrandNames(db),
   ]);
   return (
     <div className="mx-auto max-w-3xl space-y-6">
@@ -34,6 +36,7 @@ export default async function NewProjectPage() {
           action={createProject}
           people={people}
           projects={projects}
+          brands={brands}
           canChangeOwner
           ownerSelectable={isManagerOrAbove(session.user.role)}
           currentUserId={session.user.id}

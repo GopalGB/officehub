@@ -13,25 +13,33 @@ import { Button } from "@/components/ui/button";
 import { TASK_STATUS_OPTIONS } from "@/components/project/StatusBadge";
 import { taskFilters } from "@/lib/filters";
 import { AutoSubmitSelect } from "@/components/ui/auto-submit-select";
+import { REPORT_KINDS } from "@/lib/report-kinds";
 
 export default async function TasksPage({
   searchParams,
 }: {
-  searchParams: Promise<{ scope?: string; status?: string; project?: string }>;
+  searchParams: Promise<{
+    scope?: string;
+    status?: string;
+    project?: string;
+    brand?: string;
+    kind?: string;
+  }>;
 }) {
   const session = await auth();
   if (!session?.user) redirect("/login");
 
   const params = await searchParams;
-  const { status, project } = params;
+  const { status, project, brand, kind } = params;
   const { scope, where } = taskFilters(session.user, params);
 
-  const [tasks, projects, members] = await Promise.all([
+  const [tasks, projects, members, brands] = await Promise.all([
     db.task.findMany({
       where,
       include: {
         assignee: { select: { id: true, name: true } },
         reporter: { select: { id: true, name: true } },
+        brand: { select: { name: true } },
         project: {
           select: {
             id: true,
@@ -60,7 +68,14 @@ export default async function TasksPage({
       select: { id: true, name: true },
       orderBy: { name: "asc" },
     }),
+    db.brand.findMany({ orderBy: { name: "asc" } }),
   ]);
+  const keep = (extra: Record<string, string | undefined>) =>
+    new URLSearchParams(
+      Object.entries({ status, project, brand, kind, ...extra }).filter(
+        (entry): entry is [string, string] => !!entry[1],
+      ),
+    ).toString();
 
   return (
     <div className="space-y-4">
@@ -77,7 +92,10 @@ export default async function TasksPage({
             <Link href="/dashboard/reports/new">New report</Link>
           </Button>
           <Button asChild variant="outline">
-            <Link href="/dashboard/reports/board">Board view →</Link>
+            <Link href="/dashboard/reports/live">Live tracking</Link>
+          </Button>
+          <Button asChild variant="outline">
+            <Link href="/dashboard/reports/board">Board</Link>
           </Button>
         </div>
       </header>
@@ -98,7 +116,7 @@ export default async function TasksPage({
             .map((s) => (
               <Link
                 key={s}
-                href={`?scope=${s}${status ? `&status=${status}` : ""}${project ? `&project=${project}` : ""}`}
+                href={`?${keep({ scope: s })}`}
                 className={`rounded px-3 py-1.5 capitalize ${scope === s ? "border-2 border-brand-orange/50 bg-brand-tint text-brand-navy font-semibold" : "text-neutral-700 hover:bg-neutral-100"}`}
               >
                 {s === "mine"
@@ -128,6 +146,20 @@ export default async function TasksPage({
               { value: "ALL", label: "All projects" },
               ...projects.map((p) => ({ value: p.id, label: p.title })),
             ]}
+          />
+          <AutoSubmitSelect
+            name="brand"
+            defaultValue={brand ?? "ALL"}
+            options={[
+              { value: "ALL", label: "All brands" },
+              { value: "NONE", label: "No brand" },
+              ...brands.map((b) => ({ value: b.id, label: b.name })),
+            ]}
+          />
+          <AutoSubmitSelect
+            name="kind"
+            defaultValue={kind ?? "ALL"}
+            options={[{ value: "ALL", label: "All types" }, ...REPORT_KINDS]}
           />
         </form>
       </div>

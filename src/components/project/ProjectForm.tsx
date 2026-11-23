@@ -34,6 +34,7 @@ interface Props {
     savedHours?: number | null;
     department?: string | null;
     subTeam?: string | null;
+    brand?: string | null;
     additionalDetails?: AdditionalDetail[];
     acceptanceCriteria?: string | null;
     version?: number;
@@ -46,6 +47,7 @@ interface Props {
   };
   people?: { id: string; name: string }[];
   projects?: { id: string; title: string }[];
+  brands?: string[];
   canChangeOwner?: boolean;
   ownerSelectable?: boolean;
   currentUserId?: string;
@@ -64,6 +66,7 @@ export function ProjectForm({
   initial,
   people = [],
   projects = [],
+  brands = [],
   canChangeOwner = false,
   ownerSelectable = true,
   currentUserId,
@@ -317,6 +320,22 @@ export function ProjectForm({
                   </option>
                 ))}
               </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="brand">Brand</Label>
+              <Input
+                id="brand"
+                name="brand"
+                list="project-brand-options"
+                maxLength={60}
+                placeholder="Type or pick a brand"
+                defaultValue={initial?.brand ?? ""}
+              />
+              <datalist id="project-brand-options">
+                {brands.map((name) => (
+                  <option key={name} value={name} />
+                ))}
+              </datalist>
             </div>
             <div className="space-y-2">
               <Label htmlFor="department">Team / department</Label>

@@ -2,7 +2,7 @@ import type { Prisma } from "@prisma/client";
 import { projectAccessWhere, isManagerOrAbove, type Viewer } from "@/lib/rbac";
 import { TaskStatusEnum } from "@/lib/validation";
 
-export function taskFilters(viewer: Viewer, input: { scope?: string; status?: string; project?: string }) {
+export function taskFilters(viewer: Viewer, input: { scope?: string; status?: string; project?: string; brand?: string; kind?: string }) {
   const scope = input.scope === "reported" || input.scope === "projects" ? input.scope
     : input.scope === "all" && isManagerOrAbove(viewer.role) ? "all" : "mine";
   const status = TaskStatusEnum.safeParse(input.status);
@@ -12,6 +12,8 @@ export function taskFilters(viewer: Viewer, input: { scope?: string; status?: st
       scope === "mine" ? { assigneeId: viewer.id } : scope === "reported" ? { reporterId: viewer.id } : {},
       status.success ? { status: status.data } : {},
       input.project && input.project !== "ALL" ? { projectId: input.project } : {},
+      input.brand && input.brand !== "ALL" ? (input.brand === "NONE" ? { brandId: null } : { brandId: input.brand }) : {},
+      input.kind && ["REPORT", "DASHBOARD", "ADHOC", "OTHER"].includes(input.kind) ? { kind: input.kind } : {},
     ],
   };
   return { scope, where };

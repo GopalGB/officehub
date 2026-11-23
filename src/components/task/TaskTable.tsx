@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { deleteTask } from "@/app/dashboard/actions";
 import { useToast } from "@/components/ui/toast";
 import { formatDate, isOverdueDate } from "@/lib/utils";
+import { reportKindLabel } from "@/lib/report-kinds";
 
 type Row = Task & {
   canEdit?: boolean;
@@ -19,6 +20,7 @@ type Row = Task & {
   assignee: Pick<User, "id" | "name"> | null;
   reporter: Pick<User, "id" | "name">;
   project?: Pick<Project, "id" | "title">;
+  brand?: { name: string } | null;
 };
 
 export function TaskTable({
@@ -88,6 +90,19 @@ export function TaskTable({
                   >
                     {t.title}
                   </Link>
+                  <p className="mt-0.5 flex flex-wrap gap-1 text-[10px] text-slate-500">
+                    <span className="rounded bg-slate-100 px-1.5 py-0.5">
+                      {reportKindLabel(t.kind)}
+                    </span>
+                    {t.brand && (
+                      <span className="rounded bg-brand-tint px-1.5 py-0.5 text-brand-navy">
+                        {t.brand.name}
+                      </span>
+                    )}
+                    {t.statusNote && (
+                      <span className="line-clamp-1">{t.statusNote}</span>
+                    )}
+                  </p>
                   {t.description && (
                     <p className="line-clamp-1 text-xs text-slate-500">
                       {t.description}
