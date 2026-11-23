@@ -63,7 +63,7 @@ The PostgreSQL dump is a full database backup. If recovery is necessary, restore
 
 ## Initial installation
 
-For a new folder, clone `https://github.com/GopalGB/officehub.git` on `main`, create `.env` from `.env.example`, and configure the URL for an existing empty database and strong application secrets. The database password in `DATABASE_URL` must be URL-encoded, especially `@`, `:`, `%`, `#`, and `/`.
+For a new folder, clone `https://github.com/GopalGB/officehub.git` on `main`, create `.env` from `.env.example`, and configure the URL for an existing empty database and strong application secrets (`AUTH_SECRET`, and `VAULT_KEY` for the Servers & passwords page; generate each with `openssl rand -base64 32` or any 32+ character random string). Existing installs: add `VAULT_KEY` to `.env` once and keep it with your backups. The database password in `DATABASE_URL` must be URL-encoded, especially `@`, `:`, `%`, `#`, and `/`.
 
 The update script builds and starts the app but does not create an administrator. On the first installation only, after dependencies and schema are initialized, run the seed with your configured `SEED_ADMIN_EMAIL` and `SEED_ADMIN_PASSWORD`:
 

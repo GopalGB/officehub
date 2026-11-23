@@ -2604,7 +2604,7 @@ async function assignHelper(
 export async function volunteerForHelp(requestId: string, expectedVersion: number) {
   const user = await requireSession();
   idSchema.parse(requestId);
-  await assignHelper(user, requestId, z.number().int().positive().parse(expectedVersion), async () => user.id);
+  await assignHelper(user, requestId, z.number().int().positive().parse(expectedVersion), () => Promise.resolve(user.id));
 }
 
 /** Managers assign someone, or "AUTO" picks whoever is free right now. */
@@ -2701,6 +2701,8 @@ export async function saveCredential(credentialId: string | null, fd: FormData) 
   if (existing && existing.ownerId !== user.id && existing.scope !== "TEAM") throw new Error("Forbidden");
   if (existing && input.expectedVersion !== undefined && input.expectedVersion !== existing.version)
     throw new Error("This login changed elsewhere. Reload before saving.");
+  // Only the person who added a login decides who can see it.
+  const scope = existing && existing.ownerId !== user.id ? existing.scope : input.scope;
   const data = {
     label: input.label,
     kind: input.kind,
@@ -2709,8 +2711,8 @@ export async function saveCredential(credentialId: string | null, fd: FormData) 
     url: input.url,
     notes: input.notes,
     expiresAt: input.expiresAt ? new Date(input.expiresAt) : null,
-    scope: input.scope,
-    team: input.scope === "TEAM" ? (existing?.team ?? me.team) : null,
+    scope,
+    team: scope === "TEAM" ? (existing?.team ?? me.team) : null,
     ...(input.secret !== null && { secretCipher: encryptSecret(input.secret) }),
   };
   await db.$transaction(async (tx) => {

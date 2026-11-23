@@ -193,8 +193,9 @@ function parseDateCell(value: string): string | null {
   if (!v) return null;
   if (/^\d{4}-\d\d-\d\d/.test(v)) return v.slice(0, 10);
   // Excel serial dates (days since 1899-12-30).
-  if (/^\d{5}(\.\d+)?$/.test(v)) {
-    const ms = Date.UTC(1899, 11, 30) + Number(v) * 86400000;
+  const serial = Number(v);
+  if (/^\d{5}/.test(v) && Number.isFinite(serial) && serial < 100000) {
+    const ms = Date.UTC(1899, 11, 30) + Math.floor(serial) * 86400000;
     return new Date(ms).toISOString().slice(0, 10);
   }
   const dmy = /^(\d{1,2})[/.-](\d{1,2})[/.-](\d{2,4})$/.exec(v);

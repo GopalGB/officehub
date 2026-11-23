@@ -355,3 +355,17 @@ and deployment instructions. Use theme tokens for new controls and keep text con
   errors so invalid fields can be corrected.
 - Projects contains the Cards/Board switch and manager Excel import entrypoint;
   these do not need duplicate primary navigation items.
+
+## Office operations (2026-11)
+
+- Hours, start times and weekends are hidden everywhere. Hours columns stay in the database and are preserved on edit; forms no longer send them. Planning and calendars show Monday–Friday; weekend-dated calendar items appear on the nearest weekday with their real day label. New plans accept weekdays 1–5 only.
+- Copy buttons use `copyText` from `src/lib/clipboard.ts`, which falls back to a textarea copy because `navigator.clipboard` does not exist on plain-HTTP office deployments.
+- Navigation is defined once in `src/lib/nav.ts` for the sidebar and mobile drawer.
+- Brands: forms send a `brand` text field; `resolveBrandId` keeps the brand when absent, clears it when blank and creates unknown names. Reports have `kind` (REPORT/DASHBOARD/ADHOC/OTHER), `statusNote` and `statusChangedAt`, which every status-changing action must set. `/dashboard/reports/live` auto-refreshes with `AutoRefresh`.
+- "Whoever is free" (`FREE_PERSON` from `src/lib/free-person.ts`, ranked by `teamAvailability` in `src/lib/pool.ts`) skips people on leave today and uses open reports plus active projects ×2. `User.notActive` keeps a person (and login) but removes them from `assignablePeopleWhere`; `active=false` still disables login.
+- Help pool (`HelpRequest`): project editors ask, assignable people volunteer, managers assign or pick AUTO. The helper is connected as a project member in the same serializable transaction.
+- `StageComment` is manager-only and keyed by timeline stage id (project id for the original delivery, enhancement or linked project id otherwise).
+- Datetime-local values (meetings, training) are stored as typed in UTC; display them with `formatWallTime` and compare with `wallNow`. Date-only values keep using `formatDate`.
+- Reminders: `Reminder` rows repeat via `nextOccurrence`; `reminderFeed` also includes assigned report deadlines and visible logins that expire within 14 days. The header bell counts items due today or overdue.
+- Vault (`Credential`): AES-256-GCM in `src/lib/vault.ts` with `VAULT_KEY`; ciphertext never leaves the server except through `revealCredential`, which audits the view. Never put secrets or ciphertext in audit snapshots. USER scope is owner-only; TEAM scope is the owner's `User.team` at save time. Only the owner changes visibility or deletes.
+- Linked Excel (`ExcelLink`): `src/lib/excel-link.ts` fetches only SharePoint/OneDrive hosts (plus `EXCEL_LINK_HOSTS`) over https with manual redirects re-checked per hop, a 15 MB cap and a ZIP signature check, then parses through `readBoundedWorkbook`. Unconfirmed sheets are view-only snapshots; managers choose PROJECTS (applied through the existing reviewed importer as the link owner), LEAVES (replaced per link/sheet by `sourceKey` prefix) or TABLE. `src/instrumentation.ts` checks due links every five minutes (`EXCEL_SYNC_DISABLED=true` turns it off); unchanged files are skipped by hash. Access: owner, admins, `shareWithAll`, or listed viewers.

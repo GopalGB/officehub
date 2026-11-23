@@ -22,7 +22,7 @@ import type { TaskStatus } from "@prisma/client";
 
 function statusOf(snapshot: unknown): TaskStatus | null {
   if (!snapshot || typeof snapshot !== "object" || !("status" in snapshot)) return null;
-  const status = (snapshot as { status: unknown }).status;
+  const { status } = snapshot;
   return typeof status === "string" && status in TASK_STATUS_LABEL ? (status as TaskStatus) : null;
 }
 

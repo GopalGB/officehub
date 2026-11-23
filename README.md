@@ -116,6 +116,9 @@ cp .env.example .env
 # Generate the auth secret
 sed -i "s|AUTH_SECRET=.*|AUTH_SECRET=\"$(openssl rand -base64 32)\"|" .env
 
+# Generate the password-vault key (back it up with the database)
+sed -i "s|VAULT_KEY=.*|VAULT_KEY=\"$(openssl rand -base64 32)\"|" .env
+
 # Set your public URL
 sed -i "s|NEXTAUTH_URL=.*|NEXTAUTH_URL=\"https://office.yourcompany.com\"|" .env
 
@@ -144,6 +147,7 @@ git clone https://github.com/GopalGB/officehub.git
 cd officehub
 cp .env.example .env
 echo "AUTH_SECRET=\"$(openssl rand -base64 32)\"" >> .env
+echo "VAULT_KEY=\"$(openssl rand -base64 32)\"" >> .env
 
 docker-compose up -d db        # start just Postgres
 npm install
@@ -330,6 +334,8 @@ See `.env.example` for the full list. Critical fields to change:
 | Var | Purpose |
 |---|---|
 | `AUTH_SECRET` | Session signing key — `openssl rand -base64 32` |
+| `VAULT_KEY` | Encrypts saved server/Aero/JCP passwords — `openssl rand -base64 32`. Back it up; changing it makes saved passwords unreadable |
+| `EXCEL_LINK_HOSTS` | Optional comma-separated extra hosts allowed for linked workbooks (SharePoint/OneDrive are always allowed) |
 | `NEXTAUTH_URL` | Public URL of the deployment |
 | `DATABASE_URL` | Postgres connection string (compose handles this) |
 | `POSTGRES_PASSWORD` | Set in shell when running compose |
