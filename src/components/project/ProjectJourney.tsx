@@ -1,5 +1,5 @@
 "use client";
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import {
   chronologicalStages,
   isCompletedStage,
@@ -38,6 +38,9 @@ export function ProjectJourney({
   controls?: ReactNode;
 }) {
   const [filter, setFilter] = useState("all");
+  // Read the clock after mount so server and browser render the same markup.
+  const [now, setNow] = useState<number | null>(null);
+  useEffect(() => setNow(Date.now()), []);
   const complete = isCompletedStage;
   const ordered = chronologicalStages(stages);
   const completed = stages.filter((stage) => complete(stage.status)).length;
@@ -54,12 +57,12 @@ export function ProjectJourney({
       .flatMap((s) => [new Date(s.start).getTime(), new Date(s.end).getTime()]),
     ...milestones.map((m) => new Date(m.date).getTime()),
   ];
-  const min = dates.length ? Math.min(...dates) : Date.now(),
+  const min = dates.length ? Math.min(...dates) : (now ?? 0),
     max = Math.max(...dates, min + 7 * 86400000);
   const span = Math.max(max - min, 7 * 86400000);
   const position = (date: string) =>
     Math.min(100, Math.max(0, ((new Date(date).getTime() - min) / span) * 100));
-  const today = ((Date.now() - min) / span) * 100;
+  const today = now === null ? -1 : ((now - min) / span) * 100;
   const barStyle = (stage: Stage) => {
     const geometry = timelineBarPosition(stage.start, stage.end, min, span);
     return { left: `${geometry.left}%`, width: `${geometry.width}%` };

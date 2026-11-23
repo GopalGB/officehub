@@ -8,7 +8,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 
 export default async function InviteAcceptPage({
   params,
@@ -95,9 +94,9 @@ export default async function InviteAcceptPage({
           <CardTitle>You&apos;re invited to Catalyst Brands</CardTitle>
           <CardDescription>
             {invite.invitedBy.name} invited <strong>{invite.email}</strong> as{" "}
-            <Badge variant="muted" className="ml-1 align-middle">
+            <strong className="ml-1 rounded border px-1.5 py-0.5 text-xs">
               {invite.role}
-            </Badge>
+            </strong>
           </CardDescription>
         </CardHeader>
         <CardContent>

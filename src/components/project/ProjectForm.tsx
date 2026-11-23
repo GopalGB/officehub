@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import type { Block } from "@blocknote/core";
 import { Button } from "@/components/ui/button";
+import { parseJSON } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
@@ -108,7 +109,7 @@ export function ProjectForm({
             const raw = fd.get("additionalDetails");
             if (typeof raw === "string") {
               const checked = additionalDetailsSchema.safeParse(
-                JSON.parse(raw),
+                parseJSON(raw),
               );
               if (!checked.success) {
                 revealDetails();

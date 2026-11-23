@@ -75,3 +75,21 @@ export function wallNow() {
   const now = new Date();
   return new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours(), now.getMinutes()));
 }
+
+/** Next.js signals redirect()/notFound() from server actions with special
+ * errors; client catch blocks must let them through instead of toasting. */
+export function isNavigationSignal(error: unknown) {
+  const digest =
+    error && typeof error === "object" && "digest" in error ? String(error.digest) : "";
+  return digest.startsWith("NEXT_REDIRECT") || digest.startsWith("NEXT_HTTP_ERROR_FALLBACK") || digest === "NEXT_NOT_FOUND";
+}
+
+/** JSON.parse that returns null instead of throwing on bad input. */
+export function parseJSON<T = unknown>(value: unknown): T | null {
+  if (typeof value !== "string" || !value.trim()) return null;
+  try {
+    return JSON.parse(value) as T;
+  } catch {
+    return null;
+  }
+}

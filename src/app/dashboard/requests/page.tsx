@@ -1,3 +1,4 @@
+import { shareOrigin } from "@/lib/origin";
 import { assignablePeopleWhere } from "@/lib/project-people";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -67,11 +68,7 @@ export default async function RequestsPage({
       db.projectRequest.count({ where: { status: "PENDING" } }),
     ],
   );
-  const origin = (
-    process.env.AUTH_URL ||
-    process.env.NEXTAUTH_URL ||
-    "http://localhost:3000"
-  ).replace(/\/$/, "");
+  const origin = await shareOrigin();
   return (
     <div className="mx-auto max-w-6xl space-y-6">
       <header>

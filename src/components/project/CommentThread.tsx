@@ -6,7 +6,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
-import { timeAgo } from "@/lib/utils";
+import { timeAgo, isNavigationSignal } from "@/lib/utils";
 
 type CommentWithAuthor = Comment & { author: Pick<User, "id" | "name"> };
 
@@ -66,7 +66,19 @@ export function CommentThread({
                     <span className="text-xs text-slate-400">{timeAgo(c.createdAt)}</span>
                   </div>
                   {(c.authorId === viewerId || canManage) && (
-                    <form action={() => start(() => onDelete(c.id, projectId))}>
+                    <form
+                      action={() =>
+                        start(async () => {
+                          try {
+                            await onDelete(c.id, projectId);
+                            toast("Comment deleted", "info");
+                          } catch (error) {
+                            if (isNavigationSignal(error)) throw error;
+                            toast(error instanceof Error ? error.message : "Could not delete the comment", "error");
+                          }
+                        })
+                      }
+                    >
                       <Button type="submit" variant="ghost" size="sm">
                         Delete
                       </Button>

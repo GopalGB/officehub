@@ -391,6 +391,7 @@ export function ProjectBoardClient({
         </Button>
       </div>
       <DndContext
+        id="project-board"
         sensors={sensors}
         collisionDetection={collisions}
         onDragStart={onDragStart}

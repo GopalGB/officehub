@@ -274,6 +274,7 @@ export function TaskBoardClient({
 
   return (
     <DndContext
+      id="report-board"
       sensors={sensors}
       collisionDetection={closestCorners}
       onDragStart={onDragStart}

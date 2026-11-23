@@ -316,16 +316,12 @@ export default async function ProjectDetailPage({
                   More
                 </summary>
                 <div className="absolute right-0 z-20 mt-2 w-44 rounded-xl border bg-card p-2 shadow-lg">
-                  <form action={archiveProject.bind(null, id)}>
-                    <Button
-                      type="submit"
-                      variant="ghost"
-                      size="sm"
-                      className="w-full justify-start"
-                    >
-                      Archive project
-                    </Button>
-                  </form>
+                  <ActionForm
+                    action={archiveProject.bind(null, id)}
+                    label="Archive project"
+                    successMessage="Project archived."
+                    className="space-y-2"
+                  />
                 </div>
               </details>
             )}

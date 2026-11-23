@@ -3,6 +3,7 @@ import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
 import { preserveCurrentAllocations } from "@/lib/allocation-form";
+import { isNavigationSignal } from "@/lib/utils";
 export function ActionForm({
   action,
   children,
@@ -32,6 +33,8 @@ export function ActionForm({
             setSaved(true);
             if (successMessage) toast(successMessage, "success");
           } catch (cause) {
+            // A redirect after saving is success, not an error toast.
+            if (isNavigationSignal(cause)) throw cause;
             const message =
               cause instanceof Error
                 ? cause.message

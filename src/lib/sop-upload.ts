@@ -6,7 +6,8 @@ export async function readSopUpload(value: FormDataEntryValue | null) {
   if (value === null || value === "") return null;
   if (typeof value === "string")
     throw new Error("Choose an SOP file to upload.");
-  if (!value.name && value.size === 0) return null;
+  // Browsers send an empty, sometimes named, file when nothing was chosen.
+  if (value.size === 0) return null;
   if (!value.size || value.size > MAX_SOP_BYTES)
     throw new Error("The SOP file must be between 1 byte and 3 MB.");
   const name = value.name.split(/[\\/]/).pop()?.trim() ?? "";

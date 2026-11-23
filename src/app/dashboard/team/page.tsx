@@ -3,7 +3,6 @@ import { auth } from "../../../../auth";
 import { db } from "@/lib/db";
 import { isAdmin } from "@/lib/rbac";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
 import { AddTeammateTabs } from "@/components/team/AddTeammateTabs";
@@ -11,13 +10,16 @@ import { PendingInvites } from "@/components/team/PendingInvites";
 import { InlineRoleSelect } from "@/components/team/InlineRoleSelect";
 import { updateUser, updateUserTeam } from "@/app/dashboard/actions";
 import { inviteUrl } from "@/lib/invitations";
+import { shareOrigin } from "@/lib/origin";
 import { formatDate } from "@/lib/utils";
+import { ActionForm } from "@/components/ui/action-form";
 
 export default async function TeamPage() {
   const session = await auth();
   if (!session?.user) redirect("/login");
   if (!isAdmin(session.user.role)) redirect("/dashboard");
 
+  const origin = await shareOrigin();
   const [users, invites] = await Promise.all([
     db.user.findMany({ orderBy: [{ active: "desc" }, { createdAt: "asc" }] }),
     db.invitation.findMany({
@@ -62,7 +64,7 @@ export default async function TeamPage() {
               id: i.id,
               email: i.email,
               role: i.role,
-              url: inviteUrl(i.token),
+              url: inviteUrl(i.token, origin),
               expiresAt: i.expiresAt,
               createdAt: i.createdAt,
               invitedByName: i.invitedBy.name,
@@ -107,7 +109,12 @@ export default async function TeamPage() {
                     </td>
                     <td className="px-4 py-3 text-slate-600">{u.email}</td>
                     <td className="px-4 py-3">
-                      <form action={updateUserTeam.bind(null, u.id)} className="flex gap-1">
+                      <ActionForm
+                        action={updateUserTeam.bind(null, u.id)}
+                        label="Save"
+                        successMessage="Team saved."
+                        className="flex items-start gap-1"
+                      >
                         <input
                           name="team"
                           defaultValue={u.team ?? ""}
@@ -116,10 +123,7 @@ export default async function TeamPage() {
                           aria-label={`Team for ${u.name}`}
                           className="h-8 w-28 rounded-md border px-2 text-xs"
                         />
-                        <Button type="submit" variant="ghost" size="sm">
-                          Save
-                        </Button>
-                      </form>
+                      </ActionForm>
                     </td>
                     <td className="px-4 py-3">
                       <InlineRoleSelect userId={u.id} defaultValue={u.role} disabled={isSelf} />
@@ -136,20 +140,22 @@ export default async function TeamPage() {
                     <td className="px-4 py-3 text-xs text-slate-500">{formatDate(u.createdAt)}</td>
                     <td className="px-4 py-3 text-right">
                       {u.active && (
-                        <form action={updateUserTeam.bind(null, u.id)} className="inline">
+                        <ActionForm
+                          action={updateUserTeam.bind(null, u.id)}
+                          label={u.notActive ? "Mark active" : "Mark not active"}
+                          className="inline-block"
+                        >
                           <input type="hidden" name="notActive" value={u.notActive ? "false" : "true"} />
-                          <Button type="submit" variant="outline" size="sm">
-                            {u.notActive ? "Mark active" : "Mark not active"}
-                          </Button>
-                        </form>
+                        </ActionForm>
                       )}
                       {!isSelf && (
-                        <form action={update} className="ml-1 inline">
+                        <ActionForm
+                          action={update}
+                          label={u.active ? "Disable login" : "Enable login"}
+                          className="ml-1 inline-block"
+                        >
                           <input type="hidden" name="active" value={u.active ? "false" : "true"} />
-                          <Button type="submit" variant="ghost" size="sm">
-                            {u.active ? "Disable login" : "Enable login"}
-                          </Button>
-                        </form>
+                        </ActionForm>
                       )}
                     </td>
                   </tr>

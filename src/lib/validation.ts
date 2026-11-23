@@ -479,3 +479,11 @@ export const excelLinkSchema = z.object({
   autoSync: z.boolean().default(true),
   intervalMin: z.coerce.number().int().min(5).max(1440).default(30),
 });
+
+export const passwordChangeSchema = z.object({
+  current: z.string().min(1, "Enter your current password").max(128),
+  next: z
+    .string()
+    .min(8, "New password must be at least 8 characters")
+    .max(128, "New password is too long"),
+});

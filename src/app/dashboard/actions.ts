@@ -12,6 +12,7 @@ import { assertAssignablePeople } from "@/lib/project-people";
 import { requestDetailsSelect } from "@/lib/request-details";
 import { readSopUpload } from "@/lib/sop-upload";
 import { resolveBrandId } from "@/lib/brands";
+import { shareOrigin } from "@/lib/origin";
 import { readProjectWorkbook } from "@/lib/project-workbook";
 import { importCommitSchema, importOptionsSchema } from "@/lib/project-import";
 import { prepareProjectImport, applyProjectImport } from "@/lib/project-import-service";
@@ -51,6 +52,7 @@ import {
   fiscalConfigSchema,
   idSchema,
   restoreRevisionSchema,
+  passwordChangeSchema,
   stageCommentSchema,
   meetingSchema,
   trainingSchema,
@@ -839,7 +841,14 @@ export async function createInvitation(
     where: { email, acceptedAt: null, expiresAt: { gt: new Date() } },
   });
   if (pending) {
-    return { url: inviteUrl(pending.token), email };
+    // Re-inviting with a different role updates the pending invite.
+    if (pending.role !== parsed.data.role)
+      await db.invitation.update({
+        where: { id: pending.id },
+        data: { role: parsed.data.role },
+      });
+    revalidatePath("/dashboard/team");
+    return { url: inviteUrl(pending.token, await shareOrigin()), email };
   }
 
   const token = generateInviteToken();
@@ -853,7 +862,7 @@ export async function createInvitation(
     },
   });
   revalidatePath("/dashboard/team");
-  return { url: inviteUrl(token), email };
+  return { url: inviteUrl(token, await shareOrigin()), email };
 }
 
 export async function revokeInvitation(id: string) {
@@ -885,19 +894,35 @@ export async function acceptInvitation(token: string, formData: FormData) {
     };
 
   const passwordHash = await bcrypt.hash(parsed.data.password, 12);
-  const user = await db.user.create({
-    data: {
-      email: invite.email,
-      name: parsed.data.name,
-      passwordHash,
-      role: invite.role,
-    },
-  });
-
-  await db.invitation.update({
-    where: { id: invite.id },
-    data: { acceptedAt: new Date(), acceptedUserId: user.id },
-  });
+  try {
+    await db.$transaction(async (tx) => {
+      // Claim the invite first so a double submit cannot create two accounts.
+      const claimed = await tx.invitation.updateMany({
+        where: { id: invite.id, acceptedAt: null },
+        data: { acceptedAt: new Date() },
+      });
+      if (!claimed.count) throw new Error("ALREADY_ACCEPTED");
+      const user = await tx.user.create({
+        data: {
+          email: invite.email,
+          name: parsed.data.name,
+          passwordHash,
+          role: invite.role,
+        },
+      });
+      await tx.invitation.update({
+        where: { id: invite.id },
+        data: { acceptedUserId: user.id },
+      });
+    });
+  } catch (error) {
+    if (
+      (error instanceof Error && error.message === "ALREADY_ACCEPTED") ||
+      (error instanceof Error && "code" in error && error.code === "P2002")
+    )
+      return { error: "This invitation has already been used. Sign in instead." };
+    throw error;
+  }
 
   await signIn("credentials", {
     email: invite.email,
@@ -1748,11 +1773,10 @@ export async function archivePage(pageId: string) {
 
 export async function changeOwnPassword(formData: FormData) {
   const me = await requireSession();
-  const current = formText(formData, "current");
-  const next = formText(formData, "next");
-  if (!current || !next) throw new Error("Both fields are required");
-  if (next.length < 8)
-    throw new Error("New password must be at least 8 characters");
+  const { current, next } = passwordChangeSchema.parse({
+    current: formData.get("current"),
+    next: formData.get("next"),
+  });
   const user = await db.user.findUnique({ where: { id: me.id } });
   if (!user) throw new Error("Account missing");
   const ok = await bcrypt.compare(current, user.passwordHash);
