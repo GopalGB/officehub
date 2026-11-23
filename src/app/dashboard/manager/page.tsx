@@ -200,7 +200,7 @@ export default async function ManagerPage({
               </button>
             </form>
             <p className="mt-1 text-xs text-muted-foreground">
-              {fiscalLabel(today, configs)} · Weekly capacity guide: 40 hours
+              {fiscalLabel(today, configs)} · Monday to Friday
             </p>
           </div>
           <Link className="text-link text-sm" href="/dashboard/requests">
@@ -211,10 +211,10 @@ export default async function ManagerPage({
           {people.map((person) => {
             const own = plans.filter((p) => p.userId === person.id),
               todayLoad = dayLoad(own, today);
-            const daily = Array.from({ length: 7 }, (_, i) =>
+            const daily = [1, 2, 3, 4, 5].map((i) =>
                 dayLoad(own, addDays(start, i)),
               ),
-              hours = daily.reduce((sum, d) => sum + d.hours, 0);
+              blocks = daily.reduce((sum, d) => sum + d.entries.length, 0);
             const owned = activeProjects.filter(
               (p) =>
                 p.ownerId === person.id ||
@@ -234,27 +234,23 @@ export default async function ManagerPage({
                       reports
                     </p>
                   </div>
-                  <span className="pill">{hours}h this week</span>
+                  <span className="pill">
+                    {blocks} focus block{blocks === 1 ? "" : "s"} this week
+                  </span>
                 </div>
-                <div className="mt-4 grid grid-cols-7 gap-1">
+                <div className="mt-4 grid grid-cols-5 gap-1">
                   {daily.map((d, i) => (
                     <div
                       key={i}
-                      className="text-center"
-                      title={`${["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][i]}: ${d.hours} hours${d.overlap ? ", overlapping blocks" : ""}`}
+                      className="rounded bg-secondary px-1 py-1.5 text-center"
+                      title={`${["Mon", "Tue", "Wed", "Thu", "Fri"][i]}: ${d.entries.length} focus blocks`}
                     >
                       <p className="text-[9px] text-muted-foreground">
-                        {["S", "M", "T", "W", "T", "F", "S"][i]}
+                        {["Mon", "Tue", "Wed", "Thu", "Fri"][i]}
                       </p>
-                      <div className="mt-1 flex h-9 items-end overflow-hidden rounded bg-secondary">
-                        <div
-                          className={`w-full ${d.hours > 8 || d.overlap ? "bg-brand-orange" : "bg-brand-blue"}`}
-                          style={{
-                            height: `${Math.min(100, (d.hours / 8) * 100)}%`,
-                          }}
-                        />
-                      </div>
-                      <p className="mt-1 text-[9px]">{d.hours}h</p>
+                      <p className="mt-0.5 text-xs font-semibold">
+                        {d.entries.length || "–"}
+                      </p>
                     </div>
                   ))}
                 </div>
@@ -264,11 +260,13 @@ export default async function ManagerPage({
                   </p>
                   {todayLoad.entries.map((entry) => (
                     <p key={entry.planId} className="mt-2 text-xs">
-                      <strong>{entry.startTime}</strong> · {entry.title}{" "}
-                      <span className="text-muted-foreground">
-                        ({entry.hours}h
-                        {entry.adjusted ? ", changed for this day" : ""})
-                      </span>
+                      <strong>{entry.title}</strong>
+                      {entry.adjusted && (
+                        <span className="text-muted-foreground">
+                          {" "}
+                          (changed for this day)
+                        </span>
+                      )}
                       <span className="mt-1 block text-[10px] text-muted-foreground">
                         {projectNames[entry.projectId] ??
                           own.find((p) => p.projectId === entry.projectId)
@@ -318,14 +316,11 @@ export default async function ManagerPage({
                       <p key={p.id}>
                         {p.title} ·{" "}
                         {p.weekdays
+                          .filter((d) => d > 0 && d < 6)
                           .map(
-                            (d) =>
-                              ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][
-                                d
-                              ],
+                            (d) => ["Mon", "Tue", "Wed", "Thu", "Fri"][d - 1],
                           )
-                          .join(", ")}{" "}
-                        · {p.startTime} / {p.hours}h
+                          .join(", ")}
                       </p>
                     ))}
                   </div>

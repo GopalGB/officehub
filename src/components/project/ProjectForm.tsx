@@ -319,32 +319,6 @@ export function ProjectForm({
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="estimatedHours">Estimated effort (hours)</Label>
-              <Input
-                id="estimatedHours"
-                name="estimatedHours"
-                type="number"
-                min="0"
-                max="100000"
-                step="0.25"
-                defaultValue={initial?.estimatedHours ?? ""}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="savedHours">
-                Expected time saved (hours / week)
-              </Label>
-              <Input
-                id="savedHours"
-                name="savedHours"
-                type="number"
-                min="0"
-                max="100000"
-                step="0.25"
-                defaultValue={initial?.savedHours ?? ""}
-              />
-            </div>
-            <div className="space-y-2">
               <Label htmlFor="department">Team / department</Label>
               <Input
                 id="department"

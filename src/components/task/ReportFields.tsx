@@ -78,17 +78,6 @@ export function ReportFields({
         />
       </label>
       <label className="field">
-        Estimated hours
-        <input
-          name="estimatedHours"
-          type="number"
-          step="0.25"
-          min="0"
-          max="100000"
-          defaultValue={report?.estimatedHours ?? ""}
-        />
-      </label>
-      <label className="field">
         Priority
         <select name="priority" defaultValue={report?.priority ?? "MEDIUM"}>
           {PRIORITY_OPTIONS.map((o) => (

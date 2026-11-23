@@ -280,32 +280,9 @@ export function RequestForm({
       </FormSection>
       <FormSection
         number="04"
-        title="Effort, impact & timing"
-        description="Your best estimate helps the manager prioritize and plan the work."
+        title="Timing"
+        description="When you need it helps the manager prioritize and plan the work."
       >
-        <label className="field">
-          Estimated effort (hours) *
-          <input
-            name="estimatedHours"
-            type="number"
-            min="0.25"
-            step="0.25"
-            max="100000"
-            required
-            placeholder="e.g. 8"
-          />
-        </label>
-        <label className="field">
-          Expected time saved (hours / week)
-          <input
-            name="savedHours"
-            type="number"
-            min="0"
-            step="0.25"
-            max="100000"
-            placeholder="e.g. 3"
-          />
-        </label>
         <label className="field">
           Requested delivery date
           <input name="requestedDate" type="date" />

@@ -1707,7 +1707,8 @@ function requirePlanOwner(user: { id: string }, plan: { userId: string }) {
   if (user.id !== plan.userId)
     throw new Error("Only the person doing the work can change their plan");
 }
-function checkTime(startTime: string, hours: number) {
+function checkTime(startTime: string | undefined, hours: number | undefined) {
+  if (startTime === undefined || hours === undefined) return;
   const [hour, minute] = startTime.split(":").map(Number);
   if (hour * 60 + minute + hours * 60 > 1440)
     throw new Error("Work must finish within the same day");
@@ -1804,7 +1805,12 @@ export async function saveDailyOverride(planId: string, fd: FormData) {
         throw new Error("This day changed elsewhere. Reload before saving.");
       const { expectedUpdatedAt, ...fields } = input;
       void expectedUpdatedAt;
-      const data = { ...fields, date };
+      const data = {
+        ...fields,
+        hours: fields.hours ?? before?.hours ?? plan.hours,
+        startTime: fields.startTime ?? before?.startTime ?? plan.startTime,
+        date,
+      };
       const after = await tx.dailyOverride.upsert({
         where: { planId_date: { planId, date } },
         create: { ...data, planId },
@@ -1878,13 +1884,15 @@ export async function copyPreviousWeek(week: string) {
       if (!previous.length)
         throw new Error("There is no plan in the previous week to copy");
       for (const plan of previous) {
+        const weekdays = plan.weekdays.filter((d) => d > 0 && d < 6);
+        if (!weekdays.length) continue;
         const after = await tx.workPlan.create({
           data: {
             userId: user.id,
             projectId: plan.projectId,
             weekStart: start,
             title: plan.title,
-            weekdays: plan.weekdays,
+            weekdays,
             hours: plan.hours,
             startTime: plan.startTime,
           },

@@ -30,10 +30,9 @@ export async function TodayFocus({ viewer }: { viewer: Viewer }) {
           <p className="eyebrow">Today / {fiscalLabel(day, configs)}</p>
           <h2 className="text-xl font-semibold">Your focus today</h2>
           <p className="mt-2 text-sm text-muted-foreground">
-            {load.hours
-              ? `${load.hours} hours planned across ${load.entries.length} focus blocks.`
+            {load.entries.length
+              ? `${load.entries.length} focus block${load.entries.length === 1 ? "" : "s"} planned.`
               : "Make room for your most important project work."}
-            {load.overlap ? " Some blocks overlap." : ""}
           </p>
         </div>
         <Button asChild variant="outline" size="sm">
@@ -48,8 +47,7 @@ export async function TodayFocus({ viewer }: { viewer: Viewer }) {
             className="rounded-lg border bg-secondary/50 p-4 hover:border-brand-orange"
           >
             <p className="text-[11px] font-semibold text-muted-foreground">
-              {entry.startTime} · {entry.hours}h
-              {entry.adjusted ? " · Adjusted today" : ""}
+              {entry.adjusted ? "Adjusted today" : "Weekly plan"}
             </p>
             <h3 className="mt-2 text-sm font-semibold">{entry.title}</h3>
             <p className="mt-1 truncate text-xs text-muted-foreground">

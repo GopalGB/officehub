@@ -504,11 +504,6 @@ function CardBody({
             </span>
           )}
           <PriorityBadge priority={task.priority} />
-          {task.estimatedHours != null && (
-            <span className="rounded bg-neutral-100 px-1.5 py-0.5 text-[10px] font-semibold text-neutral-700">
-              {task.estimatedHours}
-            </span>
-          )}
         </div>
       </div>
       <div className="mt-1 text-[10px] text-neutral-400">

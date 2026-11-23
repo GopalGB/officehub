@@ -286,20 +286,27 @@ export const workPlanSchema = z.object({
   title: z.string().trim().min(2).max(200),
   weekStart: z.iso.date(),
   weekdays: z
-    .array(z.coerce.number().int().min(0).max(6))
-    .min(1)
-    .max(7)
+    .array(z.coerce.number().int().min(1, "Weekends are not planned").max(5, "Weekends are not planned"))
+    .min(1, "Choose at least one weekday")
+    .max(5)
     .transform((v) => [...new Set(v)]),
-  hours: z.coerce.number().positive().max(24),
-  startTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
+  // Start times and hours are no longer collected; stored values are kept.
+  hours: z.coerce.number().positive().max(24).optional(),
+  startTime: z
+    .string()
+    .regex(/^([01]\d|2[0-3]):[0-5]\d$/)
+    .optional(),
   expectedVersion: z.coerce.number().int().positive().optional(),
 });
 export const dailyOverrideSchema = z.object({
   date: z.iso.date(),
   projectId: z.string().cuid(),
   title: z.string().trim().min(2).max(200),
-  hours: z.coerce.number().positive().max(24),
-  startTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
+  hours: z.coerce.number().positive().max(24).optional(),
+  startTime: z
+    .string()
+    .regex(/^([01]\d|2[0-3]):[0-5]\d$/)
+    .optional(),
   skipped: z.boolean(),
   note: z.string().trim().max(1000).nullable(),
   expectedUpdatedAt: z.iso.datetime().nullable(),
@@ -328,7 +335,8 @@ export const publicRequestSchema = z.object({
   description: z.string().trim().min(10).max(5000),
   projectType: projectTypeEnum,
   existingProject: z.string().trim().max(200).nullable(),
-  estimatedHours: z.coerce.number().positive().max(100000),
+  // Hours are no longer collected; keep the stored column populated.
+  estimatedHours: optionalHours.transform((v) => v ?? 0),
   savedHours: optionalHours,
   requestedDate: isoDate,
   priority: PriorityEnum,

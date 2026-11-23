@@ -70,7 +70,6 @@ export function TaskTable({
             <th className="px-3 py-2.5">Status</th>
             <th className="px-3 py-2.5">Assignee</th>
             <th className="px-3 py-2.5">Priority</th>
-            <th className="px-3 py-2.5">Hours</th>
             <th className="px-3 py-2.5">Due</th>
             <th className="px-3 py-2.5"></th>
           </tr>
@@ -126,9 +125,6 @@ export function TaskTable({
                 </td>
                 <td className="px-3 py-2 align-middle">
                   <PriorityBadge priority={t.priority} />
-                </td>
-                <td className="px-3 py-2 align-middle text-xs text-slate-600">
-                  {t.estimatedHours ?? "—"}
                 </td>
                 <td
                   className={`px-3 py-2 align-middle text-xs ${overdue ? "font-semibold text-black underline decoration-2 underline-offset-2 dark:text-white" : "text-neutral-600 dark:text-neutral-400"}`}

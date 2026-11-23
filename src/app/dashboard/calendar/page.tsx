@@ -123,7 +123,7 @@ export default async function FiscalCalendar({
           <p className="eyebrow">Retail planning / Company 4-5-4</p>
           <h1 className="page-title">Fiscal calendar</h1>
           <p className="page-subtitle">
-            FY{year} · {weeks.length} weeks · Sunday–Saturday. Delivery dates,
+            FY{year} · {weeks.length} weeks · Monday–Friday. Delivery dates,
             reports, and enhancements in your fiscal rhythm.
           </p>
         </div>
@@ -226,17 +226,17 @@ export default async function FiscalCalendar({
           </p>
         </div>
         <div className="overflow-x-auto">
-          <div className="min-w-[700px]">
-            <div className="grid grid-cols-[70px_repeat(7,minmax(0,1fr))] gap-1 border-b pb-2 text-center text-[11px] text-muted-foreground">
+          <div className="min-w-[560px]">
+            <div className="grid grid-cols-[70px_repeat(5,minmax(0,1fr))] gap-1 border-b pb-2 text-center text-[11px] text-muted-foreground">
               <span>Fiscal week</span>
-              {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (
+              {["Mon", "Tue", "Wed", "Thu", "Fri"].map((d) => (
                 <span key={d}>{d}</span>
               ))}
             </div>
             {selected.map((w) => (
               <div
                 key={w.week}
-                className="grid grid-cols-[70px_repeat(7,minmax(0,1fr))] border-b"
+                className="grid grid-cols-[70px_repeat(5,minmax(0,1fr))] border-b"
               >
                 <Link
                   className="py-4 text-xs font-semibold text-brand-link"
@@ -244,10 +244,19 @@ export default async function FiscalCalendar({
                 >
                   FW{String(w.week).padStart(2, "0")}
                 </Link>
-                {Array.from({ length: 7 }, (_, i) => {
+                {[1, 2, 3, 4, 5].map((i) => {
+                  // Weekends are hidden: Sunday items show on Monday and
+                  // Saturday items on Friday, labelled with their real day.
                   const date = addDays(w.start, i),
                     key = dateKey(date),
-                    entries = events.filter((e) => dateKey(e.date) === key);
+                    keys = [
+                      key,
+                      ...(i === 1 ? [dateKey(addDays(w.start, 0))] : []),
+                      ...(i === 5 ? [dateKey(addDays(w.start, 6))] : []),
+                    ],
+                    entries = events.filter((e) =>
+                      keys.includes(dateKey(e.date)),
+                    );
                   return (
                     <div
                       key={i}
@@ -272,6 +281,9 @@ export default async function FiscalCalendar({
                             <span className="block text-[8px] uppercase tracking-wide">
                               {e.kind}
                               {e.done ? " · Done" : ""}
+                              {dateKey(e.date) !== key
+                                ? ` · ${e.date.getUTCDay() === 0 ? "Sun" : "Sat"}`
+                                : ""}
                             </span>
                             <span className="line-clamp-2">{e.title}</span>
                           </Link>

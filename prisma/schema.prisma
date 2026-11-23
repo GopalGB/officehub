@@ -61,6 +61,10 @@ model User {
   passwordHash  String
   role          Role      @default(MEMBER)
   active        Boolean   @default(true)
+  // Not active: keeps the account and history but removes the person from new
+  // allocations and the help pool. Distinct from `active` (login disabled).
+  notActive     Boolean   @default(false)
+  team          String?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
@@ -80,6 +84,19 @@ model User {
   coOwnedProjects      Project[]       @relation("ProjectCoOwner")
   workPlans            WorkPlan[]
   requestLinks         RequestLink[]
+  stageComments        StageComment[]
+  meetingsOrganized    Meeting[]       @relation("MeetingOrganizer")
+  meetings             Meeting[]       @relation("MeetingAttendees")
+  trainingsCreated     Training[]
+  contacts             Contact[]       @relation("ContactPerson")
+  helpRequests         HelpRequest[]   @relation("HelpRequester")
+  helpAssignments      HelpRequest[]   @relation("HelpAssignee")
+  feedback             Feedback[]
+  leaves               Leave[]         @relation("LeavePerson")
+  credentials          Credential[]
+  reminders            Reminder[]
+  excelLinksOwned      ExcelLink[]     @relation("ExcelLinkOwner")
+  excelLinksShared     ExcelLink[]     @relation("ExcelLinkViewers")
 
   @@index([email])
   @@index([role])
@@ -142,6 +159,8 @@ model Project {
   savedHours         Float?
   department         String?
   subTeam            String?
+  brandId            String?
+  brand              Brand?        @relation(fields: [brandId], references: [id], onDelete: SetNull)
   additionalDetails  Json          @default("[]")
   acceptanceCriteria String?
   version            Int           @default(1)
@@ -156,14 +175,18 @@ model Project {
   milestones     Milestone[]
   comments       Comment[]
   tasks          Task[]
-  tags           Tag[]             @relation("ProjectTags")
+  tags           Tag[]                 @relation("ProjectTags")
   revisions      ProjectRevision[]
   workPlans      WorkPlan[]
   dailyOverrides DailyOverride[]
   requests       ProjectRequest[]
   importRecords  ProjectImportRecord[]
+  stageComments  StageComment[]
+  meetings       Meeting[]
+  helpRequests   HelpRequest[]
 
   @@index([ownerId])
+  @@index([brandId])
   @@index([coOwnerId])
   @@index([sourceProjectId])
   @@index([status])
@@ -173,29 +196,29 @@ model Project {
 
 // Preview data remains local to the deployment. Uploads never become repo files.
 model ProjectImport {
-  id          String    @id @default(cuid())
-  actorId     String
-  ownerId     String
-  source      String
-  fileName    String
-  sheetName   String
-  rows        Json
-  createdAt   DateTime  @default(now())
-  expiresAt   DateTime
-  appliedAt   DateTime?
-  result      Json?
+  id        String    @id @default(cuid())
+  actorId   String
+  ownerId   String
+  source    String
+  fileName  String
+  sheetName String
+  rows      Json
+  createdAt DateTime  @default(now())
+  expiresAt DateTime
+  appliedAt DateTime?
+  result    Json?
 
   @@index([actorId, expiresAt])
 }
 
 model ProjectImportRecord {
-  id            String  @id @default(cuid())
-  source        String
-  recordKey     String
-  projectId     String
-  project       Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  importedHash  String
-  enhancements  Json    @default("[]")
+  id           String  @id @default(cuid())
+  source       String
+  recordKey    String
+  projectId    String
+  project      Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  importedHash String
+  enhancements Json    @default("[]")
 
   @@unique([source, recordKey])
   @@index([projectId])
@@ -276,31 +299,39 @@ model Tag {
 // ============ TASKS (Jira-side) ============
 
 model Task {
-  id             String     @id @default(cuid())
-  projectId      String
-  project        Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  title          String
-  description    String?
-  status         TaskStatus @default(TODO)
-  priority       Priority   @default(MEDIUM)
-  storyPoints    Int?
-  dueDate        DateTime?
-  assigneeId     String?
-  assignee       User?      @relation("TaskAssignee", fields: [assigneeId], references: [id])
-  reporterId     String
-  reporter       User       @relation("TaskReporter", fields: [reporterId], references: [id])
-  parentId       String?
-  parent         Task?      @relation("TaskSubtasks", fields: [parentId], references: [id], onDelete: SetNull)
-  subtasks       Task[]     @relation("TaskSubtasks")
-  orderIndex     Float      @default(0)
-  createdAt      DateTime   @default(now())
-  updatedAt      DateTime   @updatedAt
-  completedAt    DateTime?
+  id              String     @id @default(cuid())
+  projectId       String
+  project         Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  title           String
+  description     String?
+  status          TaskStatus @default(TODO)
+  priority        Priority   @default(MEDIUM)
+  storyPoints     Int?
+  dueDate         DateTime?
+  assigneeId      String?
+  assignee        User?      @relation("TaskAssignee", fields: [assigneeId], references: [id])
+  reporterId      String
+  reporter        User       @relation("TaskReporter", fields: [reporterId], references: [id])
+  parentId        String?
+  parent          Task?      @relation("TaskSubtasks", fields: [parentId], references: [id], onDelete: SetNull)
+  subtasks        Task[]     @relation("TaskSubtasks")
+  orderIndex      Float      @default(0)
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+  completedAt     DateTime?
   // Kept in the existing table so upgrades preserve earlier work as reports.
-  version        Int        @default(1)
-  reportUrl      String?
-  estimatedHours Float?
+  version         Int        @default(1)
+  reportUrl       String?
+  estimatedHours  Float?
+  // REPORT, DASHBOARD, ADHOC, OTHER
+  kind            String     @default("REPORT")
+  brandId         String?
+  brand           Brand?     @relation(fields: [brandId], references: [id], onDelete: SetNull)
+  statusNote      String?
+  statusChangedAt DateTime?
+  reminders       Reminder[]
 
+  @@index([brandId])
   @@index([projectId])
   @@index([assigneeId])
   @@index([status])
@@ -437,36 +468,36 @@ model RequestLink {
 }
 
 model ProjectRequest {
-  id              String      @id @default(cuid())
-  linkId          String
-  link            RequestLink @relation(fields: [linkId], references: [id])
-  submitterName   String
-  submitterEmail  String
-  managerName     String?
-  department      String?
-  subTeam         String?
-  sopLocation     String?
+  id                    String      @id @default(cuid())
+  linkId                String
+  link                  RequestLink @relation(fields: [linkId], references: [id])
+  submitterName         String
+  submitterEmail        String
+  managerName           String?
+  department            String?
+  subTeam               String?
+  sopLocation           String?
   requiredFilesLocation String?
-  sopFileName     String?
-  sopFileType     String?
-  sopFileSize     Int?
-  sopFileSha256   String?
-  sopFileData     Bytes?
-  title           String
-  description     String
-  projectType     String
-  existingProject String?
-  estimatedHours  Float
-  savedHours      Float?
-  requestedDate   DateTime?
-  priority        Priority    @default(MEDIUM)
-  status          String      @default("PENDING")
-  managerNotes    String?
-  projectId       String?
-  project         Project?    @relation(fields: [projectId], references: [id], onDelete: SetNull)
-  version         Int         @default(1)
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
+  sopFileName           String?
+  sopFileType           String?
+  sopFileSize           Int?
+  sopFileSha256         String?
+  sopFileData           Bytes?
+  title                 String
+  description           String
+  projectType           String
+  existingProject       String?
+  estimatedHours        Float
+  savedHours            Float?
+  requestedDate         DateTime?
+  priority              Priority    @default(MEDIUM)
+  status                String      @default("PENDING")
+  managerNotes          String?
+  projectId             String?
+  project               Project?    @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  version               Int         @default(1)
+  createdAt             DateTime    @default(now())
+  updatedAt             DateTime    @updatedAt
 
   @@index([status, createdAt])
   @@index([linkId, createdAt])
@@ -477,4 +508,213 @@ model FiscalYearConfig {
   startDate DateTime @db.Date
   weeks     Int      @default(52)
   updatedAt DateTime @updatedAt
+}
+
+// ============ OFFICE OPERATIONS (2026-11) ============
+
+model Brand {
+  id        String    @id @default(cuid())
+  name      String    @unique
+  color     String    @default("#1d4f91")
+  createdAt DateTime  @default(now())
+  projects  Project[]
+  reports   Task[]
+}
+
+/// Manager feedback on one timeline stage. stageId is the project id for the
+/// original delivery, or an enhancement / linked project id.
+model StageComment {
+  id        String   @id @default(cuid())
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  stageId   String
+  authorId  String
+  author    User     @relation(fields: [authorId], references: [id])
+  content   String
+  createdAt DateTime @default(now())
+
+  @@index([projectId, stageId])
+}
+
+model Meeting {
+  id          String    @id @default(cuid())
+  title       String
+  kind        String    @default("SCHEDULED") // SCHEDULED or ADHOC
+  projectId   String?
+  project     Project?  @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  organizerId String
+  organizer   User      @relation("MeetingOrganizer", fields: [organizerId], references: [id])
+  attendees   User[]    @relation("MeetingAttendees")
+  startsAt    DateTime
+  endsAt      DateTime?
+  link        String?
+  notes       String?
+  createdAt   DateTime  @default(now())
+
+  @@index([startsAt])
+  @@index([projectId])
+}
+
+model Training {
+  id          String    @id @default(cuid())
+  title       String
+  url         String?
+  sessionAt   DateTime?
+  description String?
+  audience    String? // team name, or empty for everyone
+  createdById String
+  createdBy   User      @relation(fields: [createdById], references: [id])
+  createdAt   DateTime  @default(now())
+
+  @@index([sessionAt])
+}
+
+/// "Whom to contact" directory shown beside the wiki.
+model Contact {
+  id        String   @id @default(cuid())
+  topic     String
+  personId  String?
+  person    User?    @relation("ContactPerson", fields: [personId], references: [id], onDelete: SetNull)
+  name      String?
+  email     String?
+  notes     String?
+  createdAt DateTime @default(now())
+
+  @@index([topic])
+}
+
+/// Help pool: ask for an extra BI teammate on an ongoing project.
+model HelpRequest {
+  id          String    @id @default(cuid())
+  projectId   String
+  project     Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  requesterId String
+  requester   User      @relation("HelpRequester", fields: [requesterId], references: [id])
+  assigneeId  String?
+  assignee    User?     @relation("HelpAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  details     String
+  skills      String?
+  neededBy    DateTime?
+  status      String    @default("OPEN") // OPEN, ASSIGNED, CLOSED
+  version     Int       @default(1)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([status, createdAt])
+  @@index([projectId])
+}
+
+model Feedback {
+  id        String   @id @default(cuid())
+  authorId  String
+  author    User     @relation(fields: [authorId], references: [id])
+  category  String   @default("IDEA") // IDEA, BUG, PRAISE, OTHER
+  area      String?
+  message   String
+  rating    Int?
+  status    String   @default("NEW") // NEW, PLANNED, DONE, CLOSED
+  response  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, createdAt])
+}
+
+model Leave {
+  id         String   @id @default(cuid())
+  userId     String?
+  user       User?    @relation("LeavePerson", fields: [userId], references: [id], onDelete: Cascade)
+  personName String
+  startDate  DateTime @db.Date
+  endDate    DateTime @db.Date
+  type       String   @default("Leave")
+  note       String?
+  source     String   @default("MANUAL") // MANUAL or EXCEL
+  sourceKey  String?  @unique
+  createdAt  DateTime @default(now())
+
+  @@index([startDate, endDate])
+  @@index([userId])
+}
+
+/// Secrets are AES-256-GCM ciphertext; the key comes from VAULT_KEY.
+model Credential {
+  id           String     @id @default(cuid())
+  label        String
+  kind         String     @default("SERVER") // SERVER, AERO, JCP, OTHER
+  host         String?
+  username     String?
+  secretCipher String?
+  url          String?
+  notes        String?
+  expiresAt    DateTime?
+  scope        String     @default("USER") // USER or TEAM
+  team         String?
+  ownerId      String
+  owner        User       @relation(fields: [ownerId], references: [id])
+  version      Int        @default(1)
+  reminders    Reminder[]
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@index([ownerId])
+  @@index([scope, team])
+  @@index([expiresAt])
+}
+
+model Reminder {
+  id           String      @id @default(cuid())
+  userId       String
+  user         User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title        String
+  dueAt        DateTime
+  repeat       String      @default("NONE") // NONE, DAILY, WEEKLY, MONTHLY
+  taskId       String?
+  task         Task?       @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  credentialId String?
+  credential   Credential? @relation(fields: [credentialId], references: [id], onDelete: Cascade)
+  doneAt       DateTime?
+  createdAt    DateTime    @default(now())
+
+  @@index([userId, dueAt])
+}
+
+/// A SharePoint/OneDrive workbook read through its share link.
+model ExcelLink {
+  id           String               @id @default(cuid())
+  name         String
+  url          String
+  ownerId      String
+  owner        User                 @relation("ExcelLinkOwner", fields: [ownerId], references: [id])
+  viewers      User[]               @relation("ExcelLinkViewers")
+  shareWithAll Boolean              @default(false)
+  // [{ name, headers, rowCount, purpose }] from the last read
+  sheets       Json                 @default("[]")
+  // { [sheetName]: { purpose, columns: { field: header } } }
+  mappings     Json                 @default("{}")
+  autoSync     Boolean              @default(true)
+  intervalMin  Int                  @default(30)
+  lastSyncedAt DateTime?
+  lastHash     String?
+  lastError    String?
+  lastResult   Json?
+  version      Int                  @default(1)
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
+  snapshots    ExcelSheetSnapshot[]
+
+  @@index([ownerId])
+}
+
+/// Latest rows of each sheet so the workbook can be browsed inside OfficeHub.
+model ExcelSheetSnapshot {
+  id        String    @id @default(cuid())
+  linkId    String
+  link      ExcelLink @relation(fields: [linkId], references: [id], onDelete: Cascade)
+  sheetName String
+  headers   Json
+  rows      Json
+  updatedAt DateTime  @updatedAt
+
+  @@unique([linkId, sheetName])
 }

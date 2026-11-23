@@ -32,6 +32,7 @@ function project(overrides: Partial<BoardProject> = {}): BoardProject {
     savedHours: null,
     department: null,
     subTeam: null,
+    brandId: null,
     additionalDetails: [],
     acceptanceCriteria: null,
     version: 1,

@@ -195,12 +195,6 @@ export default async function RequestsPage({
               {request.description}
             </p>
             <div className="mt-4 flex flex-wrap gap-4 text-xs text-muted-foreground">
-              <span>
-                Estimated: <strong>{request.estimatedHours}h</strong>
-              </span>
-              <span>
-                Time saved: <strong>{request.savedHours ?? "—"}h / week</strong>
-              </span>
               <span>Requested date: {formatDate(request.requestedDate)}</span>
               {request.existingProject && (
                 <span>Existing project: {request.existingProject}</span>

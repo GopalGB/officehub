@@ -69,28 +69,6 @@ export function EnhancementFields({ item }: { item?: Item }) {
         />
       </label>
       <label className="field">
-        Estimated effort (hours)
-        <input
-          name="estimatedHours"
-          type="number"
-          min="0"
-          max="100000"
-          step="0.25"
-          defaultValue={item?.estimatedHours ?? ""}
-        />
-      </label>
-      <label className="field">
-        Time saved (hours / week)
-        <input
-          name="savedHours"
-          type="number"
-          min="0"
-          max="100000"
-          step="0.25"
-          defaultValue={item?.savedHours ?? ""}
-        />
-      </label>
-      <label className="field">
         Priority
         <select name="priority" defaultValue={item?.priority ?? "MEDIUM"}>
           {PRIORITY_OPTIONS.map((o) => (
@@ -173,9 +151,7 @@ export function EnhancementList({
                 {item.description}
               </p>
               <p className="mt-3 text-xs text-muted-foreground">
-                {formatDate(item.startDate)} → {formatDate(item.targetDate)} ·{" "}
-                {item.estimatedHours ?? "—"} estimated hours ·{" "}
-                {item.savedHours ?? "—"} hours saved / week
+                {formatDate(item.startDate)} → {formatDate(item.targetDate)}
               </p>
               <p className="mt-2 text-xs text-muted-foreground">
                 Added by {item.author.name} · Version {item.version}
