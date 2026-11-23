@@ -9,7 +9,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { AddTeammateTabs } from "@/components/team/AddTeammateTabs";
 import { PendingInvites } from "@/components/team/PendingInvites";
 import { InlineRoleSelect } from "@/components/team/InlineRoleSelect";
-import { updateUser } from "@/app/dashboard/actions";
+import { updateUser, updateUserTeam } from "@/app/dashboard/actions";
 import { inviteUrl } from "@/lib/invitations";
 import { formatDate } from "@/lib/utils";
 
@@ -32,8 +32,9 @@ export default async function TeamPage() {
       <header>
         <h1 className="text-2xl font-semibold tracking-tight">Team</h1>
         <p className="text-sm text-slate-500">
-          Invite teammates with a one-click link — they pick their own password. Change roles or
-          deactivate anyone.
+          Invite teammates, set their team and role. Mark someone <strong>Not active</strong> when
+          they are away or off BI work: they keep their history and can still sign in, but are not
+          offered for new work. Disable login only when someone leaves.
         </p>
       </header>
 
@@ -72,8 +73,9 @@ export default async function TeamPage() {
 
       <section className="space-y-2">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
-          Active accounts ({users.filter((u) => u.active).length}) ·{" "}
-          {users.filter((u) => !u.active).length} disabled
+          Active ({users.filter((u) => u.active && !u.notActive).length}) · Not active (
+          {users.filter((u) => u.active && u.notActive).length}) · Login disabled (
+          {users.filter((u) => !u.active).length})
         </h2>
         <div className="overflow-x-auto rounded-md border border-slate-200 bg-white">
           <table className="min-w-full text-sm">
@@ -81,6 +83,7 @@ export default async function TeamPage() {
               <tr>
                 <th className="px-4 py-3">User</th>
                 <th className="px-4 py-3">Email</th>
+                <th className="px-4 py-3">Team</th>
                 <th className="px-4 py-3">Role</th>
                 <th className="px-4 py-3">Status</th>
                 <th className="px-4 py-3">Joined</th>
@@ -104,22 +107,47 @@ export default async function TeamPage() {
                     </td>
                     <td className="px-4 py-3 text-slate-600">{u.email}</td>
                     <td className="px-4 py-3">
+                      <form action={updateUserTeam.bind(null, u.id)} className="flex gap-1">
+                        <input
+                          name="team"
+                          defaultValue={u.team ?? ""}
+                          maxLength={100}
+                          placeholder="e.g. BI"
+                          aria-label={`Team for ${u.name}`}
+                          className="h-8 w-28 rounded-md border px-2 text-xs"
+                        />
+                        <Button type="submit" variant="ghost" size="sm">
+                          Save
+                        </Button>
+                      </form>
+                    </td>
+                    <td className="px-4 py-3">
                       <InlineRoleSelect userId={u.id} defaultValue={u.role} disabled={isSelf} />
                     </td>
                     <td className="px-4 py-3">
-                      {u.active ? (
-                        <Badge variant="success">Active</Badge>
+                      {!u.active ? (
+                        <Badge variant="muted">Login disabled</Badge>
+                      ) : u.notActive ? (
+                        <Badge variant="warning">Not active</Badge>
                       ) : (
-                        <Badge variant="muted">Disabled</Badge>
+                        <Badge variant="success">Active</Badge>
                       )}
                     </td>
                     <td className="px-4 py-3 text-xs text-slate-500">{formatDate(u.createdAt)}</td>
                     <td className="px-4 py-3 text-right">
+                      {u.active && (
+                        <form action={updateUserTeam.bind(null, u.id)} className="inline">
+                          <input type="hidden" name="notActive" value={u.notActive ? "false" : "true"} />
+                          <Button type="submit" variant="outline" size="sm">
+                            {u.notActive ? "Mark active" : "Mark not active"}
+                          </Button>
+                        </form>
+                      )}
                       {!isSelf && (
-                        <form action={update} className="inline">
+                        <form action={update} className="ml-1 inline">
                           <input type="hidden" name="active" value={u.active ? "false" : "true"} />
                           <Button type="submit" variant="ghost" size="sm">
-                            {u.active ? "Deactivate" : "Reactivate"}
+                            {u.active ? "Disable login" : "Enable login"}
                           </Button>
                         </form>
                       )}

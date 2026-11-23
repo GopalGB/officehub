@@ -128,6 +128,9 @@ export default async function ManagerPage({
     openReports,
     pendingRequests,
     configs,
+    weekLeaves,
+    notActive,
+    openHelp,
   ] = await Promise.all([
     db.user.findMany({
       where: assignablePeopleWhere,
@@ -156,7 +159,24 @@ export default async function ManagerPage({
     }),
     db.projectRequest.count({ where: { status: "PENDING" } }),
     db.fiscalYearConfig.findMany(),
+    db.leave.findMany({
+      where: { startDate: { lte: addDays(start, 6) }, endDate: { gte: start } },
+      select: { userId: true, personName: true, type: true, startDate: true, endDate: true },
+    }),
+    db.user.findMany({
+      where: { active: true, notActive: true, role: { not: "ADMIN" } },
+      select: { id: true, name: true, team: true },
+      orderBy: { name: "asc" },
+    }),
+    db.helpRequest.count({ where: { status: "OPEN" } }),
   ]);
+  const leaveOn = (person: { id: string; name: string }, date: Date) =>
+    weekLeaves.find(
+      (l) =>
+        (l.userId === person.id || l.personName.trim().toLowerCase() === person.name.trim().toLowerCase()) &&
+        l.startDate <= date &&
+        l.endDate >= date,
+    );
   const activeProjects = portfolioProjects.filter(
     (project) => project.status !== "COMPLETED",
   );
@@ -203,9 +223,17 @@ export default async function ManagerPage({
               {fiscalLabel(today, configs)} · Monday to Friday
             </p>
           </div>
-          <Link className="text-link text-sm" href="/dashboard/requests">
-            Request pool · {pendingRequests} pending →
-          </Link>
+          <div className="flex flex-col items-end gap-1 text-sm">
+            <Link className="text-link" href="/dashboard/requests">
+              Request intake · {pendingRequests} pending →
+            </Link>
+            <Link className="text-link" href="/dashboard/help">
+              Help pool · {openHelp} open →
+            </Link>
+            <Link className="text-link" href="/dashboard/leaves">
+              Leaves this week · {new Set(weekLeaves.map((l) => l.personName)).size} people →
+            </Link>
+          </div>
         </div>
         <div className="grid gap-4 xl:grid-cols-2">
           {people.map((person) => {
@@ -234,22 +262,31 @@ export default async function ManagerPage({
                       reports
                     </p>
                   </div>
-                  <span className="pill">
-                    {blocks} focus block{blocks === 1 ? "" : "s"} this week
+                  <span className="flex flex-col items-end gap-1">
+                    {leaveOn(person, today) && (
+                      <span className="pill !bg-brand-tint !text-brand-orange">
+                        {leaveOn(person, today)!.type} today
+                      </span>
+                    )}
+                    <span className="pill">
+                      {blocks} focus block{blocks === 1 ? "" : "s"} this week
+                    </span>
                   </span>
                 </div>
                 <div className="mt-4 grid grid-cols-5 gap-1">
                   {daily.map((d, i) => (
                     <div
                       key={i}
-                      className="rounded bg-secondary px-1 py-1.5 text-center"
+                      className={`rounded px-1 py-1.5 text-center ${leaveOn(person, addDays(start, i + 1)) ? "bg-brand-tint" : "bg-secondary"}`}
                       title={`${["Mon", "Tue", "Wed", "Thu", "Fri"][i]}: ${d.entries.length} focus blocks`}
                     >
                       <p className="text-[9px] text-muted-foreground">
                         {["Mon", "Tue", "Wed", "Thu", "Fri"][i]}
                       </p>
                       <p className="mt-0.5 text-xs font-semibold">
-                        {d.entries.length || "–"}
+                        {leaveOn(person, addDays(start, i + 1))
+                          ? "Leave"
+                          : d.entries.length || "–"}
                       </p>
                     </div>
                   ))}
@@ -329,6 +366,12 @@ export default async function ManagerPage({
             );
           })}
         </div>
+        {notActive.length > 0 && (
+          <p className="border-t pt-3 text-xs text-muted-foreground">
+            Not active (not offered for new work):{" "}
+            {notActive.map((p) => p.name + (p.team ? ` (${p.team})` : "")).join(", ")}
+          </p>
+        )}
       </section>
       <details
         className="disclosure"

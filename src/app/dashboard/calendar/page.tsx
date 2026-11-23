@@ -50,7 +50,17 @@ export default async function FiscalCalendar({
     gte: weeks[0].start,
     lt: addDays(weeks[weeks.length - 1].end, 1),
   };
-  const [projects, milestones, reports, enhancements] = await Promise.all([
+  const meetingAccess =
+    scope === "all"
+      ? {}
+      : {
+          OR: [
+            { organizerId: session.user.id },
+            { attendees: { some: { id: session.user.id } } },
+            { project: access },
+          ],
+        };
+  const [projects, milestones, reports, enhancements, meetings, leaves] = await Promise.all([
     db.project.findMany({
       where: { AND: [access], targetDate: range },
       select: { id: true, title: true, targetDate: true, status: true },
@@ -79,7 +89,22 @@ export default async function FiscalCalendar({
         status: true,
       },
     }),
+    db.meeting.findMany({
+      where: { AND: [meetingAccess, { startsAt: range }] },
+      select: { id: true, title: true, startsAt: true, projectId: true },
+    }),
+    db.leave.findMany({
+      where: { startDate: { lt: range.lt }, endDate: { gte: range.gte } },
+      select: { id: true, personName: true, type: true, startDate: true, endDate: true },
+    }),
   ]);
+  const leaveDays = leaves.flatMap((l) => {
+    const out: { id: string; title: string; date: Date }[] = [];
+    for (let d = l.startDate < range.gte ? range.gte : l.startDate, n = 0; d <= l.endDate && n < 370; d = addDays(d, 1), n++)
+      if (d.getUTCDay() !== 0 && d.getUTCDay() !== 6)
+        out.push({ id: `${l.id}-${dateKey(d)}`, title: `${l.personName} · ${l.type}`, date: d });
+    return out;
+  });
   const events = [
     ...projects.map((p) => ({
       id: p.id,
@@ -112,6 +137,22 @@ export default async function FiscalCalendar({
       href: `/dashboard/projects/${e.projectId}?tab=enhancements`,
       kind: "Enhancement",
       done: e.status === "DONE",
+    })),
+    ...meetings.map((m) => ({
+      id: m.id,
+      title: `${m.startsAt.toISOString().slice(11, 16)} ${m.title}`,
+      date: m.startsAt,
+      href: m.projectId ? `/dashboard/projects/${m.projectId}#meetings` : "/dashboard/meetings",
+      kind: "Meeting",
+      done: false,
+    })),
+    ...leaveDays.map((l) => ({
+      id: l.id,
+      title: l.title,
+      date: l.date,
+      href: "/dashboard/leaves",
+      kind: "Leave",
+      done: false,
     })),
   ];
   const query = (fy: number, p = period) =>
@@ -275,7 +316,7 @@ export default async function FiscalCalendar({
                         {entries.map((e) => (
                           <Link
                             key={e.kind + e.id}
-                            className={`block rounded-md border px-1.5 py-1 text-[10px] ${e.done ? "bg-emerald-50 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200" : isOverdueDate(e.date) ? "bg-orange-50 text-orange-900 dark:bg-orange-950 dark:text-orange-200" : "bg-secondary text-foreground"}`}
+                            className={`block rounded-md border px-1.5 py-1 text-[10px] ${e.done ? "bg-emerald-50 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200" : e.kind === "Leave" ? "bg-blue-50 text-brand-navy" : e.kind !== "Meeting" && isOverdueDate(e.date) ? "bg-orange-50 text-orange-900 dark:bg-orange-950 dark:text-orange-200" : "bg-secondary text-foreground"}`}
                             href={e.href}
                           >
                             <span className="block text-[8px] uppercase tracking-wide">

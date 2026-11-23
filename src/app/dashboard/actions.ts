@@ -12,7 +12,7 @@ import { assertAssignablePeople } from "@/lib/project-people";
 import { requestDetailsSelect } from "@/lib/request-details";
 import { readSopUpload } from "@/lib/sop-upload";
 import { resolveBrandId } from "@/lib/brands";
-import { readProjectWorkbook, readBoundedWorkbook } from "@/lib/project-workbook";
+import { readProjectWorkbook } from "@/lib/project-workbook";
 import { importCommitSchema, importOptionsSchema } from "@/lib/project-import";
 import { prepareProjectImport, applyProjectImport } from "@/lib/project-import-service";
 import { z } from "zod";
@@ -69,9 +69,7 @@ import { teamAvailability, pickFree } from "@/lib/pool";
 import { FREE_PERSON } from "@/lib/free-person";
 import { encryptSecret, decryptSecret } from "@/lib/vault";
 import {
-  analyzeSheet,
   downloadUrl,
-  fetchWorkbook,
   LEAVE_FIELDS,
   mappingsSchema,
   SheetPurposeEnum,
@@ -2803,23 +2801,9 @@ export async function createExcelLink(fd: FormData) {
   });
   // The first read only analyses the workbook. Nothing is imported until the
   // manager confirms what each sheet is for.
-  const result = await syncExcelLinkPreview(link.id);
+  const result = await syncExcelLink(link.id);
   revalidatePath("/dashboard/excel");
-  redirect(`/dashboard/excel/${link.id}${result ? "" : "?error=1"}`);
-}
-
-/** Analyse sheets without applying any purpose yet. */
-async function syncExcelLinkPreview(linkId: string) {
-  const link = await db.excelLink.findUniqueOrThrow({ where: { id: linkId } });
-  try {
-    const sheets = await readBoundedWorkbook(await fetchWorkbook(link.url), { sheets: 20, rows: 5000, columns: 60 });
-    const infos = sheets.map((s) => analyzeSheet(s.name, s.rows));
-    await db.excelLink.update({ where: { id: linkId }, data: { sheets: infos, lastError: null } });
-    return true;
-  } catch (error) {
-    await db.excelLink.update({ where: { id: linkId }, data: { lastError: (error instanceof Error ? error.message : "Could not read the workbook.").slice(0, 500) } });
-    return false;
-  }
+  redirect(`/dashboard/excel/${link.id}${result.ok ? "" : "?error=1"}`);
 }
 
 export async function saveExcelMappings(linkId: string, fd: FormData) {

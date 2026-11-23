@@ -344,3 +344,11 @@ export async function syncDueExcelLinks(now = new Date()) {
     await syncExcelLink(link.id);
   }
 }
+
+/** Owner, admins, everyone when shared with all, or the chosen viewers. */
+export function excelLinkAccessWhere(viewer: { id: string; role: Role }): Prisma.ExcelLinkWhereInput {
+  if (viewer.role === "ADMIN") return {};
+  return {
+    OR: [{ ownerId: viewer.id }, { shareWithAll: true }, { viewers: { some: { id: viewer.id } } }],
+  };
+}

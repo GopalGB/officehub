@@ -91,6 +91,13 @@ else
   say ".env already exists — leaving it alone"
 fi
 
+# Existing installs: add a vault key once so the password vault works.
+if ! grep -qE '^VAULT_KEY="?[A-Za-z0-9+/=]{16,}' .env; then
+  sed -i.bak '/^VAULT_KEY=/d' .env && rm -f .env.bak
+  echo "VAULT_KEY=\"$(openssl rand -base64 32 | tr -d '\n')\"" >> .env
+  echo "Added VAULT_KEY to .env (back it up with the database)."
+fi
+
 # ───── build + start ─────
 say "Building containers (this takes a few minutes the first time)"
 export POSTGRES_PASSWORD
