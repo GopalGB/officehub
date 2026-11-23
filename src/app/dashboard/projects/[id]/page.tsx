@@ -560,6 +560,12 @@ export default async function ProjectDetailPage({
                       ? fiscalLabel(project.targetDate, fiscalConfigs)
                       : "Not scheduled",
                   ],
+                  [
+                    "Expected time saved",
+                    project.savedHours === null
+                      ? "Not estimated"
+                      : `${project.savedHours} hours / week`,
+                  ],
                   ["Brand", project.brand?.name || "—"],
                   ["Team", project.department || "—"],
                   ["Sub-team", project.subTeam || "—"],

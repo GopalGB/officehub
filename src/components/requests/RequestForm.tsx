@@ -280,9 +280,20 @@ export function RequestForm({
       </FormSection>
       <FormSection
         number="04"
-        title="Timing"
-        description="When you need it helps the manager prioritize and plan the work."
+        title="Impact & timing"
+        description="Time it will save and when you need it help the manager prioritize."
       >
+        <label className="field">
+          Expected time saved (hours / week)
+          <input
+            name="savedHours"
+            type="number"
+            min="0"
+            step="0.25"
+            max="100000"
+            placeholder="e.g. 3"
+          />
+        </label>
         <label className="field">
           Requested delivery date
           <input name="requestedDate" type="date" />

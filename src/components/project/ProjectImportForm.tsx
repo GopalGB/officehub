@@ -204,11 +204,12 @@ export function ProjectImportForm({
                 Change file or owner
               </Button>
             </div>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               {[
                 [preview.rows.length, "Project rows"],
                 [newCount, "New projects"],
                 [preview.changes, "Recorded changes"],
+                [preview.savedHours.toLocaleString(), "Hours saved / year"],
               ].map(([value, label]) => (
                 <div key={label} className="rounded-xl bg-secondary/70 p-3">
                   <p className="text-xl font-semibold">{value}</p>
@@ -332,7 +333,7 @@ export function ProjectImportForm({
                 />
                 <span>
                   Update {updateCount} existing matching projects with the
-                  spreadsheet’s title, status, impact, type, team, and
+                  spreadsheet’s title, status, impact, type, hours saved, team, and
                   nonblank additional values. Blank values keep existing
                   details.
                 </span>
