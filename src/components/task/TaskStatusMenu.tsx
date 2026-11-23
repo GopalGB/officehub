@@ -1,4 +1,5 @@
 "use client";
+import { settle } from "@/lib/action-result";
 
 import { useTransition } from "react";
 import type { TaskStatus } from "@prisma/client";
@@ -28,7 +29,7 @@ export function TaskStatusMenu({
         if (next === status) return;
         start(async () => {
           try {
-            await quickChangeTaskStatus(taskId, next);
+            await settle(quickChangeTaskStatus)(taskId, next);
             toast(`Moved to ${TASK_STATUS_LABEL[next]}`, "success");
           } catch (err) {
             e.target.value = status;

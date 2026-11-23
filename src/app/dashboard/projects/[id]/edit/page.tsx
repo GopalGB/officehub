@@ -6,6 +6,7 @@ import { auth } from "../../../../../../auth";
 import { db } from "@/lib/db";
 import { ProjectForm } from "@/components/project/ProjectForm";
 import { updateProject } from "@/app/dashboard/actions";
+import { isFailure } from "@/lib/action-result";
 import { listBrandNames } from "@/lib/brands";
 import {
   canEditProject,
@@ -59,7 +60,9 @@ export default async function EditProjectPage({
   ]);
   async function action(formData: FormData) {
     "use server";
-    await updateProject(id, formData);
+    const result = await updateProject(id, formData);
+    // Keep the form open with its message when saving failed.
+    if (isFailure(result)) return result;
     redirect(`/dashboard/projects/${id}`);
   }
 

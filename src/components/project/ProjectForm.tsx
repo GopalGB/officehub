@@ -1,4 +1,5 @@
 "use client";
+import { settle } from "@/lib/action-result";
 
 import { useState, useTransition } from "react";
 import type { Block } from "@blocknote/core";
@@ -22,7 +23,7 @@ import {
 } from "@/lib/allocation-form";
 
 interface Props {
-  action: (formData: FormData) => Promise<void>;
+  action: (formData: FormData) => Promise<unknown>;
   initial?: {
     title?: string;
     ownerId?: string;
@@ -120,7 +121,7 @@ export function ProjectForm({
                 return;
               }
             }
-            await action(preserveCurrentAllocations(fd));
+            await settle(action)(preserveCurrentAllocations(fd));
           } catch (cause) {
             revealDetails();
             // Next handles successful action redirects before resolving this call.

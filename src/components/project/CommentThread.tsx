@@ -1,4 +1,5 @@
 "use client";
+import { settle } from "@/lib/action-result";
 
 import { useRef, useTransition } from "react";
 import type { Comment, User } from "@prisma/client";
@@ -22,8 +23,8 @@ export function CommentThread({
   items: CommentWithAuthor[];
   viewerId: string;
   canManage: boolean;
-  onAdd: (projectId: string, fd: FormData) => Promise<void>;
-  onDelete: (id: string, projectId: string) => Promise<void>;
+  onAdd: (projectId: string, fd: FormData) => Promise<unknown>;
+  onDelete: (id: string, projectId: string) => Promise<unknown>;
 }) {
   const [pending, start] = useTransition();
   const { toast } = useToast();
@@ -35,7 +36,7 @@ export function CommentThread({
         action={(fd) =>
           start(async () => {
             try {
-              await onAdd(projectId, fd);
+              await settle(onAdd)(projectId, fd);
               ref.current?.reset();
             } catch (e) {
               toast(e instanceof Error ? e.message : "Could not post comment", "error");
@@ -70,7 +71,7 @@ export function CommentThread({
                       action={() =>
                         start(async () => {
                           try {
-                            await onDelete(c.id, projectId);
+                            await settle(onDelete)(c.id, projectId);
                             toast("Comment deleted", "info");
                           } catch (error) {
                             if (isNavigationSignal(error)) throw error;

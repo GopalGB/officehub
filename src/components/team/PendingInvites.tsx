@@ -1,4 +1,5 @@
 "use client";
+import { settle } from "@/lib/action-result";
 
 import { useState, useTransition } from "react";
 import { Copy, Check, Trash2 } from "lucide-react";
@@ -38,7 +39,7 @@ export function PendingInvites({ invites }: { invites: Invite[] }) {
     if (!confirm(`Revoke the invite for ${email}?`)) return;
     start(async () => {
       try {
-        await revokeInvitation(id);
+        await settle(revokeInvitation)(id);
         toast(`Revoked invite for ${email}`, "info");
       } catch (e) {
         toast(e instanceof Error ? e.message : "Could not revoke invitation", "error");

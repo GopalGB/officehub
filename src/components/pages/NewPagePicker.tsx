@@ -1,4 +1,5 @@
 "use client";
+import { settle } from "@/lib/action-result";
 
 import { useState, useTransition } from "react";
 import { Plus } from "lucide-react";
@@ -16,7 +17,7 @@ export function NewPagePicker() {
   function pick(templateKey: string) {
     start(async () => {
       try {
-        await createPageFromTemplate(templateKey);
+        await settle(createPageFromTemplate)(templateKey);
         toast("Page created", "success");
         setOpen(false);
       } catch (e) {

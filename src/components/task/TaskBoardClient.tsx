@@ -1,4 +1,5 @@
 "use client";
+import { settle } from "@/lib/action-result";
 
 import { useMemo, useRef, useState, useTransition } from "react";
 import Link from "next/link";
@@ -221,7 +222,7 @@ export function TaskBoardClient({
     const moveAt = ++lastMoveRef.current;
     start(async () => {
       try {
-        await moveTask({ taskId, toStatus, targetCardId, placement });
+        await settle(moveTask)({ taskId, toStatus, targetCardId, placement });
         if (moveAt === lastMoveRef.current) {
           toast(`Moved to ${col?.label ?? toStatus}`, "success");
         }

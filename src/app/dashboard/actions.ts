@@ -17,6 +17,7 @@ import { readProjectWorkbook } from "@/lib/project-workbook";
 import { importCommitSchema, importOptionsSchema } from "@/lib/project-import";
 import { prepareProjectImport, applyProjectImport } from "@/lib/project-import-service";
 import { z } from "zod";
+import { guard } from "@/lib/action-guard";
 import { formText } from "@/lib/utils";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -170,7 +171,7 @@ function parseJSON<T = unknown>(v: FormDataEntryValue | null): T | null {
 
 // ---------------- Projects ----------------
 
-export async function previewProjectImport(formData: FormData) {
+async function previewProjectImportImpl(formData: FormData) {
   const user = await requireSession();
   if (!isManagerOrAbove(user.role)) return { error: "Only managers and administrators can import projects." };
   try {
@@ -185,7 +186,7 @@ export async function previewProjectImport(formData: FormData) {
   }
 }
 
-export async function commitProjectImport(formData: FormData) {
+async function commitProjectImportImpl(formData: FormData) {
   const user = await requireSession();
   if (!isManagerOrAbove(user.role)) return { error: "Only managers and administrators can import projects." };
   try {
@@ -267,7 +268,7 @@ function refreshWorkspace(projectId?: string) {
   revalidatePath("/dashboard", "layout");
   if (projectId) revalidatePath(`/dashboard/projects/${projectId}`);
 }
-export async function createProject(formData: FormData) {
+async function createProjectImpl(formData: FormData) {
   const user = await requireSession();
   const parsed = workspaceProjectCreateSchema.parse({
     ...Object.fromEntries(formData),
@@ -328,7 +329,7 @@ export async function createProject(formData: FormData) {
   refreshWorkspace(project.id);
   redirect(`/dashboard/projects/${project.id}`);
 }
-export async function updateProject(projectId: string, formData: FormData) {
+async function updateProjectImpl(projectId: string, formData: FormData) {
   const user = await requireSession();
   const existing = await requireProjectEditor(user, projectId);
   const parsed = workspaceProjectUpdateSchema.parse({
@@ -411,7 +412,7 @@ export async function updateProject(projectId: string, formData: FormData) {
   refreshWorkspace(projectId);
 }
 
-export async function deleteProject(projectId: string) {
+async function deleteProjectImpl(projectId: string) {
   const user = await requireSession();
   const existing = await db.project.findUnique({ where: { id: projectId } });
   if (!existing) throw new Error("Project not found");
@@ -468,7 +469,7 @@ async function trackChild<T extends { id: string }>(
 
 // ---------------- Project Updates ----------------
 
-export async function addProjectUpdate(projectId: string, formData: FormData) {
+async function addProjectUpdateImpl(projectId: string, formData: FormData) {
   const user = await requireSession();
   await requireProjectEditor(user, projectId);
   const project = await db.project.findUnique({ where: { id: projectId } });
@@ -500,7 +501,7 @@ export async function addProjectUpdate(projectId: string, formData: FormData) {
 
 // ---------------- Enhancements ----------------
 
-export async function addEnhancement(projectId: string, formData: FormData) {
+async function addEnhancementImpl(projectId: string, formData: FormData) {
   const user = await requireSession();
   await requireProjectEditor(user, projectId);
   const parsed = workspaceEnhancementCreateSchema.safeParse({
@@ -541,7 +542,7 @@ export async function addEnhancement(projectId: string, formData: FormData) {
   revalidatePath(`/dashboard/projects/${projectId}`);
 }
 
-export async function updateEnhancement(
+async function updateEnhancementImpl(
   id: string,
   projectId: string,
   formData: FormData,
@@ -603,7 +604,7 @@ export async function updateEnhancement(
   revalidatePath(`/dashboard/projects/${projectId}`);
 }
 
-export async function deleteEnhancement(id: string, projectId: string) {
+async function deleteEnhancementImpl(id: string, projectId: string) {
   const user = await requireSession();
   const existing = await db.enhancement.findUnique({ where: { id } });
   if (!existing) return;
@@ -627,7 +628,7 @@ export async function deleteEnhancement(id: string, projectId: string) {
 
 // ---------------- Milestones ----------------
 
-export async function addMilestone(projectId: string, formData: FormData) {
+async function addMilestoneImpl(projectId: string, formData: FormData) {
   const user = await requireSession();
   await requireProjectEditor(user, projectId);
   const parsed = milestoneCreateSchema.safeParse({
@@ -657,7 +658,7 @@ export async function addMilestone(projectId: string, formData: FormData) {
   revalidatePath(`/dashboard/projects/${projectId}`);
 }
 
-export async function toggleMilestone(
+async function toggleMilestoneImpl(
   id: string,
   projectId: string,
   completed: boolean,
@@ -683,7 +684,7 @@ export async function toggleMilestone(
   revalidatePath(`/dashboard/projects/${projectId}`);
 }
 
-export async function deleteMilestone(id: string, projectId: string) {
+async function deleteMilestoneImpl(id: string, projectId: string) {
   const user = await requireSession();
   const existing = await db.milestone.findUnique({ where: { id } });
   if (!existing || existing.projectId !== projectId)
@@ -702,7 +703,7 @@ export async function deleteMilestone(id: string, projectId: string) {
 
 // ---------------- Comments ----------------
 
-export async function addComment(projectId: string, formData: FormData) {
+async function addCommentImpl(projectId: string, formData: FormData) {
   const user = await requireSession();
   await requireProjectEditor(user, projectId);
   const parsed = commentCreateSchema.safeParse({
@@ -719,7 +720,7 @@ export async function addComment(projectId: string, formData: FormData) {
   revalidatePath(`/dashboard/projects/${projectId}`);
 }
 
-export async function deleteComment(id: string, projectId: string) {
+async function deleteCommentImpl(id: string, projectId: string) {
   const user = await requireSession();
   const existing = await db.comment.findUnique({ where: { id } });
   if (!existing) return;
@@ -738,7 +739,7 @@ export async function deleteComment(id: string, projectId: string) {
 
 // ---------------- Users (admin) ----------------
 
-export async function createUser(formData: FormData) {
+async function createUserImpl(formData: FormData) {
   const me = await requireSession();
   if (!isAdmin(me.role)) throw new Error("Forbidden");
   const parsed = userCreateSchema.safeParse({
@@ -767,7 +768,7 @@ export async function createUser(formData: FormData) {
   revalidatePath("/dashboard/team");
 }
 
-export async function updateUser(userId: string, formData: FormData) {
+async function updateUserImpl(userId: string, formData: FormData) {
   const me = await requireSession();
   if (!isAdmin(me.role)) throw new Error("Forbidden");
   const parsed = userUpdateSchema.safeParse({
@@ -821,7 +822,7 @@ export async function updateUser(userId: string, formData: FormData) {
 
 // ---------------- Invitations ----------------
 
-export async function createInvitation(
+async function createInvitationImpl(
   formData: FormData,
 ): Promise<{ url: string; email: string } | { error: string }> {
   const me = await requireSession();
@@ -865,14 +866,14 @@ export async function createInvitation(
   return { url: inviteUrl(token, await shareOrigin()), email };
 }
 
-export async function revokeInvitation(id: string) {
+async function revokeInvitationImpl(id: string) {
   const me = await requireSession();
   if (!isAdmin(me.role)) throw new Error("Forbidden");
   await db.invitation.delete({ where: { id } });
   revalidatePath("/dashboard/team");
 }
 
-export async function acceptInvitation(token: string, formData: FormData) {
+async function acceptInvitationImpl(token: string, formData: FormData) {
   const parsed = inviteAcceptSchema.safeParse({
     name: formData.get("name"),
     password: formData.get("password"),
@@ -934,7 +935,7 @@ export async function acceptInvitation(token: string, formData: FormData) {
 
 // ---------------- Tags ----------------
 
-export async function createTag(formData: FormData) {
+async function createTagImpl(formData: FormData) {
   const me = await requireSession();
   if (!isManagerOrAbove(me.role)) throw new Error("Forbidden");
   const parsed = tagCreateSchema.safeParse({
@@ -951,7 +952,7 @@ export async function createTag(formData: FormData) {
   revalidatePath("/dashboard/projects");
 }
 
-export async function setProjectTags(projectId: string, tagIds: string[]) {
+async function setProjectTagsImpl(projectId: string, tagIds: string[]) {
   const user = await requireSession();
   const project = await db.project.findUnique({
     where: { id: projectId },
@@ -986,7 +987,7 @@ export async function setProjectTags(projectId: string, tagIds: string[]) {
 
 // ---------------- Inline quick edits ----------------
 
-export async function quickUpdateProjectStatus(
+async function quickUpdateProjectStatusImpl(
   projectId: string,
   status: ProjectStatus,
 ) {
@@ -1039,7 +1040,7 @@ export type MoveProjectArgs = {
   placement?: Placement;
 };
 
-export async function moveProject(args: MoveProjectArgs) {
+async function moveProjectImpl(args: MoveProjectArgs) {
   const user = await requireSession();
   const parsed = moveProjectSchema.safeParse(args);
   if (!parsed.success)
@@ -1139,7 +1140,7 @@ export async function moveProject(args: MoveProjectArgs) {
 
 // ---------------- Tasks ----------------
 
-export async function createTask(projectId: string, formData: FormData) {
+async function createTaskImpl(projectId: string, formData: FormData) {
   const user = await requireSession();
   await requireProjectEditor(user, projectId);
   // "Whoever is free" picks the least-loaded teammate who is not on leave.
@@ -1222,7 +1223,7 @@ export async function createTask(projectId: string, formData: FormData) {
   revalidatePath("/dashboard");
 }
 
-export async function updateTask(taskId: string, formData: FormData) {
+async function updateTaskImpl(taskId: string, formData: FormData) {
   const me = await requireSession();
   // RBAC: project editor, or the task's reporter/assignee (mirrors moveTask).
   // This action previously only checked the session, letting any signed-in
@@ -1340,7 +1341,7 @@ export async function updateTask(taskId: string, formData: FormData) {
   revalidatePath("/dashboard");
 }
 
-export async function quickChangeTaskStatus(
+async function quickChangeTaskStatusImpl(
   taskId: string,
   status: TaskStatus,
 ) {
@@ -1416,7 +1417,7 @@ export type MoveTaskArgs = {
   toAssigneeId?: string | null;
 };
 
-export async function moveTask(args: MoveTaskArgs) {
+async function moveTaskImpl(args: MoveTaskArgs) {
   const user = await requireSession();
   const parsed = moveTaskSchema.safeParse(args);
   if (!parsed.success)
@@ -1552,7 +1553,7 @@ export async function moveTask(args: MoveTaskArgs) {
   revalidatePath("/dashboard");
 }
 
-export async function quickAssignTask(
+async function quickAssignTaskImpl(
   taskId: string,
   assigneeId: string | null,
 ) {
@@ -1593,7 +1594,7 @@ export async function quickAssignTask(
   revalidatePath("/dashboard/reports/board");
 }
 
-export async function deleteTask(taskId: string) {
+async function deleteTaskImpl(taskId: string) {
   const me = await requireSession();
   const task = await db.task.findUnique({ where: { id: taskId } });
   if (!task) return;
@@ -1623,7 +1624,7 @@ export async function deleteTask(taskId: string) {
 
 // ---------------- Project favorites (pins) ----------------
 
-export async function toggleProjectFavorite(projectId: string) {
+async function toggleProjectFavoriteImpl(projectId: string) {
   const user = await requireSession();
   await requireProjectEditor(user, projectId);
   const existing = await db.user.findUnique({
@@ -1649,7 +1650,7 @@ export async function toggleProjectFavorite(projectId: string) {
 
 // ---------------- Project members ----------------
 
-export async function setProjectMembers(projectId: string, userIds: string[]) {
+async function setProjectMembersImpl(projectId: string, userIds: string[]) {
   const user = await requireSession();
   const project = await db.project.findUnique({
     where: { id: projectId },
@@ -1680,7 +1681,7 @@ export async function setProjectMembers(projectId: string, userIds: string[]) {
 
 // ---------------- Pages (Notion wiki) ----------------
 
-export async function createPageFromTemplate(templateKey: string) {
+async function createPageFromTemplateImpl(templateKey: string) {
   const user = await requireSession();
   const { getTemplate } = await import("@/lib/pageTemplates");
   const tpl = getTemplate(templateKey);
@@ -1700,7 +1701,7 @@ export async function createPageFromTemplate(templateKey: string) {
   redirect(`/dashboard/pages/${page.id}`);
 }
 
-export async function createPage(formData: FormData) {
+async function createPageImpl(formData: FormData) {
   const user = await requireSession();
   const parsed = pageCreateSchema.safeParse({
     title: formData.get("title") || "Untitled",
@@ -1727,7 +1728,7 @@ export async function createPage(formData: FormData) {
   redirect(`/dashboard/pages/${page.id}`);
 }
 
-export async function savePage(
+async function savePageImpl(
   pageId: string,
   input: unknown,
 ): Promise<{ updatedAt: string } | { error: string; conflict: boolean }> {
@@ -1760,7 +1761,7 @@ export async function savePage(
   return { updatedAt: updatedAt.toISOString() };
 }
 
-export async function archivePage(pageId: string) {
+async function archivePageImpl(pageId: string) {
   const me = await requireSession();
   const page = await db.page.findUnique({ where: { id: pageId } });
   if (!page) return;
@@ -1771,7 +1772,7 @@ export async function archivePage(pageId: string) {
   redirect("/dashboard/pages");
 }
 
-export async function changeOwnPassword(formData: FormData) {
+async function changeOwnPasswordImpl(formData: FormData) {
   const me = await requireSession();
   const { current, next } = passwordChangeSchema.parse({
     current: formData.get("current"),
@@ -1798,7 +1799,7 @@ function checkTime(startTime: string | undefined, hours: number | undefined) {
   if (hour * 60 + minute + hours * 60 > 1440)
     throw new Error("Work must finish within the same day");
 }
-export async function saveWorkPlan(planId: string | null, fd: FormData) {
+async function saveWorkPlanImpl(planId: string | null, fd: FormData) {
   const user = await requireSession();
   const parsed = workPlanSchema.parse({
     ...Object.fromEntries(fd),
@@ -1838,7 +1839,7 @@ export async function saveWorkPlan(planId: string | null, fd: FormData) {
   });
   refreshWorkspace();
 }
-export async function deleteWorkPlan(id: string, expectedVersion: number) {
+async function deleteWorkPlanImpl(id: string, expectedVersion: number) {
   const user = await requireSession();
   idSchema.parse(id);
   z.number().int().positive().parse(expectedVersion);
@@ -1859,7 +1860,7 @@ export async function deleteWorkPlan(id: string, expectedVersion: number) {
   });
   refreshWorkspace();
 }
-export async function saveDailyOverride(planId: string, fd: FormData) {
+async function saveDailyOverrideImpl(planId: string, fd: FormData) {
   const user = await requireSession();
   idSchema.parse(planId);
   const input = dailyOverrideSchema.parse({
@@ -1916,7 +1917,7 @@ export async function saveDailyOverride(planId: string, fd: FormData) {
   );
   refreshWorkspace();
 }
-export async function resetDailyOverride(id: string, updatedAt: string) {
+async function resetDailyOverrideImpl(id: string, updatedAt: string) {
   const user = await requireSession();
   idSchema.parse(id);
   z.iso.datetime().parse(updatedAt);
@@ -1942,7 +1943,7 @@ export async function resetDailyOverride(id: string, updatedAt: string) {
   });
   refreshWorkspace();
 }
-export async function copyPreviousWeek(week: string) {
+async function copyPreviousWeekImpl(week: string) {
   const user = await requireSession();
   z.iso.date().parse(week);
   const start = weekStart(new Date(week));
@@ -2006,7 +2007,7 @@ async function requireManager() {
   if (!isManagerOrAbove(user.role)) throw new Error("Managers only");
   return user;
 }
-export async function createRequestLink(fd: FormData): Promise<void> {
+async function createRequestLinkImpl(fd: FormData): Promise<void> {
   const user = await requireManager();
   const parsed = requestLinkSchema.parse(Object.fromEntries(fd));
   await db.requestLink.create({
@@ -2020,7 +2021,7 @@ export async function createRequestLink(fd: FormData): Promise<void> {
   });
   refreshWorkspace();
 }
-export async function revokeRequestLink(id: string) {
+async function revokeRequestLinkImpl(id: string) {
   const user = await requireManager();
   idSchema.parse(id);
   const link = await db.requestLink.findUniqueOrThrow({ where: { id } });
@@ -2034,7 +2035,7 @@ export async function revokeRequestLink(id: string) {
   });
   refreshWorkspace();
 }
-export async function submitProjectRequest(
+async function submitProjectRequestImpl(
   token: string,
   fd: FormData,
 ): Promise<{ ok: true } | { error: string }> {
@@ -2121,7 +2122,7 @@ export async function submitProjectRequest(
     };
   }
 }
-export async function decideProjectRequest(fd: FormData) {
+async function decideProjectRequestImpl(fd: FormData) {
   const user = await requireManager();
   const parsed = requestDecisionSchema.parse({
     ...Object.fromEntries(fd),
@@ -2228,7 +2229,7 @@ export async function decideProjectRequest(fd: FormData) {
 
 // ---------------- Fiscal configuration and project version restore ----------------
 
-export async function saveFiscalConfig(fd: FormData) {
+async function saveFiscalConfigImpl(fd: FormData) {
   const user = await requireManager();
   const parsed = fiscalConfigSchema.parse(Object.fromEntries(fd));
   if (companyFiscalCalendar(parsed.year))
@@ -2253,7 +2254,7 @@ export async function saveFiscalConfig(fd: FormData) {
   });
   refreshWorkspace();
 }
-export async function restoreProjectRevision(projectId: string, fd: FormData) {
+async function restoreProjectRevisionImpl(projectId: string, fd: FormData) {
   const user = await requireSession();
   const current = await requireProjectEditor(user, projectId);
   if (current.ownerId !== user.id && !isManagerOrAbove(user.role))
@@ -2321,18 +2322,18 @@ export async function restoreProjectRevision(projectId: string, fd: FormData) {
   refreshWorkspace(projectId);
 }
 
-export async function createReport(fd: FormData) {
+async function createReportImpl(fd: FormData) {
   const projectId = idSchema.parse(fd.get("projectId"));
-  await createTask(projectId, fd);
+  await createTaskImpl(projectId, fd);
   refreshWorkspace(projectId);
 }
 
-export async function archiveProject(projectId: string) {
+async function archiveProjectImpl(projectId: string) {
   idSchema.parse(projectId);
-  await quickUpdateProjectStatus(projectId, "ARCHIVED");
+  await quickUpdateProjectStatusImpl(projectId, "ARCHIVED");
 }
 
-export async function updateMilestone(
+async function updateMilestoneImpl(
   id: string,
   projectId: string,
   fd: FormData,
@@ -2388,7 +2389,7 @@ async function canSeeCredential(user: { id: string }, credentialId: string) {
   return visible ? credential : null;
 }
 
-export async function createReminder(fd: FormData) {
+async function createReminderImpl(fd: FormData) {
   const user = await requireSession();
   const input = reminderSchema.parse(Object.fromEntries(fd));
   if (input.taskId) {
@@ -2413,7 +2414,7 @@ export async function createReminder(fd: FormData) {
   revalidatePath("/dashboard", "layout");
 }
 
-export async function completeReminder(id: string) {
+async function completeReminderImpl(id: string) {
   const user = await requireSession();
   idSchema.parse(id);
   const reminder = await db.reminder.findUnique({ where: { id } });
@@ -2426,7 +2427,7 @@ export async function completeReminder(id: string) {
   revalidatePath("/dashboard", "layout");
 }
 
-export async function deleteReminder(id: string) {
+async function deleteReminderImpl(id: string) {
   const user = await requireSession();
   idSchema.parse(id);
   await db.reminder.deleteMany({ where: { id, userId: user.id } });
@@ -2435,7 +2436,7 @@ export async function deleteReminder(id: string) {
 
 // ---------------- Manager comments on project stages ----------------
 
-export async function addStageComment(projectId: string, fd: FormData) {
+async function addStageCommentImpl(projectId: string, fd: FormData) {
   const user = await requireSession();
   if (!isManagerOrAbove(user.role))
     throw new Error("Only managers can add stage comments");
@@ -2461,7 +2462,7 @@ export async function addStageComment(projectId: string, fd: FormData) {
   revalidatePath(`/dashboard/projects/${projectId}`);
 }
 
-export async function deleteStageComment(id: string, projectId: string) {
+async function deleteStageCommentImpl(id: string, projectId: string) {
   const user = await requireSession();
   idSchema.parse(id);
   const existing = await db.stageComment.findUnique({ where: { id } });
@@ -2476,7 +2477,7 @@ export async function deleteStageComment(id: string, projectId: string) {
 
 // ---------------- Meetings ----------------
 
-export async function createMeeting(fd: FormData) {
+async function createMeetingImpl(fd: FormData) {
   const user = await requireSession();
   const input = meetingSchema.parse({
     ...Object.fromEntries(fd),
@@ -2510,7 +2511,7 @@ export async function createMeeting(fd: FormData) {
   revalidatePath("/dashboard", "layout");
 }
 
-export async function deleteMeeting(id: string) {
+async function deleteMeetingImpl(id: string) {
   const user = await requireSession();
   idSchema.parse(id);
   const existing = await db.meeting.findUnique({ where: { id } });
@@ -2525,7 +2526,7 @@ export async function deleteMeeting(id: string) {
 
 // ---------------- Training ----------------
 
-export async function createTraining(fd: FormData) {
+async function createTrainingImpl(fd: FormData) {
   const user = await requireSession();
   if (!isManagerOrAbove(user.role)) throw new Error("Only managers can add training sessions");
   const input = trainingSchema.parse(Object.fromEntries(fd));
@@ -2542,7 +2543,7 @@ export async function createTraining(fd: FormData) {
   revalidatePath("/dashboard/training");
 }
 
-export async function deleteTraining(id: string) {
+async function deleteTrainingImpl(id: string) {
   const user = await requireSession();
   if (!isManagerOrAbove(user.role)) throw new Error("Forbidden");
   idSchema.parse(id);
@@ -2552,7 +2553,7 @@ export async function deleteTraining(id: string) {
 
 // ---------------- Whom to contact ----------------
 
-export async function createContact(fd: FormData) {
+async function createContactImpl(fd: FormData) {
   const user = await requireSession();
   if (!isManagerOrAbove(user.role)) throw new Error("Only managers can edit the contact list");
   const input = contactSchema.parse(Object.fromEntries(fd));
@@ -2560,7 +2561,7 @@ export async function createContact(fd: FormData) {
   revalidatePath("/dashboard/pages");
 }
 
-export async function deleteContact(id: string) {
+async function deleteContactImpl(id: string) {
   const user = await requireSession();
   if (!isManagerOrAbove(user.role)) throw new Error("Forbidden");
   idSchema.parse(id);
@@ -2570,7 +2571,7 @@ export async function deleteContact(id: string) {
 
 // ---------------- Help pool ----------------
 
-export async function createHelpRequest(projectId: string, fd: FormData) {
+async function createHelpRequestImpl(projectId: string, fd: FormData) {
   const user = await requireSession();
   await requireProjectEditor(user, projectId);
   const input = helpRequestSchema.parse(Object.fromEntries(fd));
@@ -2625,14 +2626,14 @@ async function assignHelper(
 }
 
 /** A BI teammate volunteers; they join the project as a collaborator. */
-export async function volunteerForHelp(requestId: string, expectedVersion: number) {
+async function volunteerForHelpImpl(requestId: string, expectedVersion: number) {
   const user = await requireSession();
   idSchema.parse(requestId);
   await assignHelper(user, requestId, z.number().int().positive().parse(expectedVersion), () => Promise.resolve(user.id));
 }
 
 /** Managers assign someone, or "AUTO" picks whoever is free right now. */
-export async function assignHelpRequest(requestId: string, fd: FormData) {
+async function assignHelpRequestImpl(requestId: string, fd: FormData) {
   const user = await requireSession();
   if (!isManagerOrAbove(user.role)) throw new Error("Only managers can assign helpers");
   idSchema.parse(requestId);
@@ -2645,7 +2646,7 @@ export async function assignHelpRequest(requestId: string, fd: FormData) {
   });
 }
 
-export async function closeHelpRequest(requestId: string) {
+async function closeHelpRequestImpl(requestId: string) {
   const user = await requireSession();
   idSchema.parse(requestId);
   const request = await db.helpRequest.findUnique({ where: { id: requestId } });
@@ -2662,7 +2663,7 @@ export async function closeHelpRequest(requestId: string) {
 
 // ---------------- Feedback ----------------
 
-export async function submitFeedback(fd: FormData) {
+async function submitFeedbackImpl(fd: FormData) {
   const user = await requireSession();
   const input = feedbackSchema.parse(Object.fromEntries(fd));
   const recent = await db.feedback.count({ where: { authorId: user.id, createdAt: { gt: new Date(Date.now() - 3600_000) } } });
@@ -2671,7 +2672,7 @@ export async function submitFeedback(fd: FormData) {
   revalidatePath("/dashboard/feedback");
 }
 
-export async function respondFeedback(id: string, fd: FormData) {
+async function respondFeedbackImpl(id: string, fd: FormData) {
   const user = await requireSession();
   if (!isManagerOrAbove(user.role)) throw new Error("Only managers can respond to feedback");
   idSchema.parse(id);
@@ -2682,7 +2683,7 @@ export async function respondFeedback(id: string, fd: FormData) {
 
 // ---------------- Leaves ----------------
 
-export async function createLeave(fd: FormData) {
+async function createLeaveImpl(fd: FormData) {
   const user = await requireSession();
   const input = leaveSchema.parse(Object.fromEntries(fd));
   const personId = input.userId ?? user.id;
@@ -2702,7 +2703,7 @@ export async function createLeave(fd: FormData) {
   revalidatePath("/dashboard", "layout");
 }
 
-export async function deleteLeave(id: string) {
+async function deleteLeaveImpl(id: string) {
   const user = await requireSession();
   idSchema.parse(id);
   const leave = await db.leave.findUnique({ where: { id } });
@@ -2715,7 +2716,7 @@ export async function deleteLeave(id: string) {
 
 // ---------------- Password vault ----------------
 
-export async function saveCredential(credentialId: string | null, fd: FormData) {
+async function saveCredentialImpl(credentialId: string | null, fd: FormData) {
   const user = await requireSession();
   const input = credentialSchema.parse(Object.fromEntries(fd));
   const me = await db.user.findUniqueOrThrow({ where: { id: user.id }, select: { team: true } });
@@ -2750,7 +2751,7 @@ export async function saveCredential(credentialId: string | null, fd: FormData) 
   revalidatePath("/dashboard/vault");
 }
 
-export async function revealCredential(credentialId: string): Promise<string> {
+async function revealCredentialImpl(credentialId: string): Promise<string> {
   const user = await requireSession();
   const credential = await canSeeCredential(user, idSchema.parse(credentialId));
   if (!credential) throw new Error("Login not found");
@@ -2760,7 +2761,7 @@ export async function revealCredential(credentialId: string): Promise<string> {
   return secret;
 }
 
-export async function deleteCredential(credentialId: string) {
+async function deleteCredentialImpl(credentialId: string) {
   const user = await requireSession();
   const credential = await canSeeCredential(user, idSchema.parse(credentialId));
   if (!credential) throw new Error("Login not found");
@@ -2774,7 +2775,7 @@ export async function deleteCredential(credentialId: string) {
 
 // ---------------- Team status (admin) ----------------
 
-export async function updateUserTeam(userId: string, fd: FormData) {
+async function updateUserTeamImpl(userId: string, fd: FormData) {
   const me = await requireSession();
   if (!isAdmin(me.role)) throw new Error("Forbidden");
   idSchema.parse(userId);
@@ -2804,7 +2805,7 @@ async function requireExcelManager(linkId: string) {
   return { user, link };
 }
 
-export async function createExcelLink(fd: FormData) {
+async function createExcelLinkImpl(fd: FormData) {
   const user = await requireSession();
   if (!isManagerOrAbove(user.role)) throw new Error("Only managers can link workbooks");
   const input = excelLinkSchema.parse({
@@ -2832,7 +2833,7 @@ export async function createExcelLink(fd: FormData) {
   redirect(`/dashboard/excel/${link.id}${result.ok ? "" : "?error=1"}`);
 }
 
-export async function saveExcelMappings(linkId: string, fd: FormData) {
+async function saveExcelMappingsImpl(linkId: string, fd: FormData) {
   const { link } = await requireExcelManager(linkId);
   const sheets = z.array(z.object({ name: z.string() })).catch([]).parse(link.sheets);
   const mappings: Record<string, { purpose: string; columns: Record<string, string> }> = {};
@@ -2861,7 +2862,7 @@ export async function saveExcelMappings(linkId: string, fd: FormData) {
   revalidatePath(`/dashboard/excel/${link.id}`);
 }
 
-export async function syncExcelLinkNow(linkId: string) {
+async function syncExcelLinkNowImpl(linkId: string) {
   const { user, link } = await requireExcelManager(linkId);
   const actor = await db.user.findUniqueOrThrow({ where: { id: user.id }, select: { id: true, role: true, name: true, active: true } });
   const result = await syncExcelLink(link.id, actor);
@@ -2869,7 +2870,7 @@ export async function syncExcelLinkNow(linkId: string) {
   if (!result.ok) throw new Error(result.error);
 }
 
-export async function deleteExcelLink(linkId: string) {
+async function deleteExcelLinkImpl(linkId: string) {
   const { link } = await requireExcelManager(linkId);
   await db.$transaction(async (tx) => {
     await tx.leave.deleteMany({ where: { sourceKey: { startsWith: `excel:${link.id}:` } } });
@@ -2877,4 +2878,315 @@ export async function deleteExcelLink(linkId: string) {
   });
   revalidatePath("/dashboard", "layout");
   redirect("/dashboard/excel");
+}
+
+// ================= Exported actions =================
+// Each export returns user-facing failures as { error } (see action-guard).
+
+export async function previewProjectImport(...args: Parameters<typeof previewProjectImportImpl>) {
+  return guard(() => previewProjectImportImpl(...args));
+}
+
+export async function commitProjectImport(...args: Parameters<typeof commitProjectImportImpl>) {
+  return guard(() => commitProjectImportImpl(...args));
+}
+
+export async function createProject(...args: Parameters<typeof createProjectImpl>) {
+  return guard(() => createProjectImpl(...args));
+}
+
+export async function updateProject(...args: Parameters<typeof updateProjectImpl>) {
+  return guard(() => updateProjectImpl(...args));
+}
+
+export async function deleteProject(...args: Parameters<typeof deleteProjectImpl>) {
+  return guard(() => deleteProjectImpl(...args));
+}
+
+export async function addProjectUpdate(...args: Parameters<typeof addProjectUpdateImpl>) {
+  return guard(() => addProjectUpdateImpl(...args));
+}
+
+export async function addEnhancement(...args: Parameters<typeof addEnhancementImpl>) {
+  return guard(() => addEnhancementImpl(...args));
+}
+
+export async function updateEnhancement(...args: Parameters<typeof updateEnhancementImpl>) {
+  return guard(() => updateEnhancementImpl(...args));
+}
+
+export async function deleteEnhancement(...args: Parameters<typeof deleteEnhancementImpl>) {
+  return guard(() => deleteEnhancementImpl(...args));
+}
+
+export async function addMilestone(...args: Parameters<typeof addMilestoneImpl>) {
+  return guard(() => addMilestoneImpl(...args));
+}
+
+export async function toggleMilestone(...args: Parameters<typeof toggleMilestoneImpl>) {
+  return guard(() => toggleMilestoneImpl(...args));
+}
+
+export async function deleteMilestone(...args: Parameters<typeof deleteMilestoneImpl>) {
+  return guard(() => deleteMilestoneImpl(...args));
+}
+
+export async function addComment(...args: Parameters<typeof addCommentImpl>) {
+  return guard(() => addCommentImpl(...args));
+}
+
+export async function deleteComment(...args: Parameters<typeof deleteCommentImpl>) {
+  return guard(() => deleteCommentImpl(...args));
+}
+
+export async function createUser(...args: Parameters<typeof createUserImpl>) {
+  return guard(() => createUserImpl(...args));
+}
+
+export async function updateUser(...args: Parameters<typeof updateUserImpl>) {
+  return guard(() => updateUserImpl(...args));
+}
+
+export async function createInvitation(...args: Parameters<typeof createInvitationImpl>) {
+  return guard(() => createInvitationImpl(...args));
+}
+
+export async function revokeInvitation(...args: Parameters<typeof revokeInvitationImpl>) {
+  return guard(() => revokeInvitationImpl(...args));
+}
+
+export async function acceptInvitation(...args: Parameters<typeof acceptInvitationImpl>) {
+  return guard(() => acceptInvitationImpl(...args));
+}
+
+export async function createTag(...args: Parameters<typeof createTagImpl>) {
+  return guard(() => createTagImpl(...args));
+}
+
+export async function setProjectTags(...args: Parameters<typeof setProjectTagsImpl>) {
+  return guard(() => setProjectTagsImpl(...args));
+}
+
+export async function quickUpdateProjectStatus(...args: Parameters<typeof quickUpdateProjectStatusImpl>) {
+  return guard(() => quickUpdateProjectStatusImpl(...args));
+}
+
+export async function moveProject(...args: Parameters<typeof moveProjectImpl>) {
+  return guard(() => moveProjectImpl(...args));
+}
+
+export async function createTask(...args: Parameters<typeof createTaskImpl>) {
+  return guard(() => createTaskImpl(...args));
+}
+
+export async function updateTask(...args: Parameters<typeof updateTaskImpl>) {
+  return guard(() => updateTaskImpl(...args));
+}
+
+export async function quickChangeTaskStatus(...args: Parameters<typeof quickChangeTaskStatusImpl>) {
+  return guard(() => quickChangeTaskStatusImpl(...args));
+}
+
+export async function moveTask(...args: Parameters<typeof moveTaskImpl>) {
+  return guard(() => moveTaskImpl(...args));
+}
+
+export async function quickAssignTask(...args: Parameters<typeof quickAssignTaskImpl>) {
+  return guard(() => quickAssignTaskImpl(...args));
+}
+
+export async function deleteTask(...args: Parameters<typeof deleteTaskImpl>) {
+  return guard(() => deleteTaskImpl(...args));
+}
+
+export async function toggleProjectFavorite(...args: Parameters<typeof toggleProjectFavoriteImpl>) {
+  return guard(() => toggleProjectFavoriteImpl(...args));
+}
+
+export async function setProjectMembers(...args: Parameters<typeof setProjectMembersImpl>) {
+  return guard(() => setProjectMembersImpl(...args));
+}
+
+export async function createPageFromTemplate(...args: Parameters<typeof createPageFromTemplateImpl>) {
+  return guard(() => createPageFromTemplateImpl(...args));
+}
+
+export async function createPage(...args: Parameters<typeof createPageImpl>) {
+  return guard(() => createPageImpl(...args));
+}
+
+export async function savePage(...args: Parameters<typeof savePageImpl>) {
+  return guard(() => savePageImpl(...args));
+}
+
+export async function archivePage(...args: Parameters<typeof archivePageImpl>) {
+  return guard(() => archivePageImpl(...args));
+}
+
+export async function changeOwnPassword(...args: Parameters<typeof changeOwnPasswordImpl>) {
+  return guard(() => changeOwnPasswordImpl(...args));
+}
+
+export async function saveWorkPlan(...args: Parameters<typeof saveWorkPlanImpl>) {
+  return guard(() => saveWorkPlanImpl(...args));
+}
+
+export async function deleteWorkPlan(...args: Parameters<typeof deleteWorkPlanImpl>) {
+  return guard(() => deleteWorkPlanImpl(...args));
+}
+
+export async function saveDailyOverride(...args: Parameters<typeof saveDailyOverrideImpl>) {
+  return guard(() => saveDailyOverrideImpl(...args));
+}
+
+export async function resetDailyOverride(...args: Parameters<typeof resetDailyOverrideImpl>) {
+  return guard(() => resetDailyOverrideImpl(...args));
+}
+
+export async function copyPreviousWeek(...args: Parameters<typeof copyPreviousWeekImpl>) {
+  return guard(() => copyPreviousWeekImpl(...args));
+}
+
+export async function createRequestLink(...args: Parameters<typeof createRequestLinkImpl>) {
+  return guard(() => createRequestLinkImpl(...args));
+}
+
+export async function revokeRequestLink(...args: Parameters<typeof revokeRequestLinkImpl>) {
+  return guard(() => revokeRequestLinkImpl(...args));
+}
+
+export async function submitProjectRequest(...args: Parameters<typeof submitProjectRequestImpl>) {
+  return guard(() => submitProjectRequestImpl(...args));
+}
+
+export async function decideProjectRequest(...args: Parameters<typeof decideProjectRequestImpl>) {
+  return guard(() => decideProjectRequestImpl(...args));
+}
+
+export async function saveFiscalConfig(...args: Parameters<typeof saveFiscalConfigImpl>) {
+  return guard(() => saveFiscalConfigImpl(...args));
+}
+
+export async function restoreProjectRevision(...args: Parameters<typeof restoreProjectRevisionImpl>) {
+  return guard(() => restoreProjectRevisionImpl(...args));
+}
+
+export async function createReport(...args: Parameters<typeof createReportImpl>) {
+  return guard(() => createReportImpl(...args));
+}
+
+export async function archiveProject(...args: Parameters<typeof archiveProjectImpl>) {
+  return guard(() => archiveProjectImpl(...args));
+}
+
+export async function updateMilestone(...args: Parameters<typeof updateMilestoneImpl>) {
+  return guard(() => updateMilestoneImpl(...args));
+}
+
+export async function createReminder(...args: Parameters<typeof createReminderImpl>) {
+  return guard(() => createReminderImpl(...args));
+}
+
+export async function completeReminder(...args: Parameters<typeof completeReminderImpl>) {
+  return guard(() => completeReminderImpl(...args));
+}
+
+export async function deleteReminder(...args: Parameters<typeof deleteReminderImpl>) {
+  return guard(() => deleteReminderImpl(...args));
+}
+
+export async function addStageComment(...args: Parameters<typeof addStageCommentImpl>) {
+  return guard(() => addStageCommentImpl(...args));
+}
+
+export async function deleteStageComment(...args: Parameters<typeof deleteStageCommentImpl>) {
+  return guard(() => deleteStageCommentImpl(...args));
+}
+
+export async function createMeeting(...args: Parameters<typeof createMeetingImpl>) {
+  return guard(() => createMeetingImpl(...args));
+}
+
+export async function deleteMeeting(...args: Parameters<typeof deleteMeetingImpl>) {
+  return guard(() => deleteMeetingImpl(...args));
+}
+
+export async function createTraining(...args: Parameters<typeof createTrainingImpl>) {
+  return guard(() => createTrainingImpl(...args));
+}
+
+export async function deleteTraining(...args: Parameters<typeof deleteTrainingImpl>) {
+  return guard(() => deleteTrainingImpl(...args));
+}
+
+export async function createContact(...args: Parameters<typeof createContactImpl>) {
+  return guard(() => createContactImpl(...args));
+}
+
+export async function deleteContact(...args: Parameters<typeof deleteContactImpl>) {
+  return guard(() => deleteContactImpl(...args));
+}
+
+export async function createHelpRequest(...args: Parameters<typeof createHelpRequestImpl>) {
+  return guard(() => createHelpRequestImpl(...args));
+}
+
+export async function volunteerForHelp(...args: Parameters<typeof volunteerForHelpImpl>) {
+  return guard(() => volunteerForHelpImpl(...args));
+}
+
+export async function assignHelpRequest(...args: Parameters<typeof assignHelpRequestImpl>) {
+  return guard(() => assignHelpRequestImpl(...args));
+}
+
+export async function closeHelpRequest(...args: Parameters<typeof closeHelpRequestImpl>) {
+  return guard(() => closeHelpRequestImpl(...args));
+}
+
+export async function submitFeedback(...args: Parameters<typeof submitFeedbackImpl>) {
+  return guard(() => submitFeedbackImpl(...args));
+}
+
+export async function respondFeedback(...args: Parameters<typeof respondFeedbackImpl>) {
+  return guard(() => respondFeedbackImpl(...args));
+}
+
+export async function createLeave(...args: Parameters<typeof createLeaveImpl>) {
+  return guard(() => createLeaveImpl(...args));
+}
+
+export async function deleteLeave(...args: Parameters<typeof deleteLeaveImpl>) {
+  return guard(() => deleteLeaveImpl(...args));
+}
+
+export async function saveCredential(...args: Parameters<typeof saveCredentialImpl>) {
+  return guard(() => saveCredentialImpl(...args));
+}
+
+export async function revealCredential(...args: Parameters<typeof revealCredentialImpl>) {
+  return guard(() => revealCredentialImpl(...args));
+}
+
+export async function deleteCredential(...args: Parameters<typeof deleteCredentialImpl>) {
+  return guard(() => deleteCredentialImpl(...args));
+}
+
+export async function updateUserTeam(...args: Parameters<typeof updateUserTeamImpl>) {
+  return guard(() => updateUserTeamImpl(...args));
+}
+
+export async function createExcelLink(...args: Parameters<typeof createExcelLinkImpl>) {
+  return guard(() => createExcelLinkImpl(...args));
+}
+
+export async function saveExcelMappings(...args: Parameters<typeof saveExcelMappingsImpl>) {
+  return guard(() => saveExcelMappingsImpl(...args));
+}
+
+export async function syncExcelLinkNow(...args: Parameters<typeof syncExcelLinkNowImpl>) {
+  return guard(() => syncExcelLinkNowImpl(...args));
+}
+
+export async function deleteExcelLink(...args: Parameters<typeof deleteExcelLinkImpl>) {
+  return guard(() => deleteExcelLinkImpl(...args));
 }

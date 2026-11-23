@@ -95,10 +95,6 @@ export default async function TeamPage() {
             <tbody className="divide-y divide-slate-100">
               {users.map((u) => {
                 const isSelf = u.id === session.user.id;
-                async function update(fd: FormData) {
-                  "use server";
-                  await updateUser(u.id, fd);
-                }
                 return (
                   <tr key={u.id}>
                     <td className="px-4 py-3">
@@ -150,7 +146,7 @@ export default async function TeamPage() {
                       )}
                       {!isSelf && (
                         <ActionForm
-                          action={update}
+                          action={updateUser.bind(null, u.id)}
                           label={u.active ? "Disable login" : "Enable login"}
                           className="ml-1 inline-block"
                         >

@@ -93,3 +93,11 @@ export function parseJSON<T = unknown>(value: unknown): T | null {
     return null;
   }
 }
+
+/** User-facing text for a caught error; hides Next.js production placeholders. */
+export function friendlyError(error: unknown, fallback = "Could not save. Please try again.") {
+  if (!(error instanceof Error) || !error.message) return fallback;
+  if (error.message.includes("omitted in production") || error.message.includes("Server Components render"))
+    return fallback;
+  return error.message;
+}

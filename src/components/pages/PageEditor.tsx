@@ -1,4 +1,5 @@
 "use client";
+import { settle } from "@/lib/action-result";
 
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
@@ -46,7 +47,7 @@ export function PageEditor({ pageId, viewerId, initialTitle, initialEmoji, initi
           const savingRevision = revision.current;
           const result = await savePage(pageId, { ...latest.current, expectedUpdatedAt: version.current });
           if ("error" in result) {
-            conflict.current = result.conflict;
+            conflict.current = "conflict" in result && result.conflict;
             setError(result.error);
             return false;
           }
@@ -127,7 +128,7 @@ export function PageEditor({ pageId, viewerId, initialTitle, initialEmoji, initi
     start(async () => {
       try {
         if (dirty && !await flush()) return;
-        await archivePage(pageId);
+        await settle(archivePage)(pageId);
       } catch (cause) {
         toast(cause instanceof Error ? cause.message : "Could not archive page", "error");
       }

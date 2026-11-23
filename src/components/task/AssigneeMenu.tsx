@@ -1,4 +1,5 @@
 "use client";
+import { settle } from "@/lib/action-result";
 
 import { useTransition } from "react";
 import { quickAssignTask } from "@/app/dashboard/actions";
@@ -39,7 +40,7 @@ export function AssigneeMenu({
           const prevValue = assignee?.id ?? "";
           start(async () => {
             try {
-              await quickAssignTask(taskId, next);
+              await settle(quickAssignTask)(taskId, next);
               toast(
                 next
                   ? `Assigned to ${options.find((o) => o.id === next)?.name}`

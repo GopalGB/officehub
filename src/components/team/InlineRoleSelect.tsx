@@ -1,4 +1,5 @@
 "use client";
+import { settle } from "@/lib/action-result";
 
 import { useTransition } from "react";
 import { Select } from "@/components/ui/select";
@@ -35,7 +36,7 @@ export function InlineRoleSelect({
         fd.set("role", value);
         start(async () => {
           try {
-            await updateUser(userId, fd);
+            await settle(updateUser)(userId, fd);
             toast(`Role set to ${value.toLowerCase()}`, "success");
           } catch (err) {
             target.value = defaultValue;

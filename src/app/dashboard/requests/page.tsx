@@ -74,7 +74,7 @@ export default async function RequestsPage({
       <header>
         <p className="eyebrow">Management / Intake</p>
         <h1 className="page-title">
-          Request pool <span className="ml-2 pill">{pending} pending</span>
+          Request intake <span className="ml-2 pill">{pending} pending</span>
         </h1>
         <p className="page-subtitle">
           Collect project requests through a form, review effort and savings,

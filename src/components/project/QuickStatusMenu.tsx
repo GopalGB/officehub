@@ -1,4 +1,5 @@
 "use client";
+import { settle } from "@/lib/action-result";
 
 import { useTransition } from "react";
 import type { ProjectStatus } from "@prisma/client";
@@ -51,7 +52,7 @@ export function QuickStatusMenu({
         if (next === status) return;
         start(async () => {
           try {
-            await quickUpdateProjectStatus(projectId, next);
+            await settle(quickUpdateProjectStatus)(projectId, next);
             toast(`Moved to ${PROJECT_STATUS_OPTIONS.find((o) => o.value === next)?.label}`, "success");
           } catch (err) {
             e.target.value = status;

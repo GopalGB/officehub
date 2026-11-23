@@ -1,4 +1,5 @@
 "use client";
+import { settle } from "@/lib/action-result";
 import { FREE_PERSON } from "@/lib/free-person";
 
 import { formText } from "@/lib/utils";
@@ -31,7 +32,7 @@ export function TaskQuickAdd({
     if (!formText(fd, "title").trim()) return;
     start(async () => {
       try {
-        await createTask(projectId, fd);
+        await settle(createTask)(projectId, fd);
         toast("Report added", "success");
         setOpen(false);
       } catch (e) {

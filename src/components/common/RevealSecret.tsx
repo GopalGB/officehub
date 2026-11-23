@@ -1,18 +1,19 @@
 "use client";
+import { settle } from "@/lib/action-result";
 import { useState, useTransition } from "react";
 import { Eye, EyeOff, Copy } from "lucide-react";
 import { useToast } from "@/components/ui/toast";
 import { copyText } from "@/lib/clipboard";
 
 /** Fetch a password only when asked; hide it again after 30 seconds. */
-export function RevealSecret({ reveal }: { reveal: () => Promise<string> }) {
+export function RevealSecret({ reveal }: { reveal: () => Promise<unknown> }) {
   const [secret, setSecret] = useState<string | null>(null);
   const [pending, start] = useTransition();
   const { toast } = useToast();
   const load = (then?: (value: string) => void) =>
     start(async () => {
       try {
-        const value = secret ?? (await reveal());
+        const value = secret ?? String(await settle(reveal)());
         setSecret(value);
         window.setTimeout(() => setSecret(null), 30_000);
         then?.(value);

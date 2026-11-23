@@ -1,4 +1,5 @@
 "use client";
+import { settle } from "@/lib/action-result";
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
@@ -106,7 +107,7 @@ function NewPageInline({ parentId, active }: { parentId: string; active: boolean
         fd.set("title", "Untitled");
         start(async () => {
           try {
-            await createPage(fd);
+            await settle(createPage)(fd);
           } catch (error) {
             if (isNavigationSignal(error)) throw error;
             toast(error instanceof Error ? error.message : "Could not create the page", "error");
@@ -140,7 +141,7 @@ function NewPageButton({ parentId, label }: { parentId: string | null; label: st
         fd.set("title", "Untitled");
         start(async () => {
           try {
-            await createPage(fd);
+            await settle(createPage)(fd);
           } catch (error) {
             if (isNavigationSignal(error)) throw error;
             toast(error instanceof Error ? error.message : "Could not create the page", "error");

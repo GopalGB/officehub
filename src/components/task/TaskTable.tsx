@@ -1,4 +1,5 @@
 "use client";
+import { settle } from "@/lib/action-result";
 
 import { useTransition } from "react";
 import Link from "next/link";
@@ -43,7 +44,7 @@ export function TaskTable({
     if (!confirm(`Delete "${title}"?`)) return;
     start(async () => {
       try {
-        await deleteTask(taskId);
+        await settle(deleteTask)(taskId);
         toast("Report deleted", "info");
       } catch (e) {
         toast(

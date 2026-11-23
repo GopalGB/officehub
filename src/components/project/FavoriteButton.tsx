@@ -1,4 +1,5 @@
 "use client";
+import { settle } from "@/lib/action-result";
 
 import { Star } from "lucide-react";
 import { useState, useTransition } from "react";
@@ -28,7 +29,7 @@ export function FavoriteButton({
     setFav(next);
     start(async () => {
       try {
-        await toggleProjectFavorite(projectId);
+        await settle(toggleProjectFavorite)(projectId);
         toast(next ? "Pinned to your favorites" : "Unpinned", "success");
       } catch {
         setFav(!next);

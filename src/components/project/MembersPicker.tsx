@@ -1,4 +1,5 @@
 "use client";
+import { settle } from "@/lib/action-result";
 
 import { useState, useTransition } from "react";
 import { Plus, X } from "lucide-react";
@@ -41,7 +42,7 @@ export function MembersPicker({
     setSelected(next);
     start(async () => {
       try {
-        await setProjectMembers(projectId, Array.from(next));
+        await settle(setProjectMembers)(projectId, Array.from(next));
         toast("Members updated", "success");
       } catch (e) {
         setSelected(prev); // revert optimistic update

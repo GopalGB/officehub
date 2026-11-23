@@ -1,4 +1,5 @@
 "use client";
+import { settle } from "@/lib/action-result";
 import type { Enhancement, User } from "@prisma/client";
 import { ActionForm } from "@/components/ui/action-form";
 import {
@@ -111,9 +112,9 @@ export function EnhancementList({
 }: {
   projectId: string;
   items: Item[];
-  onAdd: (projectId: string, fd: FormData) => Promise<void>;
-  onUpdate: (id: string, projectId: string, fd: FormData) => Promise<void>;
-  onDelete: (id: string, projectId: string) => Promise<void>;
+  onAdd: (projectId: string, fd: FormData) => Promise<unknown>;
+  onUpdate: (id: string, projectId: string, fd: FormData) => Promise<unknown>;
+  onDelete: (id: string, projectId: string) => Promise<unknown>;
   viewerId: string;
   canManage: boolean;
 }) {
@@ -195,7 +196,9 @@ export function EnhancementList({
                         `Delete enhancement “${item.title}”? Its change history will remain.`,
                       )
                     )
-                      void onDelete(item.id, projectId);
+                      void settle(onDelete)(item.id, projectId).catch((error: unknown) =>
+                        window.alert(error instanceof Error ? error.message : "Could not delete the enhancement"),
+                      );
                   }}
                 >
                   Delete enhancement

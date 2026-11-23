@@ -1,4 +1,5 @@
 "use client";
+import { settle } from "@/lib/action-result";
 
 import { useState, useTransition } from "react";
 import type { Block } from "@blocknote/core";
@@ -21,7 +22,7 @@ export function UpdateList({
   onAdd,
 }: {
   updates: UpdateItem[];
-  onAdd: (formData: FormData) => Promise<void>;
+  onAdd: (formData: FormData) => Promise<unknown>;
 }) {
   const [draft, setDraft] = useState<Block[] | null>(null);
   const [pending, start] = useTransition();
@@ -37,7 +38,7 @@ export function UpdateList({
             fd.set("content", JSON.stringify(draft ?? []));
             start(async () => {
               try {
-                await onAdd(fd);
+                await settle(onAdd)(fd);
                 setDraft(null);
                 setResetKey((k) => k + 1);
                 toast("Update posted", "success");
