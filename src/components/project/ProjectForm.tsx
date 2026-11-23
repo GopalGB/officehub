@@ -163,7 +163,8 @@ export function ProjectForm({
           placeholder="What's this project about, in one sentence?"
         />
       </div>
-      <SmartSuggest kind="project" excludeId={projectId} />
+      {/* Suggestions help when starting work, not when editing it. */}
+      {!projectId && <SmartSuggest kind="project" />}
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <div className="space-y-2">

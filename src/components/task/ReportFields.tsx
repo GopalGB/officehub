@@ -40,7 +40,7 @@ export function ReportFields({
           required
         />
       </label>
-      <SmartSuggest kind="report" excludeId={report?.id} />
+      {!report && <SmartSuggest kind="report" />}
       <label className="field">
         Type
         <select name="kind" defaultValue={report?.kind ?? "REPORT"}>
