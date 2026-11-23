@@ -1,6 +1,7 @@
 import type { Task } from "@prisma/client";
 import { REPORT_KINDS } from "@/lib/report-kinds";
 import { FREE_PERSON } from "@/lib/free-person";
+import { SmartSuggest } from "@/components/common/SmartSuggest";
 import { KEEP_ASSIGNMENT } from "@/lib/allocation-form";
 import {
   PRIORITY_OPTIONS,
@@ -39,6 +40,7 @@ export function ReportFields({
           required
         />
       </label>
+      <SmartSuggest kind="report" excludeId={report?.id} />
       <label className="field">
         Type
         <select name="kind" defaultValue={report?.kind ?? "REPORT"}>
@@ -107,6 +109,18 @@ export function ReportFields({
           name="dueDate"
           type="date"
           defaultValue={report?.dueDate?.toISOString().slice(0, 10)}
+        />
+      </label>
+      <label className="field">
+        Hours saved per week
+        <input
+          name="savedHours"
+          type="number"
+          step="0.25"
+          min="0"
+          max="100000"
+          defaultValue={report?.savedHours ?? ""}
+          placeholder="e.g. 2"
         />
       </label>
       <label className="field">

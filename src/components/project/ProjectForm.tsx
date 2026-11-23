@@ -5,6 +5,7 @@ import { useState, useTransition } from "react";
 import type { Block } from "@blocknote/core";
 import { Button } from "@/components/ui/button";
 import { parseJSON } from "@/lib/utils";
+import { SmartSuggest } from "@/components/common/SmartSuggest";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
@@ -54,6 +55,8 @@ interface Props {
   ownerSelectable?: boolean;
   currentUserId?: string;
   submitLabel?: string;
+  /** Excluded from duplicate suggestions while editing. */
+  projectId?: string;
 }
 
 function toInputDate(d: Date | null | undefined) {
@@ -73,6 +76,7 @@ export function ProjectForm({
   ownerSelectable = true,
   currentUserId,
   submitLabel = "Save project",
+  projectId,
 }: Props) {
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -159,6 +163,7 @@ export function ProjectForm({
           placeholder="What's this project about, in one sentence?"
         />
       </div>
+      <SmartSuggest kind="project" excludeId={projectId} />
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <div className="space-y-2">

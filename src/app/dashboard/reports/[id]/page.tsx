@@ -90,6 +90,7 @@ export default async function ReportPage({
           <TaskStatusBadge status={report.status} />
           <span>{reportKindLabel(report.kind)}</span>
           {report.brand && <span className="pill">{report.brand.name}</span>}
+          {report.savedHours ? <span className="pill">Saves {report.savedHours} h / week</span> : null}
           <span>
             {report.assignee?.name ?? "Unassigned"} · Due {formatDate(report.dueDate)}
           </span>

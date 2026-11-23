@@ -79,6 +79,7 @@ export default async function EditProjectPage({
         people={people}
         projects={projects}
         brands={brands}
+        projectId={id}
         canChangeOwner={
           project.ownerId === session.user.id ||
           isManagerOrAbove(session.user.role)

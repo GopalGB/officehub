@@ -276,6 +276,7 @@ export const reportFields = {
       .optional(),
   ),
   estimatedHours: optionalHours,
+  savedHours: optionalHours,
   kind: ReportKindEnum.optional(),
   statusNote: z.preprocess(
     (v) => (v === "" ? null : v),

@@ -323,6 +323,8 @@ model Task {
   version         Int        @default(1)
   reportUrl       String?
   estimatedHours  Float?
+  // Expected hours saved per week once delivered.
+  savedHours      Float?
   // REPORT, DASHBOARD, ADHOC, OTHER
   kind            String     @default("REPORT")
   brandId         String?

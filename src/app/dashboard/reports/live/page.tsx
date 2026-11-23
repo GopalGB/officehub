@@ -29,7 +29,7 @@ export default async function LiveReportsPage({
     ],
   };
   const since = new Date(Date.now() - 7 * 86400000);
-  const [open, doneThisWeek, brands, changes] = await Promise.all([
+  const [open, doneThisWeek, brands, changes, delivered] = await Promise.all([
     db.task.findMany({
       where: { AND: [where, { status: { not: "DONE" } }] },
       include: {
@@ -55,7 +55,10 @@ export default async function LiveReportsPage({
       orderBy: { statusChangedAt: "desc" },
       take: 15,
     }),
+    db.task.aggregate({ where: { AND: [where, { status: "DONE" }] }, _sum: { savedHours: true } }),
   ]);
+  const savedDelivered = delivered._sum.savedHours ?? 0;
+  const savedPipeline = open.reduce((sum, t) => sum + (t.savedHours ?? 0), 0);
   const counts = TASK_STATUS_OPTIONS.filter((o) => o.value !== "DONE").map((o) => ({
     ...o,
     count: open.filter((t) => t.status === o.value).length,
@@ -114,6 +117,10 @@ export default async function LiveReportsPage({
           <p className="mt-1 text-xs text-muted-foreground">Done in 7 days</p>
         </div>
       </section>
+      <p className="text-sm text-muted-foreground">
+        Hours saved per week: <strong className="text-emerald-700">{Math.round(savedDelivered * 100) / 100} h</strong> from
+        delivered reports · <strong>{Math.round(savedPipeline * 100) / 100} h</strong> more when open reports are done.
+      </p>
 
       <div className="grid items-start gap-5 lg:grid-cols-[1fr_300px]">
         <section className="surface overflow-x-auto !p-0">
@@ -139,6 +146,7 @@ export default async function LiveReportsPage({
                       {t.brand ? ` · ${t.brand.name}` : ""} · {t.project.title}
                     </p>
                     {t.statusNote && <p className="mt-0.5 text-xs text-brand-navy">{t.statusNote}</p>}
+                    {t.savedHours ? <p className="text-[11px] text-emerald-700">Saves {t.savedHours} h / week</p> : null}
                   </td>
                   <td className="px-3 py-2">
                     <TaskStatusBadge status={t.status} />

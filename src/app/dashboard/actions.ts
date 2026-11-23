@@ -18,6 +18,7 @@ import { importCommitSchema, importOptionsSchema } from "@/lib/project-import";
 import { prepareProjectImport, applyProjectImport } from "@/lib/project-import-service";
 import { z } from "zod";
 import { guard } from "@/lib/action-guard";
+import { smartSuggest } from "@/lib/smart-suggest";
 import { formText } from "@/lib/utils";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -1154,6 +1155,7 @@ async function createTaskImpl(projectId: string, formData: FormData) {
     estimatedHours: formData.get("estimatedHours") || null,
     kind: formData.get("kind") || undefined,
     statusNote: formData.get("statusNote") || null,
+    savedHours: formData.get("savedHours") || null,
     title: formData.get("title"),
     description: formData.get("description") || null,
     status: formData.get("status") || "TODO",
@@ -1189,6 +1191,7 @@ async function createTaskImpl(projectId: string, formData: FormData) {
         projectId,
         brandId: brandId ?? null,
         kind: parsed.data.kind ?? "REPORT",
+        savedHours: parsed.data.savedHours ?? null,
         statusNote: parsed.data.statusNote ?? null,
         statusChangedAt: new Date(),
         completedAt: parsed.data.status === "DONE" ? new Date() : null,
@@ -1252,6 +1255,9 @@ async function updateTaskImpl(taskId: string, formData: FormData) {
       estimatedHours: formData.get("estimatedHours"),
     }),
     ...(formData.has("kind") && { kind: formData.get("kind") }),
+    ...(formData.has("savedHours") && {
+      savedHours: formData.get("savedHours"),
+    }),
     ...(formData.has("statusNote") && {
       statusNote: formData.get("statusNote"),
     }),
@@ -1313,6 +1319,8 @@ async function updateTaskImpl(taskId: string, formData: FormData) {
   if (parsed.data.estimatedHours !== undefined)
     data.estimatedHours = parsed.data.estimatedHours;
   if (parsed.data.kind !== undefined) data.kind = parsed.data.kind;
+  if (parsed.data.savedHours !== undefined)
+    data.savedHours = parsed.data.savedHours;
   if (parsed.data.statusNote !== undefined)
     data.statusNote = parsed.data.statusNote ?? null;
   if (parsed.data.status !== undefined && parsed.data.status !== task.status)
@@ -2880,6 +2888,20 @@ async function deleteExcelLinkImpl(linkId: string) {
   redirect("/dashboard/excel");
 }
 
+// ---------------- Smart suggestions (text similarity) ----------------
+
+async function suggestForDraftImpl(kind: string, text: string, excludeId?: string | null) {
+  const user = await requireSession();
+  const input = z
+    .object({
+      kind: z.enum(["project", "report"]),
+      text: z.string().max(4000),
+      excludeId: z.string().cuid().nullable().optional(),
+    })
+    .parse({ kind, text, excludeId: excludeId || null });
+  return smartSuggest(user, input);
+}
+
 // ================= Exported actions =================
 // Each export returns user-facing failures as { error } (see action-guard).
 
@@ -3189,4 +3211,8 @@ export async function syncExcelLinkNow(...args: Parameters<typeof syncExcelLinkN
 
 export async function deleteExcelLink(...args: Parameters<typeof deleteExcelLinkImpl>) {
   return guard(() => deleteExcelLinkImpl(...args));
+}
+
+export async function suggestForDraft(...args: Parameters<typeof suggestForDraftImpl>) {
+  return guard(() => suggestForDraftImpl(...args));
 }

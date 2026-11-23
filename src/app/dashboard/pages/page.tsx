@@ -7,6 +7,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { timeAgo } from "@/lib/utils";
 import { NewPagePicker } from "@/components/pages/NewPagePicker";
 import { blockText, searchSnippet } from "@/lib/page-text";
+import { similarityIndex } from "@/lib/similarity";
 import { createContact, deleteContact } from "@/app/dashboard/actions";
 import { ActionForm } from "@/components/ui/action-form";
 
@@ -35,17 +36,22 @@ export default async function PagesIndexPage({
       : [],
   ]);
   const needle = q.toLowerCase();
+  // Exact word matches rank first; similar wording (other forms of a word,
+  // different order) follows, ranked by word similarity.
+  const docs = q
+    ? pages.map((p) => ({ page: p, text: blockText(p.content).join(" ") }))
+    : [];
+  const similar = q
+    ? similarityIndex(docs.map((d) => ({ text: `${d.page.title} ${d.page.title} ${d.text}`, item: d })))
+        .rank(q, 50, 0.12)
+    : [];
+  const exact = docs.filter(
+    (d) => d.page.title.toLowerCase().includes(needle) || d.text.toLowerCase().includes(needle),
+  );
   const results = q
-    ? pages
-        .map((p) => {
-          const text = blockText(p.content).join(" ");
-          const inTitle = p.title.toLowerCase().includes(needle);
-          const inText = text.toLowerCase().includes(needle);
-          return inTitle || inText ? { page: p, score: inTitle ? 2 : 1, snippet: inText ? searchSnippet(text, q) : "" } : null;
-        })
-        .filter((r): r is NonNullable<typeof r> => !!r)
-        .sort((a, b) => b.score - a.score)
+    ? [...exact, ...similar.map((m) => m.item).filter((d) => !exact.includes(d))]
         .slice(0, 50)
+        .map((d) => ({ page: d.page, score: 0, snippet: d.text ? searchSnippet(d.text, q) : "" }))
     : pages.map((page) => ({ page, score: 0, snippet: "" }));
   const shownContacts = q
     ? contacts.filter((c) =>
