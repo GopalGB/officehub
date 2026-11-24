@@ -16,6 +16,25 @@ if ($LASTEXITCODE -ne 0) { throw "Could not read the official updater. Stop here
 Invoke-Expression ($UpdaterText -join [Environment]::NewLine)
 ```
 
+### Offline update (no GitHub sign-in on the server)
+
+If the server cannot sign in to GitHub, copy an `officehub-update.bundle` file to the server (for example `D:\Gopal\Tracker_BI\officehub-update.bundle`). A bundle is one file holding the repository history. Stop OfficeHub with **Ctrl+C**, then run:
+
+```powershell
+Set-Location "D:\Gopal\Tracker_BI\officehub"
+$ErrorActionPreference = "Stop"
+$env:OFFICEHUB_UPDATE_BUNDLE = "D:\Gopal\Tracker_BI\officehub-update.bundle"
+git.exe bundle verify $env:OFFICEHUB_UPDATE_BUNDLE
+if ($LASTEXITCODE -ne 0) { throw "The bundle does not fit this checkout. Stop here." }
+git.exe -c maintenance.auto=false -c gc.auto=0 fetch --no-auto-gc $env:OFFICEHUB_UPDATE_BUNDLE main
+if ($LASTEXITCODE -ne 0) { throw "Could not read the bundle. Stop here." }
+$UpdaterText = git.exe show "FETCH_HEAD:scripts/update-windows.ps1"
+if ($LASTEXITCODE -ne 0) { throw "Could not read the updater from the bundle. Stop here." }
+Invoke-Expression ($UpdaterText -join [Environment]::NewLine)
+```
+
+Nothing is downloaded from GitHub. The updater makes the same backups and checks, fast-forwards to the bundle's `main`, then installs packages from the npm registry, applies the schema, builds and starts as usual. Remove the variable afterwards with `Remove-Item Env:OFFICEHUB_UPDATE_BUNDLE`.
+
 The updater keeps port **8599**. It uses the configured app IP if that address still belongs to the server; otherwise, a single available network IPv4 address is selected. With the current address, the application URL is **http://10.5.64.77:8599**. Keep the terminal open. Refresh existing browser tabs after the update.
 
 If the server has several IP addresses, select the intended address for this PowerShell session before running the block:
