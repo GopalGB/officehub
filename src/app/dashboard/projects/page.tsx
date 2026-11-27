@@ -86,6 +86,7 @@ export default async function ProjectsPage({
             Cards
           </Link>
           <Link href="/dashboard/board">Board</Link>
+          <Link href="/dashboard/projects/timeline">Timeline</Link>
         </nav>
       </div>
       <form className="flex flex-wrap items-end gap-3 rounded-xl border bg-card p-4">

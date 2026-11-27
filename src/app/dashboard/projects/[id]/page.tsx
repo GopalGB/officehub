@@ -52,6 +52,8 @@ import {
 } from "@/lib/rbac";
 import { formatDate, formatWallTime, timeAgo, wallNow } from "@/lib/utils";
 import { MeetingForm } from "@/components/meetings/MeetingForm";
+import { SchedulePanel } from "@/components/project/SchedulePanel";
+import { loadSchedules } from "@/lib/schedule-data";
 import { HelpRequestForm } from "@/components/help/HelpRequestForm";
 import {
   addStageComment,
@@ -279,6 +281,17 @@ export default async function ProjectDetailPage({
     })),
   ];
   const chronological = chronologicalStages(stages);
+  const [scheduleRow, scheduleChanges] =
+    tab === "overview"
+      ? await Promise.all([
+          loadSchedules({ id }, 1).then((rows) => rows[0] ?? null),
+          db.scheduleChange.findMany({
+            where: { projectId: id },
+            orderBy: { createdAt: "desc" },
+            take: 100,
+          }),
+        ])
+      : [null, []];
   const meetingPeople = [
     ...new Map(
       [project.owner, ...(project.coOwner ? [project.coOwner] : []), ...project.members, ...members].map(
@@ -399,6 +412,13 @@ export default async function ProjectDetailPage({
               }
             />
           </section>
+          {scheduleRow && (
+            <SchedulePanel
+              row={scheduleRow}
+              changes={scheduleChanges}
+              configs={fiscalConfigs}
+            />
+          )}
           <section id="stage-comments" className="surface space-y-4 scroll-mt-24">
             <div>
               <h2 className="section-title">Manager comments by stage</h2>
