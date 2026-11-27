@@ -1,3 +1,4 @@
+import { recordProjectDateChanges, type ScheduleReasonInput } from "@/lib/schedule";
 import type { Prisma } from "@prisma/client";
 import type { Viewer } from "@/lib/rbac";
 import { assertAssignablePeople } from "@/lib/project-people";
@@ -96,6 +97,7 @@ export async function reviseProject(
   data: Prisma.ProjectUpdateInput,
   reason: string,
   expectedVersion?: number,
+  schedule?: ScheduleReasonInput,
 ) {
   const before = await tx.project.findUnique({
     where: { id: projectId, AND: [projectAccessWhere(actor)] },
@@ -167,6 +169,9 @@ export async function reviseProject(
     },
   });
   const snapshot = await saveProjectRevision(tx, projectId, actor, reason);
+  // Every path that saves a project (forms, API, board, import, restore) lands
+  // here, so date history is complete; reasons come only from the edit form.
+  await recordProjectDateChanges(tx, actor, projectId, after.version, before, after, reason, schedule);
   await recordAudit(
     tx,
     actor,

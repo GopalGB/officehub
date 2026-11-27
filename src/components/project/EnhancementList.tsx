@@ -1,5 +1,6 @@
 "use client";
 import { settle } from "@/lib/action-result";
+import { ScheduleReasonFields } from "@/components/project/ScheduleReasonFields";
 import type { Enhancement, User } from "@prisma/client";
 import { ActionForm } from "@/components/ui/action-form";
 import {
@@ -69,6 +70,11 @@ export function EnhancementFields({ item }: { item?: Item }) {
           }
         />
       </label>
+      {item?.targetDate && (
+        <ScheduleReasonFields
+          originalTarget={new Date(item.targetDate).toISOString().slice(0, 10)}
+        />
+      )}
       <label className="field">
         Time saved (hours / week)
         <input

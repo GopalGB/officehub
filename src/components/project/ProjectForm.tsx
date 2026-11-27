@@ -6,6 +6,7 @@ import type { Block } from "@blocknote/core";
 import { Button } from "@/components/ui/button";
 import { parseJSON } from "@/lib/utils";
 import { SmartSuggest } from "@/components/common/SmartSuggest";
+import { ScheduleReasonFields } from "@/components/project/ScheduleReasonFields";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
@@ -219,6 +220,11 @@ export function ProjectForm({
             defaultValue={toInputDate(initial?.targetDate)}
           />
         </div>
+        {projectId && (
+          <ScheduleReasonFields
+            originalTarget={toInputDate(initial?.targetDate) || null}
+          />
+        )}
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
