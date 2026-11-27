@@ -189,12 +189,12 @@ export default async function LiveReportsPage({
                   <Link className="font-medium hover:underline" href={`/dashboard/reports/${c.id}`}>
                     {c.title}
                   </Link>
-                  <span className="mt-1 flex items-center gap-2">
+                  <div className="mt-1 flex items-center gap-2">
                     <TaskStatusBadge status={c.status} />
                     <span className="text-muted-foreground">
                       {timeAgo(c.statusChangedAt)} · {c.assignee?.name ?? "Unassigned"}
                     </span>
-                  </span>
+                  </div>
                 </li>
               ))}
               {!changes.length && <li className="text-xs text-muted-foreground">No changes this week.</li>}

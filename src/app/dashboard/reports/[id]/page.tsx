@@ -86,7 +86,7 @@ export default async function ReportPage({
           <Link href={`/dashboard/projects/${report.projectId}`}>{report.project.title}</Link>
         </p>
         <h1 className="page-title">{report.title}</h1>
-        <p className="page-subtitle flex flex-wrap items-center gap-2">
+        <div className="page-subtitle flex flex-wrap items-center gap-2">
           <TaskStatusBadge status={report.status} />
           <span>{reportKindLabel(report.kind)}</span>
           {report.brand && <span className="pill">{report.brand.name}</span>}
@@ -94,7 +94,7 @@ export default async function ReportPage({
           <span>
             {report.assignee?.name ?? "Unassigned"} · Due {formatDate(report.dueDate)}
           </span>
-        </p>
+        </div>
         {report.statusNote && (
           <p className="mt-2 rounded-lg bg-brand-tint px-3 py-2 text-sm text-brand-navy">{report.statusNote}</p>
         )}

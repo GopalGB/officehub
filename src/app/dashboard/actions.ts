@@ -12,6 +12,7 @@ import { assertAssignablePeople } from "@/lib/project-people";
 import { requestDetailsSelect } from "@/lib/request-details";
 import { readSopUpload } from "@/lib/sop-upload";
 import { resolveBrandId } from "@/lib/brands";
+import { movesExistingDate, recordEnhancementDateChanges } from "@/lib/schedule";
 import { shareOrigin } from "@/lib/origin";
 import { readProjectWorkbook } from "@/lib/project-workbook";
 import { importCommitSchema, importOptionsSchema } from "@/lib/project-import";
@@ -55,6 +56,7 @@ import {
   idSchema,
   restoreRevisionSchema,
   passwordChangeSchema,
+  scheduleReasonSchema,
   stageCommentSchema,
   meetingSchema,
   trainingSchema,
@@ -340,6 +342,13 @@ async function updateProjectImpl(projectId: string, formData: FormData) {
       description: parseJSON(formData.get("description")),
     }),
   });
+  // Moving an existing target date needs a reason so the timeline can explain it.
+  const schedule = scheduleReasonSchema.parse({
+    reasonCategory: formData.get("scheduleReason") || null,
+    note: formData.get("scheduleNote") || null,
+  });
+  if (movesExistingDate(existing.targetDate, parsed.targetDate) && !schedule.reasonCategory)
+    throw new Error("Choose why the target date changed (Schedule change reason).");
   if (
     ((parsed.ownerId !== undefined && parsed.ownerId !== existing.ownerId) ||
       (parsed.coOwnerId !== undefined &&
@@ -408,6 +417,7 @@ async function updateProjectImpl(projectId: string, formData: FormData) {
       },
       "Project details updated",
       expectedVersion ?? existing.version,
+      schedule,
     );
   });
   refreshWorkspace(projectId);
@@ -563,6 +573,12 @@ async function updateEnhancementImpl(
   if (!parsed.success)
     throw new Error(parsed.error.issues[0]?.message ?? "Invalid input");
   const { expectedVersion, startDate, targetDate, ...fields } = parsed.data;
+  const schedule = scheduleReasonSchema.parse({
+    reasonCategory: formData.get("scheduleReason") || null,
+    note: formData.get("scheduleNote") || null,
+  });
+  if (movesExistingDate(existing.targetDate, targetDate) && !schedule.reasonCategory)
+    throw new Error("Choose why this change's delivery date moved (Schedule change reason).");
   checkedRange(
     startDate === undefined ? existing.startDate : startDate,
     targetDate === undefined ? existing.targetDate : targetDate,
@@ -591,6 +607,7 @@ async function updateEnhancementImpl(
         }),
       },
     });
+    await recordEnhancementDateChanges(tx, user, projectId, id, existing, after, schedule);
     await recordAudit(
       tx,
       user,

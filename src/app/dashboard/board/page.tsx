@@ -126,6 +126,7 @@ export default async function BoardPage({
           <Link href="/dashboard/board" aria-current="page">
             Board
           </Link>
+          <Link href="/dashboard/projects/timeline">Timeline</Link>
         </nav>
         <details className="text-xs text-muted-foreground">
           <summary className="cursor-pointer">How to move a project</summary>

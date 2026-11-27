@@ -170,20 +170,21 @@ model Project {
   createdAt          DateTime      @default(now())
   updatedAt          DateTime      @updatedAt
 
-  updates        ProjectUpdate[]
-  enhancements   Enhancement[]
-  milestones     Milestone[]
-  comments       Comment[]
-  tasks          Task[]
-  tags           Tag[]                 @relation("ProjectTags")
-  revisions      ProjectRevision[]
-  workPlans      WorkPlan[]
-  dailyOverrides DailyOverride[]
-  requests       ProjectRequest[]
-  importRecords  ProjectImportRecord[]
-  stageComments  StageComment[]
-  meetings       Meeting[]
-  helpRequests   HelpRequest[]
+  updates         ProjectUpdate[]
+  enhancements    Enhancement[]
+  milestones      Milestone[]
+  comments        Comment[]
+  tasks           Task[]
+  tags            Tag[]                 @relation("ProjectTags")
+  revisions       ProjectRevision[]
+  workPlans       WorkPlan[]
+  dailyOverrides  DailyOverride[]
+  requests        ProjectRequest[]
+  importRecords   ProjectImportRecord[]
+  stageComments   StageComment[]
+  meetings        Meeting[]
+  helpRequests    HelpRequest[]
+  scheduleChanges ScheduleChange[]
 
   @@index([ownerId])
   @@index([brandId])
@@ -719,4 +720,28 @@ model ExcelSheetSnapshot {
   updatedAt DateTime  @updatedAt
 
   @@unique([linkId, sheetName])
+}
+
+/// Every change to a project's or enhancement's start/target date, with the
+/// reason when one was given. Rows for older edits are rebuilt once from
+/// ProjectRevision snapshots (reason not recorded).
+model ScheduleChange {
+  id             String    @id @default(cuid())
+  projectId      String
+  project        Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  enhancementId  String?
+  field          String // START or TARGET
+  fromDate       DateTime?
+  toDate         DateTime?
+  reasonCategory String?
+  note           String?
+  source         String // what made the change, e.g. "Project details updated"
+  authorId       String?
+  authorName     String
+  projectVersion Int?
+  createdAt      DateTime  @default(now())
+
+  @@unique([projectId, projectVersion, field])
+  @@index([projectId, createdAt])
+  @@index([enhancementId])
 }

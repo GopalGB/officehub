@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { additionalDetailsSchema } from "@/lib/additional-details";
 import { ReportKindEnum } from "@/lib/report-kinds";
+import { ScheduleReasonEnum } from "@/lib/schedule-metrics";
 
 export const loginSchema = z.object({
   email: z.string().email("Enter a valid email"),
@@ -487,4 +488,15 @@ export const passwordChangeSchema = z.object({
     .string()
     .min(8, "New password must be at least 8 characters")
     .max(128, "New password is too long"),
+});
+
+export const scheduleReasonSchema = z.object({
+  reasonCategory: z.preprocess(
+    (v) => (v === "" ? null : v),
+    ScheduleReasonEnum.nullable(),
+  ),
+  note: z.preprocess(
+    (v) => (v === "" ? null : v),
+    z.string().trim().max(500, "Keep the note under 500 characters").nullable(),
+  ),
 });
