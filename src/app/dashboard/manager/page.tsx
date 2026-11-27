@@ -128,6 +128,9 @@ export default async function ManagerPage({
     openReports,
     pendingRequests,
     configs,
+    weekLeaves,
+    notActive,
+    openHelp,
   ] = await Promise.all([
     db.user.findMany({
       where: assignablePeopleWhere,
@@ -156,7 +159,24 @@ export default async function ManagerPage({
     }),
     db.projectRequest.count({ where: { status: "PENDING" } }),
     db.fiscalYearConfig.findMany(),
+    db.leave.findMany({
+      where: { startDate: { lte: addDays(start, 6) }, endDate: { gte: start } },
+      select: { userId: true, personName: true, type: true, startDate: true, endDate: true },
+    }),
+    db.user.findMany({
+      where: { active: true, notActive: true, role: { not: "ADMIN" } },
+      select: { id: true, name: true, team: true },
+      orderBy: { name: "asc" },
+    }),
+    db.helpRequest.count({ where: { status: "OPEN" } }),
   ]);
+  const leaveOn = (person: { id: string; name: string }, date: Date) =>
+    weekLeaves.find(
+      (l) =>
+        (l.userId === person.id || l.personName.trim().toLowerCase() === person.name.trim().toLowerCase()) &&
+        l.startDate <= date &&
+        l.endDate >= date,
+    );
   const activeProjects = portfolioProjects.filter(
     (project) => project.status !== "COMPLETED",
   );
@@ -200,21 +220,29 @@ export default async function ManagerPage({
               </button>
             </form>
             <p className="mt-1 text-xs text-muted-foreground">
-              {fiscalLabel(today, configs)} · Weekly capacity guide: 40 hours
+              {fiscalLabel(today, configs)} · Monday to Friday
             </p>
           </div>
-          <Link className="text-link text-sm" href="/dashboard/requests">
-            Request pool · {pendingRequests} pending →
-          </Link>
+          <div className="flex flex-col items-end gap-1 text-sm">
+            <Link className="text-link" href="/dashboard/requests">
+              Request intake · {pendingRequests} pending →
+            </Link>
+            <Link className="text-link" href="/dashboard/help">
+              Help pool · {openHelp} open →
+            </Link>
+            <Link className="text-link" href="/dashboard/leaves">
+              Leaves this week · {new Set(weekLeaves.map((l) => l.personName)).size} people →
+            </Link>
+          </div>
         </div>
         <div className="grid gap-4 xl:grid-cols-2">
           {people.map((person) => {
             const own = plans.filter((p) => p.userId === person.id),
               todayLoad = dayLoad(own, today);
-            const daily = Array.from({ length: 7 }, (_, i) =>
+            const daily = [1, 2, 3, 4, 5].map((i) =>
                 dayLoad(own, addDays(start, i)),
               ),
-              hours = daily.reduce((sum, d) => sum + d.hours, 0);
+              blocks = daily.reduce((sum, d) => sum + d.entries.length, 0);
             const owned = activeProjects.filter(
               (p) =>
                 p.ownerId === person.id ||
@@ -234,27 +262,32 @@ export default async function ManagerPage({
                       reports
                     </p>
                   </div>
-                  <span className="pill">{hours}h this week</span>
+                  <span className="flex flex-col items-end gap-1">
+                    {leaveOn(person, today) && (
+                      <span className="pill !bg-brand-tint !text-brand-orange">
+                        {leaveOn(person, today)!.type} today
+                      </span>
+                    )}
+                    <span className="pill">
+                      {blocks} focus block{blocks === 1 ? "" : "s"} this week
+                    </span>
+                  </span>
                 </div>
-                <div className="mt-4 grid grid-cols-7 gap-1">
+                <div className="mt-4 grid grid-cols-5 gap-1">
                   {daily.map((d, i) => (
                     <div
                       key={i}
-                      className="text-center"
-                      title={`${["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][i]}: ${d.hours} hours${d.overlap ? ", overlapping blocks" : ""}`}
+                      className={`rounded px-1 py-1.5 text-center ${leaveOn(person, addDays(start, i + 1)) ? "bg-brand-tint" : "bg-secondary"}`}
+                      title={`${["Mon", "Tue", "Wed", "Thu", "Fri"][i]}: ${d.entries.length} focus blocks`}
                     >
                       <p className="text-[9px] text-muted-foreground">
-                        {["S", "M", "T", "W", "T", "F", "S"][i]}
+                        {["Mon", "Tue", "Wed", "Thu", "Fri"][i]}
                       </p>
-                      <div className="mt-1 flex h-9 items-end overflow-hidden rounded bg-secondary">
-                        <div
-                          className={`w-full ${d.hours > 8 || d.overlap ? "bg-brand-orange" : "bg-brand-blue"}`}
-                          style={{
-                            height: `${Math.min(100, (d.hours / 8) * 100)}%`,
-                          }}
-                        />
-                      </div>
-                      <p className="mt-1 text-[9px]">{d.hours}h</p>
+                      <p className="mt-0.5 text-xs font-semibold">
+                        {leaveOn(person, addDays(start, i + 1))
+                          ? "Leave"
+                          : d.entries.length || "–"}
+                      </p>
                     </div>
                   ))}
                 </div>
@@ -264,11 +297,13 @@ export default async function ManagerPage({
                   </p>
                   {todayLoad.entries.map((entry) => (
                     <p key={entry.planId} className="mt-2 text-xs">
-                      <strong>{entry.startTime}</strong> · {entry.title}{" "}
-                      <span className="text-muted-foreground">
-                        ({entry.hours}h
-                        {entry.adjusted ? ", changed for this day" : ""})
-                      </span>
+                      <strong>{entry.title}</strong>
+                      {entry.adjusted && (
+                        <span className="text-muted-foreground">
+                          {" "}
+                          (changed for this day)
+                        </span>
+                      )}
                       <span className="mt-1 block text-[10px] text-muted-foreground">
                         {projectNames[entry.projectId] ??
                           own.find((p) => p.projectId === entry.projectId)
@@ -318,14 +353,11 @@ export default async function ManagerPage({
                       <p key={p.id}>
                         {p.title} ·{" "}
                         {p.weekdays
+                          .filter((d) => d > 0 && d < 6)
                           .map(
-                            (d) =>
-                              ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][
-                                d
-                              ],
+                            (d) => ["Mon", "Tue", "Wed", "Thu", "Fri"][d - 1],
                           )
-                          .join(", ")}{" "}
-                        · {p.startTime} / {p.hours}h
+                          .join(", ")}
                       </p>
                     ))}
                   </div>
@@ -334,6 +366,12 @@ export default async function ManagerPage({
             );
           })}
         </div>
+        {notActive.length > 0 && (
+          <p className="border-t pt-3 text-xs text-muted-foreground">
+            Not active (not offered for new work):{" "}
+            {notActive.map((p) => p.name + (p.team ? ` (${p.team})` : "")).join(", ")}
+          </p>
+        )}
       </section>
       <details
         className="disclosure"

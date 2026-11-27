@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { additionalDetailsSchema } from "@/lib/additional-details";
+import { ReportKindEnum } from "@/lib/report-kinds";
 
 export const loginSchema = z.object({
   email: z.string().email("Enter a valid email"),
@@ -275,6 +276,12 @@ export const reportFields = {
       .optional(),
   ),
   estimatedHours: optionalHours,
+  savedHours: optionalHours,
+  kind: ReportKindEnum.optional(),
+  statusNote: z.preprocess(
+    (v) => (v === "" ? null : v),
+    z.string().trim().max(500).nullable().optional(),
+  ),
 };
 export const reportCreateSchema = taskCreateSchema.extend(reportFields);
 export const reportUpdateSchema = taskUpdateSchema.extend({
@@ -286,20 +293,27 @@ export const workPlanSchema = z.object({
   title: z.string().trim().min(2).max(200),
   weekStart: z.iso.date(),
   weekdays: z
-    .array(z.coerce.number().int().min(0).max(6))
-    .min(1)
-    .max(7)
+    .array(z.coerce.number().int().min(1, "Weekends are not planned").max(5, "Weekends are not planned"))
+    .min(1, "Choose at least one weekday")
+    .max(5)
     .transform((v) => [...new Set(v)]),
-  hours: z.coerce.number().positive().max(24),
-  startTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
+  // Start times and hours are no longer collected; stored values are kept.
+  hours: z.coerce.number().positive().max(24).optional(),
+  startTime: z
+    .string()
+    .regex(/^([01]\d|2[0-3]):[0-5]\d$/)
+    .optional(),
   expectedVersion: z.coerce.number().int().positive().optional(),
 });
 export const dailyOverrideSchema = z.object({
   date: z.iso.date(),
   projectId: z.string().cuid(),
   title: z.string().trim().min(2).max(200),
-  hours: z.coerce.number().positive().max(24),
-  startTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
+  hours: z.coerce.number().positive().max(24).optional(),
+  startTime: z
+    .string()
+    .regex(/^([01]\d|2[0-3]):[0-5]\d$/)
+    .optional(),
   skipped: z.boolean(),
   note: z.string().trim().max(1000).nullable(),
   expectedUpdatedAt: z.iso.datetime().nullable(),
@@ -328,7 +342,8 @@ export const publicRequestSchema = z.object({
   description: z.string().trim().min(10).max(5000),
   projectType: projectTypeEnum,
   existingProject: z.string().trim().max(200).nullable(),
-  estimatedHours: z.coerce.number().positive().max(100000),
+  // Hours are no longer collected; keep the stored column populated.
+  estimatedHours: optionalHours.transform((v) => v ?? 0),
   savedHours: optionalHours,
   requestedDate: isoDate,
   priority: PriorityEnum,
@@ -350,4 +365,126 @@ export const idSchema = z.string().cuid();
 export const restoreRevisionSchema = z.object({
   revisionId: idSchema,
   expectedVersion: z.coerce.number().int().positive(),
+});
+
+// ---------------- Office operations (2026-11) ----------------
+const blankToNull = (v: unknown) => (v === "" || v === undefined ? null : v);
+const optionalText = (max: number) =>
+  z.preprocess(blankToNull, z.string().trim().max(max).nullable());
+const optionalUrl = z.preprocess(
+  blankToNull,
+  z
+    .url("Enter a full link starting with http:// or https://")
+    .max(2000)
+    .refine((v) => /^https?:\/\//i.test(v), "Use an http or https link")
+    .nullable(),
+);
+const optionalCuid = z.preprocess(blankToNull, z.string().cuid().nullable());
+const localDateTime = z
+  .string()
+  .regex(/^\d{4}-\d\d-\d\dT\d\d:\d\d$/, "Choose a date and time");
+
+export const stageCommentSchema = z.object({
+  stageId: z.string().cuid(),
+  content: z.string().trim().min(1, "Write a comment").max(2000),
+});
+
+export const meetingSchema = z.object({
+  title: z.string().trim().min(2, "Add a meeting title").max(160),
+  kind: z.enum(["SCHEDULED", "ADHOC"]).default("SCHEDULED"),
+  projectId: optionalCuid,
+  startsAt: localDateTime,
+  endsAt: z.preprocess(blankToNull, localDateTime.nullable()),
+  link: optionalUrl,
+  notes: optionalText(2000),
+  attendeeIds: z.array(z.string().cuid()).max(50).default([]),
+});
+
+export const trainingSchema = z.object({
+  title: z.string().trim().min(2, "Add a training title").max(160),
+  url: optionalUrl,
+  sessionAt: z.preprocess(blankToNull, localDateTime.nullable()),
+  description: optionalText(2000),
+  audience: optionalText(100),
+});
+
+export const contactSchema = z
+  .object({
+    topic: z.string().trim().min(2, "What should people contact them about?").max(120),
+    personId: optionalCuid,
+    name: optionalText(100),
+    email: z.preprocess(blankToNull, z.email().max(254).nullable()),
+    notes: optionalText(500),
+  })
+  .refine((c) => c.personId || c.name, "Choose a teammate or enter a name");
+
+export const helpRequestSchema = z.object({
+  details: z.string().trim().min(5, "Describe the help you need").max(2000),
+  skills: optionalText(200),
+  neededBy: z.preprocess(blankToNull, z.iso.date().nullable()),
+});
+export const helpAssignSchema = z.object({
+  expectedVersion: z.coerce.number().int().positive(),
+  // "AUTO" picks whoever is free right now.
+  assigneeId: z.union([z.literal("AUTO"), z.string().cuid()]),
+});
+
+export const feedbackSchema = z.object({
+  category: z.enum(["IDEA", "BUG", "PRAISE", "OTHER"]).default("IDEA"),
+  area: optionalText(100),
+  message: z.string().trim().min(5, "Tell us a little more").max(3000),
+  rating: z.preprocess(blankToNull, z.coerce.number().int().min(1).max(5).nullable()),
+});
+export const feedbackResponseSchema = z.object({
+  status: z.enum(["NEW", "PLANNED", "DONE", "CLOSED"]),
+  response: optionalText(2000),
+});
+
+export const leaveSchema = z
+  .object({
+    userId: optionalCuid,
+    startDate: z.iso.date(),
+    endDate: z.iso.date(),
+    type: z.string().trim().min(2).max(40).default("Leave"),
+    note: optionalText(300),
+  })
+  .refine((l) => l.endDate >= l.startDate, "The leave must end on or after it starts");
+
+export const credentialSchema = z.object({
+  label: z.string().trim().min(2, "Name this login").max(120),
+  kind: z.enum(["SERVER", "AERO", "JCP", "OTHER"]).default("SERVER"),
+  host: optionalText(255),
+  username: optionalText(200),
+  // Blank keeps the current password on edit.
+  secret: z.preprocess(blankToNull, z.string().max(500).nullable()),
+  url: optionalUrl,
+  notes: optionalText(1000),
+  expiresAt: z.preprocess(blankToNull, z.iso.date().nullable()),
+  scope: z.enum(["USER", "TEAM"]).default("USER"),
+  expectedVersion: z.coerce.number().int().positive().optional(),
+});
+
+export const userTeamSchema = z.object({
+  team: optionalText(100),
+  notActive: z.boolean().optional(),
+});
+
+export const excelLinkSchema = z.object({
+  name: z.string().trim().min(2, "Name this workbook").max(120),
+  url: z
+    .url("Paste the full SharePoint or OneDrive share link")
+    .max(2000)
+    .refine((v) => v.startsWith("https://"), "Use the https share link"),
+  shareWithAll: z.boolean().default(false),
+  viewerIds: z.array(z.string().cuid()).max(200).default([]),
+  autoSync: z.boolean().default(true),
+  intervalMin: z.coerce.number().int().min(5).max(1440).default(30),
+});
+
+export const passwordChangeSchema = z.object({
+  current: z.string().min(1, "Enter your current password").max(128),
+  next: z
+    .string()
+    .min(8, "New password must be at least 8 characters")
+    .max(128, "New password is too long"),
 });

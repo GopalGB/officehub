@@ -41,6 +41,9 @@ export default async function SignupPage({
 
   async function signupAction(formData: FormData) {
     "use server";
+    // Re-check at submission: the page check alone can be bypassed.
+    if ((process.env.SIGNUP_POLICY ?? "closed") !== "open")
+      redirect("/login?error=signup-closed");
     const parsed = signupSchema.safeParse({
       email: formData.get("email"),
       name: formData.get("name"),

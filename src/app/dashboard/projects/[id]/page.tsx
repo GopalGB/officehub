@@ -14,7 +14,7 @@ import {
 } from "@/components/project/StatusBadge";
 import { UpdateList } from "@/components/project/UpdateList";
 import { additionalDetailsSchema } from "@/lib/additional-details";
-import { deliveryRange } from "@/lib/timeline";
+import { deliveryRange, chronologicalStages } from "@/lib/timeline";
 import { ActionForm } from "@/components/ui/action-form";
 import {
   EnhancementList,
@@ -50,7 +50,14 @@ import {
   isManagerOrAbove,
   taskPermissions,
 } from "@/lib/rbac";
-import { formatDate, timeAgo } from "@/lib/utils";
+import { formatDate, formatWallTime, timeAgo, wallNow } from "@/lib/utils";
+import { MeetingForm } from "@/components/meetings/MeetingForm";
+import { HelpRequestForm } from "@/components/help/HelpRequestForm";
+import {
+  addStageComment,
+  deleteStageComment,
+  deleteMeeting,
+} from "@/app/dashboard/actions";
 
 /** Present three project sections while preserving legacy tab and enhancement links. */
 export default async function ProjectDetailPage({
@@ -85,6 +92,22 @@ export default async function ProjectDetailPage({
       include: {
         owner: { select: { id: true, name: true, email: true } },
         coOwner: { select: { id: true, name: true } },
+        brand: { select: { name: true } },
+        stageComments: {
+          include: { author: { select: { id: true, name: true } } },
+          orderBy: { createdAt: "desc" },
+        },
+        meetings: {
+          where: { startsAt: { gte: new Date(Date.now() - 14 * 86400000) } },
+          include: { attendees: { select: { id: true, name: true } } },
+          orderBy: { startsAt: "asc" },
+          take: 20,
+        },
+        helpRequests: {
+          where: { status: { in: ["OPEN", "ASSIGNED"] } },
+          include: { assignee: { select: { name: true } } },
+          orderBy: { createdAt: "desc" },
+        },
         derivedProjects: {
           where: projectAccessWhere(session.user),
           select: {
@@ -255,6 +278,14 @@ export default async function ProjectDetailPage({
       }),
     })),
   ];
+  const chronological = chronologicalStages(stages);
+  const meetingPeople = [
+    ...new Map(
+      [project.owner, ...(project.coOwner ? [project.coOwner] : []), ...project.members, ...members].map(
+        (p) => [p.id, { id: p.id, name: p.name }],
+      ),
+    ).values(),
+  ];
   return (
     <div className="mx-auto min-w-0 max-w-6xl space-y-5">
       <header className="space-y-4">
@@ -285,16 +316,12 @@ export default async function ProjectDetailPage({
                   More
                 </summary>
                 <div className="absolute right-0 z-20 mt-2 w-44 rounded-xl border bg-card p-2 shadow-lg">
-                  <form action={archiveProject.bind(null, id)}>
-                    <Button
-                      type="submit"
-                      variant="ghost"
-                      size="sm"
-                      className="w-full justify-start"
-                    >
-                      Archive project
-                    </Button>
-                  </form>
+                  <ActionForm
+                    action={archiveProject.bind(null, id)}
+                    label="Archive project"
+                    successMessage="Project archived."
+                    className="space-y-2"
+                  />
                 </div>
               </details>
             )}
@@ -309,6 +336,7 @@ export default async function ProjectDetailPage({
             </span>
           </span>
           {project.coOwner && <span>Sub-owner · {project.coOwner.name}</span>}
+          {project.brand && <span className="pill">{project.brand.name}</span>}
           <span className="rounded-lg bg-brand-tint px-3 py-1.5 text-brand-navy">
             Target · {formatDate(project.targetDate)}
           </span>
@@ -371,6 +399,128 @@ export default async function ProjectDetailPage({
               }
             />
           </section>
+          <section id="stage-comments" className="surface space-y-4 scroll-mt-24">
+            <div>
+              <h2 className="section-title">Manager comments by stage</h2>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Feedback from managers on each delivery stage. Everyone on the project can read it.
+              </p>
+            </div>
+            {chronological.map((stage) => {
+              const notes = project.stageComments.filter((c) => c.stageId === stage.id);
+              if (!notes.length) return null;
+              return (
+                <div key={stage.id} className="space-y-2">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    {stage.kind} · {stage.title}
+                  </p>
+                  {notes.map((c) => (
+                    <div key={c.id} className="rounded-lg border-l-4 border-l-brand-blue bg-secondary/40 p-3">
+                      <p className="whitespace-pre-wrap text-sm">{c.content}</p>
+                      <div className="mt-2 flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
+                        <span>
+                          {c.author.name} · {timeAgo(c.createdAt)}
+                        </span>
+                        {(c.authorId === session.user.id || session.user.role === "ADMIN") && (
+                          <ActionForm action={deleteStageComment.bind(null, c.id, id)} label="Remove" className="" />
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              );
+            })}
+            {!project.stageComments.length && (
+              <p className="text-sm text-muted-foreground">No manager comments yet.</p>
+            )}
+            {isManagerOrAbove(session.user.role) && (
+              <details className="disclosure" open={!project.stageComments.length}>
+                <summary>Add a manager comment</summary>
+                <div className="disclosure-body">
+                  <ActionForm action={addStageComment.bind(null, id)} label="Add comment" successMessage="Comment added." className="space-y-3">
+                    <label className="field">
+                      Stage
+                      <select name="stageId" defaultValue={project.id}>
+                        {chronological.map((stage) => (
+                          <option key={stage.id} value={stage.id}>
+                            {stage.kind} · {stage.title}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="field">
+                      Comment
+                      <textarea name="content" required maxLength={2000} rows={3} />
+                    </label>
+                  </ActionForm>
+                </div>
+              </details>
+            )}
+          </section>
+          <section id="meetings" className="surface space-y-4 scroll-mt-24">
+            <h2 className="section-title">Meetings</h2>
+            <ul className="space-y-2">
+              {project.meetings.map((m) => (
+                <li key={m.id} className={`rounded-lg border p-3 text-sm ${m.startsAt < wallNow() ? "opacity-70" : ""}`}>
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <div>
+                      <p className="font-medium">
+                        {m.title}
+                        {m.kind === "ADHOC" && <span className="pill ml-2">Ad-hoc</span>}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {formatWallTime(m.startsAt)} · {m.attendees.map((a) => a.name).join(", ")}
+                      </p>
+                      {m.notes && <p className="mt-1 whitespace-pre-wrap text-xs">{m.notes}</p>}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {m.link && (
+                        <a className="text-link text-xs" href={m.link} target="_blank" rel="noreferrer">
+                          Join
+                        </a>
+                      )}
+                      {(m.organizerId === session.user.id || isManagerOrAbove(session.user.role)) && (
+                        <ActionForm action={deleteMeeting.bind(null, m.id)} label="Remove" className="" />
+                      )}
+                    </div>
+                  </div>
+                </li>
+              ))}
+              {!project.meetings.length && (
+                <li className="text-sm text-muted-foreground">No meetings in the last two weeks or coming up.</li>
+              )}
+            </ul>
+            {canEdit && (
+              <div className="grid gap-3 md:grid-cols-2">
+                {project.coOwner && (
+                  <details className="disclosure">
+                    <summary>Ad-hoc meeting with {project.coOwner.name}</summary>
+                    <div className="disclosure-body">
+                      <MeetingForm
+                        people={meetingPeople}
+                        projectId={id}
+                        kind="ADHOC"
+                        title={`Quick sync: ${project.title}`.slice(0, 160)}
+                        attendeeIds={[project.ownerId, project.coOwner.id]}
+                        label="Save ad-hoc meeting"
+                      />
+                    </div>
+                  </details>
+                )}
+                <details className="disclosure">
+                  <summary>Schedule a meeting</summary>
+                  <div className="disclosure-body">
+                    <MeetingForm
+                      people={meetingPeople}
+                      projectId={id}
+                      title={`${project.title} sync`.slice(0, 160)}
+                      attendeeIds={[project.ownerId, ...(project.coOwnerId ? [project.coOwnerId] : []), ...memberIds]}
+                    />
+                  </div>
+                </details>
+              </div>
+            )}
+          </section>
           <section id="project-team" className="surface space-y-3 scroll-mt-24">
             <h2 className="section-title">Project team</h2>
             <MembersPicker
@@ -407,17 +557,12 @@ export default async function ProjectDetailPage({
                       : "Not scheduled",
                   ],
                   [
-                    "Estimated effort",
-                    project.estimatedHours === null
-                      ? "Not estimated"
-                      : `${project.estimatedHours} hours`,
-                  ],
-                  [
                     "Expected time saved",
                     project.savedHours === null
                       ? "Not estimated"
                       : `${project.savedHours} hours / week`,
                   ],
+                  ["Brand", project.brand?.name || "—"],
                   ["Team", project.department || "—"],
                   ["Sub-team", project.subTeam || "—"],
                   ["Version", String(project.version)],
@@ -510,6 +655,34 @@ export default async function ProjectDetailPage({
               viewerId={session.user.id}
               canManage={canEdit}
             />
+          </section>
+          <section className="surface space-y-3">
+            <h2 className="section-title">Help from the BI team</h2>
+            {project.helpRequests.map((r) => (
+              <p key={r.id} className="text-sm">
+                {r.status === "OPEN" ? (
+                  <span className="pill mr-2">Waiting in help pool</span>
+                ) : (
+                  <span className="pill mr-2">{r.assignee?.name ?? "Someone"} is helping</span>
+                )}
+                {r.details}
+              </p>
+            ))}
+            {canEdit ? (
+              <details className="disclosure">
+                <summary>Ask for help on this project</summary>
+                <div className="disclosure-body">
+                  <HelpRequestForm projectId={id} />
+                </div>
+              </details>
+            ) : (
+              !project.helpRequests.length && (
+                <p className="text-sm text-muted-foreground">No help requests.</p>
+              )
+            )}
+            <Link className="text-link text-xs" href="/dashboard/help">
+              Open the help pool →
+            </Link>
           </section>
           <details
             className="disclosure"

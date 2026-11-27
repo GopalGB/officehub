@@ -333,7 +333,7 @@ export function ProjectImportForm({
                 />
                 <span>
                   Update {updateCount} existing matching projects with the
-                  spreadsheet’s title, status, impact, type, hours, team, and
+                  spreadsheet’s title, status, impact, type, hours saved, team, and
                   nonblank additional values. Blank values keep existing
                   details.
                 </span>

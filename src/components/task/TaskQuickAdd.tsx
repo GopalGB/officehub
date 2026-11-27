@@ -1,4 +1,6 @@
 "use client";
+import { settle } from "@/lib/action-result";
+import { FREE_PERSON } from "@/lib/free-person";
 
 import { formText } from "@/lib/utils";
 import { useState, useTransition } from "react";
@@ -30,7 +32,7 @@ export function TaskQuickAdd({
     if (!formText(fd, "title").trim()) return;
     start(async () => {
       try {
-        await createTask(projectId, fd);
+        await settle(createTask)(projectId, fd);
         toast("Report added", "success");
         setOpen(false);
       } catch (e) {
@@ -76,6 +78,7 @@ export function TaskQuickAdd({
       </Select>
       <Select name="assigneeId" defaultValue="" className="h-9 text-xs">
         <option value="">Unassigned</option>
+        <option value={FREE_PERSON}>Whoever is free</option>
         {assignees.map((a) => (
           <option key={a.id} value={a.id}>
             {a.name}

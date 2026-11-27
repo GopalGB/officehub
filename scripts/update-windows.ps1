@@ -3,7 +3,10 @@
 param(
     [string]$AppDir = (Get-Location).Path,
     [string]$ListenIp = $env:OFFICEHUB_LISTEN_IP,
-    [int]$ListenPort = 8599
+    [int]$ListenPort = 8599,
+    # Offline update: path to an officehub-update.bundle file copied to this
+    # server. Use it when the server cannot sign in to GitHub. Default: GitHub.
+    [string]$UpdateBundle = $env:OFFICEHUB_UPDATE_BUNDLE
 )
 $ErrorActionPreference = "Stop"
 $PreviousNodeOptions = $env:NODE_OPTIONS
@@ -113,10 +116,19 @@ try {
         }
         Run-Checked "git.exe" @("restore", "--source=HEAD", "--staged", "--worktree", "--", "next.config.ts")
     }
-    Write-Host "Updating from GopalGB/officehub main. Backups: $BackupDir"
     # Per-command flags avoid Windows pack-file deletion prompts during automatic
     # maintenance. They do not write global or repository Git configuration.
-    Run-Checked "git.exe" @("-c", "maintenance.auto=false", "-c", "gc.auto=0", "fetch", "--no-auto-gc", "origin", "main")
+    if ([string]::IsNullOrWhiteSpace($UpdateBundle)) {
+        Write-Host "Updating from GopalGB/officehub main. Backups: $BackupDir"
+        Run-Checked "git.exe" @("-c", "maintenance.auto=false", "-c", "gc.auto=0", "fetch", "--no-auto-gc", "origin", "main")
+    } else {
+        # A bundle is a single file holding the repository history; no network
+        # or GitHub sign-in is needed. Its main branch must fast-forward ours.
+        $BundlePath = (Resolve-Path -LiteralPath $UpdateBundle -ErrorAction Stop).Path
+        Write-Host "Updating from offline bundle $BundlePath. Backups: $BackupDir"
+        Run-Checked "git.exe" @("bundle", "verify", $BundlePath)
+        Run-Checked "git.exe" @("-c", "maintenance.auto=false", "-c", "gc.auto=0", "fetch", "--no-auto-gc", $BundlePath, "main")
+    }
     Run-Checked "git.exe" @("-c", "maintenance.auto=false", "-c", "gc.auto=0", "merge", "--ff-only", "FETCH_HEAD")
 
     # Use already trusted Windows certificates for this process, when supported.

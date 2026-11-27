@@ -1,7 +1,9 @@
 "use client";
+import { settle } from "@/lib/action-result";
 
 import { useState, useTransition } from "react";
 import { Copy, Check, Trash2 } from "lucide-react";
+import { copyText } from "@/lib/clipboard";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/toast";
@@ -24,7 +26,10 @@ export function PendingInvites({ invites }: { invites: Invite[] }) {
   const { toast } = useToast();
 
   async function copy(id: string, url: string) {
-    await navigator.clipboard.writeText(url);
+    if (!(await copyText(url))) {
+      toast("Copy failed. Open the invite and copy the address bar instead.", "info");
+      return;
+    }
     setCopiedId(id);
     toast("Invite link copied", "success");
     setTimeout(() => setCopiedId((c) => (c === id ? null : c)), 2000);
@@ -34,7 +39,7 @@ export function PendingInvites({ invites }: { invites: Invite[] }) {
     if (!confirm(`Revoke the invite for ${email}?`)) return;
     start(async () => {
       try {
-        await revokeInvitation(id);
+        await settle(revokeInvitation)(id);
         toast(`Revoked invite for ${email}`, "info");
       } catch (e) {
         toast(e instanceof Error ? e.message : "Could not revoke invitation", "error");

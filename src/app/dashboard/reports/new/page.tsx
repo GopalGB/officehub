@@ -5,12 +5,15 @@ import { projectAccessWhere } from "@/lib/rbac";
 import { ActionForm } from "@/components/ui/action-form";
 import { ReportFields } from "@/components/task/ReportFields";
 import { createReport } from "@/app/dashboard/actions";
+import { listBrandNames } from "@/lib/brands";
 export default async function NewReport() {
   const session = await auth();
   if (!session?.user) return null;
-  const [projects, people] = await Promise.all([
+  const [projects, people, brands] = await Promise.all([
     db.project.findMany({
-      where: projectAccessWhere(session.user),
+      where: {
+        AND: [projectAccessWhere(session.user), { status: { not: "ARCHIVED" } }],
+      },
       select: { id: true, title: true },
       orderBy: { title: "asc" },
     }),
@@ -19,6 +22,7 @@ export default async function NewReport() {
       select: { id: true, name: true },
       orderBy: { name: "asc" },
     }),
+    listBrandNames(db),
   ]);
   return (
     <div className="mx-auto max-w-3xl space-y-6">
@@ -46,7 +50,7 @@ export default async function NewReport() {
                 ))}
               </select>
             </label>
-            <ReportFields people={people} />
+            <ReportFields people={people} brands={brands} />
           </ActionForm>
         ) : (
           <p className="text-sm text-muted-foreground">

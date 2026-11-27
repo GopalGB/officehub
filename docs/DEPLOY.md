@@ -20,6 +20,9 @@ cp .env.example .env
 # Generate the auth secret
 sed -i "s|AUTH_SECRET=.*|AUTH_SECRET=\"$(openssl rand -base64 32)\"|" .env
 
+# Generate the password-vault key (back it up with the database)
+sed -i "s|VAULT_KEY=.*|VAULT_KEY=\"$(openssl rand -base64 32)\"|" .env
+
 # Set your public URL
 sed -i "s|NEXTAUTH_URL=.*|NEXTAUTH_URL=\"https://office.yourcompany.com\"|" .env
 

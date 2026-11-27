@@ -1,4 +1,5 @@
 "use client";
+import { settle } from "@/lib/action-result";
 
 import { useTransition } from "react";
 import Link from "next/link";
@@ -11,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { deleteTask } from "@/app/dashboard/actions";
 import { useToast } from "@/components/ui/toast";
 import { formatDate, isOverdueDate } from "@/lib/utils";
+import { reportKindLabel } from "@/lib/report-kinds";
 
 type Row = Task & {
   canEdit?: boolean;
@@ -19,6 +21,7 @@ type Row = Task & {
   assignee: Pick<User, "id" | "name"> | null;
   reporter: Pick<User, "id" | "name">;
   project?: Pick<Project, "id" | "title">;
+  brand?: { name: string } | null;
 };
 
 export function TaskTable({
@@ -41,7 +44,7 @@ export function TaskTable({
     if (!confirm(`Delete "${title}"?`)) return;
     start(async () => {
       try {
-        await deleteTask(taskId);
+        await settle(deleteTask)(taskId);
         toast("Report deleted", "info");
       } catch (e) {
         toast(
@@ -70,7 +73,6 @@ export function TaskTable({
             <th className="px-3 py-2.5">Status</th>
             <th className="px-3 py-2.5">Assignee</th>
             <th className="px-3 py-2.5">Priority</th>
-            <th className="px-3 py-2.5">Hours</th>
             <th className="px-3 py-2.5">Due</th>
             <th className="px-3 py-2.5"></th>
           </tr>
@@ -89,6 +91,19 @@ export function TaskTable({
                   >
                     {t.title}
                   </Link>
+                  <p className="mt-0.5 flex flex-wrap gap-1 text-[10px] text-slate-500">
+                    <span className="rounded bg-slate-100 px-1.5 py-0.5">
+                      {reportKindLabel(t.kind)}
+                    </span>
+                    {t.brand && (
+                      <span className="rounded bg-brand-tint px-1.5 py-0.5 text-brand-navy">
+                        {t.brand.name}
+                      </span>
+                    )}
+                    {t.statusNote && (
+                      <span className="line-clamp-1">{t.statusNote}</span>
+                    )}
+                  </p>
                   {t.description && (
                     <p className="line-clamp-1 text-xs text-slate-500">
                       {t.description}
@@ -126,9 +141,6 @@ export function TaskTable({
                 </td>
                 <td className="px-3 py-2 align-middle">
                   <PriorityBadge priority={t.priority} />
-                </td>
-                <td className="px-3 py-2 align-middle text-xs text-slate-600">
-                  {t.estimatedHours ?? "—"}
                 </td>
                 <td
                   className={`px-3 py-2 align-middle text-xs ${overdue ? "font-semibold text-black underline decoration-2 underline-offset-2 dark:text-white" : "text-neutral-600 dark:text-neutral-400"}`}

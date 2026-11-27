@@ -1,4 +1,5 @@
 "use client";
+import { settle } from "@/lib/action-result";
 import { useTransition } from "react";
 import type { Milestone } from "@prisma/client";
 import { ActionForm } from "@/components/ui/action-form";
@@ -15,13 +16,13 @@ export function MilestoneList({
 }: {
   projectId: string;
   items: Milestone[];
-  onAdd: (projectId: string, fd: FormData) => Promise<void>;
+  onAdd: (projectId: string, fd: FormData) => Promise<unknown>;
   onToggle: (
     id: string,
     projectId: string,
     completed: boolean,
-  ) => Promise<void>;
-  onDelete: (id: string, projectId: string) => Promise<void>;
+  ) => Promise<unknown>;
+  onDelete: (id: string, projectId: string) => Promise<unknown>;
   canManage: boolean;
 }) {
   const [pending, start] = useTransition(),
@@ -72,7 +73,7 @@ export function MilestoneList({
                   const completed = e.target.checked;
                   start(async () => {
                     try {
-                      await onToggle(m.id, projectId, completed);
+                      await settle(onToggle)(m.id, projectId, completed);
                     } catch (cause) {
                       toast(
                         cause instanceof Error

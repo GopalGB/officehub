@@ -1,12 +1,12 @@
 "use client";
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import {
   chronologicalStages,
   isCompletedStage,
   isActiveStage,
   timelineBarPosition,
 } from "@/lib/timeline";
-import { CheckCircle2, Circle, RotateCcw } from "lucide-react";
+import { CheckCircle2, Circle } from "lucide-react";
 import Link from "next/link";
 import { formatDate, cn } from "@/lib/utils";
 import { fiscalLabel, type FiscalConfig } from "@/lib/fiscal";
@@ -38,7 +38,9 @@ export function ProjectJourney({
   controls?: ReactNode;
 }) {
   const [filter, setFilter] = useState("all");
-  const [replay, setReplay] = useState(0);
+  // Read the clock after mount so server and browser render the same markup.
+  const [now, setNow] = useState<number | null>(null);
+  useEffect(() => setNow(Date.now()), []);
   const complete = isCompletedStage;
   const ordered = chronologicalStages(stages);
   const completed = stages.filter((stage) => complete(stage.status)).length;
@@ -55,12 +57,12 @@ export function ProjectJourney({
       .flatMap((s) => [new Date(s.start).getTime(), new Date(s.end).getTime()]),
     ...milestones.map((m) => new Date(m.date).getTime()),
   ];
-  const min = dates.length ? Math.min(...dates) : Date.now(),
+  const min = dates.length ? Math.min(...dates) : (now ?? 0),
     max = Math.max(...dates, min + 7 * 86400000);
   const span = Math.max(max - min, 7 * 86400000);
   const position = (date: string) =>
     Math.min(100, Math.max(0, ((new Date(date).getTime() - min) / span) * 100));
-  const today = ((Date.now() - min) / span) * 100;
+  const today = now === null ? -1 : ((now - min) / span) * 100;
   const barStyle = (stage: Stage) => {
     const geometry = timelineBarPosition(stage.start, stage.end, min, span);
     return { left: `${geometry.left}%`, width: `${geometry.width}%` };
@@ -73,17 +75,6 @@ export function ProjectJourney({
           <p className="mt-1 text-sm text-muted-foreground">
             Delivery and changes, at a glance.
           </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setReplay((value) => value + 1)}
-            className="motion-reduce:hidden inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium hover:bg-secondary"
-            aria-label="Replay project timeline"
-          >
-            <RotateCcw className="h-3.5 w-3.5" />
-            Replay
-          </button>
         </div>
       </div>
       <section
@@ -104,7 +95,6 @@ export function ProjectJourney({
           aria-valuenow={completed}
         >
           <div
-            key={replay}
             className="journey-draw h-full rounded-full bg-brand-orange"
             style={{
               width: `${stages.length ? (completed / stages.length) * 100 : 0}%`,
@@ -113,7 +103,6 @@ export function ProjectJourney({
         </div>
         <div className="mt-4 max-w-full overflow-x-auto pb-2">
           <ol
-            key={replay}
             className="flex min-w-max gap-3"
             aria-label="Project delivery stages"
           >
@@ -216,7 +205,7 @@ export function ProjectJourney({
             className="max-w-full overflow-x-auto pb-2"
             aria-label="Project timeline schedule"
           >
-            <div key={`${filter}:${replay}`} className="min-w-[600px]">
+            <div key={filter} className="min-w-[600px]">
               <div className="ml-52 flex justify-between border-b pb-2 text-[10px] text-muted-foreground">
                 {dates.length > 0 &&
                   Array.from({ length: 5 }, (_, i) => (

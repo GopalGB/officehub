@@ -1,4 +1,5 @@
 "use client";
+import { settle } from "@/lib/action-result";
 
 import { formText } from "@/lib/utils";
 import { useRef, useState, useTransition } from "react";
@@ -36,7 +37,7 @@ export function CreateUserForm() {
     start(async () => {
       try {
         fd.set("password", password);
-        await createUser(fd);
+        await settle(createUser)(fd);
         toast(`Account created for ${formText(fd, "email")}`, "success");
         ref.current?.reset();
         setPassword(suggestPassword());

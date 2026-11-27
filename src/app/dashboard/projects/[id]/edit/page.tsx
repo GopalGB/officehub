@@ -6,6 +6,8 @@ import { auth } from "../../../../../../auth";
 import { db } from "@/lib/db";
 import { ProjectForm } from "@/components/project/ProjectForm";
 import { updateProject } from "@/app/dashboard/actions";
+import { isFailure } from "@/lib/action-result";
+import { listBrandNames } from "@/lib/brands";
 import {
   canEditProject,
   projectAccessWhere,
@@ -27,6 +29,7 @@ export default async function EditProjectPage({
       members: { select: { id: true } },
       owner: { select: { name: true } },
       coOwner: { select: { name: true } },
+      brand: { select: { name: true } },
     },
   });
   if (!project) notFound();
@@ -42,7 +45,7 @@ export default async function EditProjectPage({
     redirect(`/dashboard/projects/${id}`);
   }
 
-  const [people, projects] = await Promise.all([
+  const [people, projects, brands] = await Promise.all([
     db.user.findMany({
       where: assignablePeopleWhere,
       select: { id: true, name: true },
@@ -53,10 +56,13 @@ export default async function EditProjectPage({
       select: { id: true, title: true },
       orderBy: { title: "asc" },
     }),
+    listBrandNames(db),
   ]);
   async function action(formData: FormData) {
     "use server";
-    await updateProject(id, formData);
+    const result = await updateProject(id, formData);
+    // Keep the form open with its message when saving failed.
+    if (isFailure(result)) return result;
     redirect(`/dashboard/projects/${id}`);
   }
 
@@ -72,6 +78,8 @@ export default async function EditProjectPage({
         action={action}
         people={people}
         projects={projects}
+        brands={brands}
+        projectId={id}
         canChangeOwner={
           project.ownerId === session.user.id ||
           isManagerOrAbove(session.user.role)
@@ -84,6 +92,7 @@ export default async function EditProjectPage({
           ),
           ownerName: project.owner.name,
           coOwnerName: project.coOwner?.name,
+          brand: project.brand?.name ?? null,
           title: project.title,
           summary: project.summary,
           description: (project.description as Block[] | null) ?? null,

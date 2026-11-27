@@ -3,17 +3,12 @@ import { auth } from "../../../../auth";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Button } from "@/components/ui/button";
+import { ActionForm } from "@/components/ui/action-form";
 import { changeOwnPassword } from "@/app/dashboard/actions";
 
 export default async function SettingsPage() {
   const session = await auth();
   if (!session?.user) redirect("/login");
-
-  async function changeAction(formData: FormData) {
-    "use server";
-    await changeOwnPassword(formData);
-  }
 
   return (
     <div className="mx-auto max-w-xl space-y-6">
@@ -49,7 +44,11 @@ export default async function SettingsPage() {
           <CardDescription>Pick something you can remember — your admin can&apos;t recover it for you.</CardDescription>
         </CardHeader>
         <CardContent>
-          <form action={changeAction} className="space-y-4">
+          <ActionForm
+            action={changeOwnPassword}
+            label="Update password"
+            successMessage="Password changed. Sign in again with your new password."
+          >
             <div className="space-y-2">
               <Label htmlFor="current">Current password</Label>
               <Input id="current" name="current" type="password" required />
@@ -58,8 +57,7 @@ export default async function SettingsPage() {
               <Label htmlFor="next">New password</Label>
               <Input id="next" name="next" type="password" minLength={8} required />
             </div>
-            <Button type="submit">Update password</Button>
-          </form>
+          </ActionForm>
         </CardContent>
       </Card>
     </div>

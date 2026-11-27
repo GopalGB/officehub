@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Copy, Check } from "lucide-react";
+import { copyText } from "@/lib/clipboard";
 import { createInvitation } from "@/app/dashboard/actions";
 import { useToast } from "@/components/ui/toast";
 
@@ -46,7 +47,10 @@ export function InviteForm() {
 
   async function copy() {
     if (!result) return;
-    await navigator.clipboard.writeText(result.url);
+    if (!(await copyText(result.url))) {
+      toast("Select the link and press Ctrl+C to copy it", "info");
+      return;
+    }
     setCopied(true);
     toast("Invite link copied", "success");
     setTimeout(() => setCopied(false), 2000);

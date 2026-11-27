@@ -20,6 +20,8 @@ import {
 } from "@/app/dashboard/actions";
 import { ActionForm } from "@/components/ui/action-form";
 const weekdays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+// Weekends are not planned; fiscal weeks still start on Sunday.
+const workdays = [1, 2, 3, 4, 5];
 export default async function PlannerPage({
   searchParams,
 }: {
@@ -37,7 +39,9 @@ export default async function PlannerPage({
   const start = weekStart(validDate(params.week) ?? localToday());
   const candidate = validDate(params.day) ?? localToday();
   const selected =
-    candidate >= start && candidate < addDays(start, 7)
+    candidate >= start &&
+    candidate < addDays(start, 7) &&
+    workdays.includes(candidate.getUTCDay())
       ? candidate
       : addDays(start, 1);
   const [plans, projects, configs, history] = await Promise.all([
@@ -48,7 +52,7 @@ export default async function PlannerPage({
         project: projectAccessWhere(session.user),
       },
       include: { overrides: true },
-      orderBy: { startTime: "asc" },
+      orderBy: { createdAt: "asc" },
     }),
     db.project.findMany({
       where: projectAccessWhere(session.user),
@@ -67,7 +71,7 @@ export default async function PlannerPage({
   ]);
   const names = Object.fromEntries(projects.map((p) => [p.id, p.title]));
   const week = dateKey(start);
-  const days = Array.from({ length: 7 }, (_, i) => addDays(start, i));
+  const days = workdays.map((i) => addDays(start, i));
   return (
     <div className="mx-auto max-w-6xl space-y-6">
       <header className="flex flex-wrap items-end justify-between gap-3">
@@ -99,7 +103,7 @@ export default async function PlannerPage({
           </Link>
         </div>
       </header>
-      <div className="grid grid-cols-7 gap-1 sm:gap-3">
+      <div className="grid grid-cols-5 gap-1 sm:gap-3">
         {days.map((day) => {
           const load = dayLoad(plans, day),
             key = dateKey(day);
@@ -119,26 +123,10 @@ export default async function PlannerPage({
                 {day.getUTCDate()}
               </p>
               <p className="mt-3 text-[11px] font-semibold sm:text-base lg:text-lg">
-                {load.hours}h
+                {load.entries.length}
               </p>
-              <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-secondary">
-                <div
-                  className={
-                    load.hours > 8
-                      ? "h-full bg-brand-orange"
-                      : "h-full bg-brand-blue"
-                  }
-                  style={{ width: `${Math.min(100, (load.hours / 8) * 100)}%` }}
-                />
-              </div>
-              <p className="mt-2 hidden text-[10px] text-muted-foreground lg:block">
-                {load.entries.length} focus block
-                {load.entries.length === 1 ? "" : "s"}
-                {load.overlap
-                  ? " · Overlap"
-                  : load.hours > 8
-                    ? " · Over capacity"
-                    : ""}
+              <p className="mt-1 hidden text-[10px] text-muted-foreground sm:block">
+                focus block{load.entries.length === 1 ? "" : "s"}
               </p>
             </Link>
           );
@@ -156,14 +144,6 @@ export default async function PlannerPage({
               as planned.
             </p>
           </div>
-          {dayLoad(plans, selected).overlap && (
-            <p
-              role="status"
-              className="rounded-lg bg-brand-tint p-3 text-sm text-brand-navy"
-            >
-              Some focus blocks overlap. Adjust their start times below.
-            </p>
-          )}
           {plans.map((plan) => {
             const entry = plannedDay(plan, selected);
             if (!entry) return null;
@@ -172,10 +152,7 @@ export default async function PlannerPage({
                 key={plan.id}
                 className={`relative border-l-2 pl-4 ${entry.skipped ? "border-border opacity-70" : "border-brand-orange"}`}
               >
-                <div className="flex justify-between gap-2">
-                  <p className="text-xs font-semibold text-muted-foreground">
-                    {entry.startTime} · {entry.hours} hours
-                  </p>
+                <div className="flex justify-end gap-2">
                   <span className="pill">
                     {entry.skipped
                       ? "Skipped"
@@ -232,29 +209,6 @@ export default async function PlannerPage({
                           defaultValue={entry.title}
                         />
                       </label>
-                      <div className="grid grid-cols-2 gap-3">
-                        <label className="field">
-                          Start time
-                          <input
-                            type="time"
-                            name="startTime"
-                            required
-                            defaultValue={entry.startTime}
-                          />
-                        </label>
-                        <label className="field">
-                          Hours
-                          <input
-                            type="number"
-                            name="hours"
-                            required
-                            min="0.25"
-                            max="24"
-                            step="0.25"
-                            defaultValue={entry.hours}
-                          />
-                        </label>
-                      </div>
                       <label className="field">
                         Reason / note
                         <textarea
@@ -306,10 +260,7 @@ export default async function PlannerPage({
               {plans.map((plan) => (
                 <details key={plan.id} className="rounded-lg border p-3">
                   <summary className="cursor-pointer text-sm font-medium">
-                    {plan.title}{" "}
-                    <span className="font-normal text-muted-foreground">
-                      · {plan.hours}h / day
-                    </span>
+                    {plan.title}
                   </summary>
                   <div className="mt-4">
                     <PlanForm plan={plan} week={week} projects={projects} />
@@ -381,8 +332,6 @@ function PlanForm({
     version: number;
     projectId: string;
     title: string;
-    hours: number;
-    startTime: string;
     weekdays: number[];
   };
   week: string;
@@ -422,47 +371,22 @@ function PlanForm({
       <fieldset>
         <legend className="mb-2 text-xs font-medium">Repeat on</legend>
         <div className="flex flex-wrap gap-2">
-          {weekdays.map((day, i) => (
+          {workdays.map((i) => (
             <label
-              key={day}
+              key={i}
               className="flex items-center gap-1.5 rounded-md border px-2 py-2 text-xs"
             >
               <input
                 name="weekdays"
                 type="checkbox"
                 value={i}
-                defaultChecked={
-                  plan ? plan.weekdays.includes(i) : i > 0 && i < 6
-                }
+                defaultChecked={plan ? plan.weekdays.includes(i) : true}
               />
-              {day}
+              {weekdays[i]}
             </label>
           ))}
         </div>
       </fieldset>
-      <div className="grid grid-cols-2 gap-3">
-        <label className="field">
-          Start time
-          <input
-            name="startTime"
-            type="time"
-            required
-            defaultValue={plan?.startTime ?? "09:00"}
-          />
-        </label>
-        <label className="field">
-          Hours per day
-          <input
-            name="hours"
-            type="number"
-            required
-            min="0.25"
-            step="0.25"
-            max="24"
-            defaultValue={plan?.hours ?? 2}
-          />
-        </label>
-      </div>
     </ActionForm>
   );
 }

@@ -5,113 +5,13 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import type { Role } from "@prisma/client";
-import { isManagerOrAbove, isAdmin } from "@/lib/rbac";
-import {
-  Folders,
-  LayoutDashboard,
-  Users2,
-  Settings,
-  BarChart3,
-  CheckSquare,
-  BookOpen,
-  Calendar,
-} from "lucide-react";
+import { navSections, isNavActive } from "@/lib/nav";
 
 /** Keep primary destinations short; project views and import live within Projects. */
 export function Sidebar({ role }: { role: Role }) {
   const pathname = usePathname();
-  type NavItem = {
-    href: string;
-    label: string;
-    icon: typeof LayoutDashboard;
-    show: boolean;
-    exact?: boolean;
-  };
-  const sections: { heading: string; items: NavItem[] }[] = [
-    {
-      heading: "Home",
-      items: [
-        {
-          href: "/dashboard",
-          label: "My workspace",
-          icon: LayoutDashboard,
-          show: true,
-          exact: true,
-        },
-      ],
-    },
-    {
-      heading: "Work",
-      items: [
-        {
-          href: "/dashboard/projects",
-          label: "Projects",
-          icon: Folders,
-          show: true,
-        },
-        {
-          href: "/dashboard/planner",
-          label: "My week",
-          icon: Calendar,
-          show: true,
-        },
-        {
-          href: "/dashboard/reports",
-          label: "Reports",
-          icon: CheckSquare,
-          show: true,
-        },
-        {
-          href: "/dashboard/calendar",
-          label: "Fiscal calendar",
-          icon: Calendar,
-          show: true,
-        },
-        {
-          href: "/dashboard/requests",
-          label: "Request pool",
-          icon: Folders,
-          show: isManagerOrAbove(role),
-        },
-        {
-          href: "/dashboard/manager",
-          label: "Team overview",
-          icon: BarChart3,
-          show: isManagerOrAbove(role),
-        },
-      ],
-    },
-    {
-      heading: "Knowledge",
-      items: [
-        { href: "/dashboard/pages", label: "Wiki", icon: BookOpen, show: true },
-      ],
-    },
-    {
-      // Personal/workspace settings belong to everyone; the Admin section is
-      // strictly admin-only so the heading no longer leaks to MEMBERs (OH-13).
-      heading: "Workspace",
-      items: [
-        {
-          href: "/dashboard/settings",
-          label: "Settings",
-          icon: Settings,
-          show: true,
-        },
-      ],
-    },
-    {
-      heading: "Admin",
-      items: [
-        {
-          href: "/dashboard/team",
-          label: "Team",
-          icon: Users2,
-          show: isAdmin(role),
-        },
-      ],
-    },
-  ];
+  const sections = navSections(role);
+  const all = sections.flatMap((s) => s.items);
 
   return (
     <aside className="hidden w-60 shrink-0 border-r border-slate-200 bg-white p-3 md:flex md:flex-col">
@@ -122,8 +22,7 @@ export function Sidebar({ role }: { role: Role }) {
       </div>
       <nav className="flex flex-col gap-4 overflow-y-auto">
         {sections.map((sec) => {
-          const visible = sec.items.filter((i) => i.show);
-          if (visible.length === 0) return null;
+          const visible = sec.items;
           return (
             <div key={sec.heading}>
               <p className="mb-1 px-2 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
@@ -131,18 +30,7 @@ export function Sidebar({ role }: { role: Role }) {
               </p>
               <div className="flex flex-col gap-0.5">
                 {visible.map((l) => {
-                  const active = l.exact
-                    ? pathname === l.href
-                    : (pathname === l.href ||
-                        (l.href === "/dashboard/projects" &&
-                          pathname === "/dashboard/board") ||
-                        pathname.startsWith(l.href + "/")) &&
-                      !visible.some(
-                        (other) =>
-                          other.href.length > l.href.length &&
-                          (pathname === other.href ||
-                            pathname.startsWith(other.href + "/")),
-                      );
+                  const active = isNavActive(l, pathname, all);
                   const Icon = l.icon;
                   return (
                     <Link

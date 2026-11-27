@@ -151,6 +151,13 @@ else
   say ".env already exists — leaving it alone"
 fi
 
+# Existing installs: add a vault key once so the password vault works.
+if ! grep -qE '^VAULT_KEY="?[A-Za-z0-9+/=]{16,}' .env; then
+  sed -i.bak '/^VAULT_KEY=/d' .env && rm -f .env.bak
+  echo "VAULT_KEY=\"$(openssl rand -base64 32 | tr -d '\n')\"" >> .env
+  echo "Added VAULT_KEY to .env (back it up with the database)."
+fi
+
 # ───── install + migrate + seed ─────
 say "Installing dependencies (npm install)"
 npm install --no-audit --no-fund 2>&1 | tail -5

@@ -1,6 +1,7 @@
 "use client";
 import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { copyText } from "@/lib/clipboard";
 export function CopyLink({ url }: { url: string }) {
   const input = useRef<HTMLInputElement>(null),
     [message, setMessage] = useState("");
@@ -21,16 +22,8 @@ export function CopyLink({ url }: { url: string }) {
           type="button"
           onClick={() => {
             void (async () => {
-              try {
-                if (navigator.clipboard && window.isSecureContext)
-                  await navigator.clipboard.writeText(url);
-                else {
-                  input.current?.select();
-                  if (!document.execCommand("copy"))
-                    throw new Error("Select link");
-                }
-                setMessage("Link copied");
-              } catch {
+              if (await copyText(url)) setMessage("Link copied");
+              else {
                 input.current?.select();
                 setMessage("Press Ctrl+C to copy the selected link");
               }

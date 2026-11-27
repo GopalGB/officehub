@@ -6,7 +6,7 @@ export function generateInviteToken(): string {
 }
 
 export function inviteUrl(token: string, baseUrl?: string) {
-  const base = baseUrl ?? process.env.NEXTAUTH_URL ?? "http://localhost:3000";
+  const base = baseUrl || process.env.NEXTAUTH_URL || "http://localhost:3000";
   return `${base.replace(/\/$/, "")}/invite/${token}`;
 }
 

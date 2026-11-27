@@ -1,8 +1,11 @@
 "use client";
+import { settle } from "@/lib/action-result";
 
 import { useState, useTransition } from "react";
 import type { Block } from "@blocknote/core";
 import { Button } from "@/components/ui/button";
+import { parseJSON } from "@/lib/utils";
+import { SmartSuggest } from "@/components/common/SmartSuggest";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
@@ -21,7 +24,7 @@ import {
 } from "@/lib/allocation-form";
 
 interface Props {
-  action: (formData: FormData) => Promise<void>;
+  action: (formData: FormData) => Promise<unknown>;
   initial?: {
     title?: string;
     ownerId?: string;
@@ -34,6 +37,7 @@ interface Props {
     savedHours?: number | null;
     department?: string | null;
     subTeam?: string | null;
+    brand?: string | null;
     additionalDetails?: AdditionalDetail[];
     acceptanceCriteria?: string | null;
     version?: number;
@@ -46,10 +50,13 @@ interface Props {
   };
   people?: { id: string; name: string }[];
   projects?: { id: string; title: string }[];
+  brands?: string[];
   canChangeOwner?: boolean;
   ownerSelectable?: boolean;
   currentUserId?: string;
   submitLabel?: string;
+  /** Excluded from duplicate suggestions while editing. */
+  projectId?: string;
 }
 
 function toInputDate(d: Date | null | undefined) {
@@ -64,10 +71,12 @@ export function ProjectForm({
   initial,
   people = [],
   projects = [],
+  brands = [],
   canChangeOwner = false,
   ownerSelectable = true,
   currentUserId,
   submitLabel = "Save project",
+  projectId,
 }: Props) {
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -105,7 +114,7 @@ export function ProjectForm({
             const raw = fd.get("additionalDetails");
             if (typeof raw === "string") {
               const checked = additionalDetailsSchema.safeParse(
-                JSON.parse(raw),
+                parseJSON(raw),
               );
               if (!checked.success) {
                 revealDetails();
@@ -116,7 +125,7 @@ export function ProjectForm({
                 return;
               }
             }
-            await action(preserveCurrentAllocations(fd));
+            await settle(action)(preserveCurrentAllocations(fd));
           } catch (cause) {
             revealDetails();
             // Next handles successful action redirects before resolving this call.
@@ -154,6 +163,8 @@ export function ProjectForm({
           placeholder="What's this project about, in one sentence?"
         />
       </div>
+      {/* Suggestions help when starting work, not when editing it. */}
+      {!projectId && <SmartSuggest kind="project" />}
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <div className="space-y-2">
@@ -319,18 +330,6 @@ export function ProjectForm({
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="estimatedHours">Estimated effort (hours)</Label>
-              <Input
-                id="estimatedHours"
-                name="estimatedHours"
-                type="number"
-                min="0"
-                max="100000"
-                step="0.25"
-                defaultValue={initial?.estimatedHours ?? ""}
-              />
-            </div>
-            <div className="space-y-2">
               <Label htmlFor="savedHours">
                 Expected time saved (hours / week)
               </Label>
@@ -343,6 +342,22 @@ export function ProjectForm({
                 step="0.25"
                 defaultValue={initial?.savedHours ?? ""}
               />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="brand">Brand</Label>
+              <Input
+                id="brand"
+                name="brand"
+                list="project-brand-options"
+                maxLength={60}
+                placeholder="Type or pick a brand"
+                defaultValue={initial?.brand ?? ""}
+              />
+              <datalist id="project-brand-options">
+                {brands.map((name) => (
+                  <option key={name} value={name} />
+                ))}
+              </datalist>
             </div>
             <div className="space-y-2">
               <Label htmlFor="department">Team / department</Label>

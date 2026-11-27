@@ -1,4 +1,5 @@
 "use client";
+import { settle } from "@/lib/action-result";
 
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { createPortal } from "react-dom";
@@ -290,7 +291,7 @@ export function ProjectBoardClient({
     const moveAt = ++lastMoveRef.current;
     start(async () => {
       try {
-        await moveProject({ projectId, toStatus, targetCardId, placement });
+        await settle(moveProject)({ projectId, toStatus, targetCardId, placement });
         if (moveAt === lastMoveRef.current) {
           toast(`Moved to ${col?.label ?? toStatus}`, "success");
         }
@@ -391,6 +392,7 @@ export function ProjectBoardClient({
         </Button>
       </div>
       <DndContext
+        id="project-board"
         sensors={sensors}
         collisionDetection={collisions}
         onDragStart={onDragStart}

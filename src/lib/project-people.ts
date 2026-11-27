@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 // Administrative accounts manage the workspace; they are not delivery staff.
 export const assignablePeopleWhere = {
   active: true,
+  notActive: false,
   role: { not: "ADMIN" },
 } satisfies Prisma.UserWhereInput;
 

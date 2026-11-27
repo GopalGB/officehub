@@ -1,3 +1,4 @@
+import { shareOrigin } from "@/lib/origin";
 import { assignablePeopleWhere } from "@/lib/project-people";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -14,6 +15,7 @@ import { ActionForm } from "@/components/ui/action-form";
 import { CopyLink } from "@/components/requests/CopyLink";
 import { RequestContext } from "@/components/requests/RequestContext";
 import { requestDetailsSelect } from "@/lib/request-details";
+import { similarityIndex, weightedEstimate } from "@/lib/similarity";
 export default async function RequestsPage({
   searchParams,
 }: {
@@ -67,17 +69,44 @@ export default async function RequestsPage({
       db.projectRequest.count({ where: { status: "PENDING" } }),
     ],
   );
-  const origin = (
-    process.env.AUTH_URL ||
-    process.env.NEXTAUTH_URL ||
-    "http://localhost:3000"
-  ).replace(/\/$/, "");
+  const origin = await shareOrigin();
+  // Duplicate check for intake: compare each request with existing projects
+  // and earlier requests by word similarity (computed here, never shown to requesters).
+  const [matchProjects, matchRequests] = await Promise.all([
+    db.project.findMany({
+      select: { id: true, title: true, summary: true, savedHours: true, status: true },
+      orderBy: { updatedAt: "desc" },
+      take: 2000,
+    }),
+    db.projectRequest.findMany({
+      select: { id: true, title: true, description: true, status: true },
+      orderBy: { createdAt: "desc" },
+      take: 1000,
+    }),
+  ]);
+  const index = similarityIndex([
+    ...matchProjects.map((p) => ({
+      text: `${p.title} ${p.title} ${p.summary ?? ""}`,
+      item: { id: p.id, title: p.title, href: `/dashboard/projects/${p.id}`, type: "Project", status: p.status, savedHours: p.savedHours },
+    })),
+    ...matchRequests.map((r) => ({
+      text: `${r.title} ${r.title} ${r.description}`,
+      item: { id: r.id, title: r.title, href: `/dashboard/requests?status=${r.status}`, type: "Request", status: r.status, savedHours: null as number | null },
+    })),
+  ]);
+  const insight = (request: { id: string; title: string; description: string }) => {
+    const matches = index.rank(`${request.title} ${request.title} ${request.description}`, 12, 0.12).filter((m) => m.item.id !== request.id);
+    const hours = weightedEstimate(
+      matches.filter((m) => m.item.savedHours).slice(0, 5).map((m) => ({ ...m, item: { value: m.item.savedHours ?? 0 } })),
+    );
+    return { duplicates: matches.filter((m) => m.score >= 0.4).slice(0, 4), hours };
+  };
   return (
     <div className="mx-auto max-w-6xl space-y-6">
       <header>
         <p className="eyebrow">Management / Intake</p>
         <h1 className="page-title">
-          Request pool <span className="ml-2 pill">{pending} pending</span>
+          Request intake <span className="ml-2 pill">{pending} pending</span>
         </h1>
         <p className="page-subtitle">
           Collect project requests through a form, review effort and savings,
@@ -194,10 +223,38 @@ export default async function RequestsPage({
             <p className="mt-4 whitespace-pre-wrap text-sm leading-relaxed">
               {request.description}
             </p>
+            {(() => {
+              const found = insight(request);
+              if (!found.duplicates.length && (found.hours === null || request.savedHours !== null)) return null;
+              return (
+                <div className="mt-3 rounded-lg border border-brand-blue/30 bg-blue-50/60 p-3 text-xs text-brand-navy">
+                  {found.duplicates.length > 0 && (
+                    <>
+                      <p className="font-semibold text-brand-orange">Possible duplicates</p>
+                      <ul className="mt-1 space-y-0.5">
+                        {found.duplicates.map((m) => (
+                          <li key={m.item.type + m.item.id}>
+                            <Link className="text-link" href={m.item.href}>
+                              {m.item.title}
+                            </Link>{" "}
+                            <span className="text-muted-foreground">
+                              · {m.item.type} · {m.item.status.toLowerCase().replaceAll("_", " ")} · {Math.round(m.score * 100)}% similar
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    </>
+                  )}
+                  {found.hours !== null && request.savedHours === null && (
+                    <p className={found.duplicates.length ? "mt-2" : ""}>
+                      Similar delivered work saves about <strong>{found.hours} h / week</strong>.
+                    </p>
+                  )}
+                  <p className="mt-1 text-[10px] text-muted-foreground">Word-similarity matching on this server.</p>
+                </div>
+              );
+            })()}
             <div className="mt-4 flex flex-wrap gap-4 text-xs text-muted-foreground">
-              <span>
-                Estimated: <strong>{request.estimatedHours}h</strong>
-              </span>
               <span>
                 Time saved: <strong>{request.savedHours ?? "—"}h / week</strong>
               </span>

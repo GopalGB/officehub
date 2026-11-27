@@ -1,4 +1,5 @@
 "use client";
+import { settle } from "@/lib/action-result";
 
 import { useState, useTransition } from "react";
 import { Plus, X } from "lucide-react";
@@ -47,7 +48,7 @@ export function TagPicker({
     setSelected(next);
     start(async () => {
       try {
-        await setProjectTags(projectId, Array.from(next));
+        await settle(setProjectTags)(projectId, Array.from(next));
       } catch (e) {
         setSelected(prev);
         toast(e instanceof Error ? e.message : "Could not update tags", "error");
@@ -62,7 +63,7 @@ export function TagPicker({
     fd.set("color", newColor);
     start(async () => {
       try {
-        await createTag(fd);
+        await settle(createTag)(fd);
         toast(`Added "${newName.trim()}"`, "success");
         setNewName("");
         setAdding(false);

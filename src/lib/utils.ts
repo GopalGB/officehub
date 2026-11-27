@@ -53,3 +53,51 @@ export function formText(form: FormData, name: string): string {
   const value = form.get(name);
   return typeof value === "string" ? value : "";
 }
+
+/** Wall-clock times typed into datetime-local fields are stored as entered
+ * (UTC) so every viewer sees the time that was typed, whatever the server zone. */
+export function formatWallTime(d: Date | string | null | undefined, fallback = "—") {
+  if (!d) return fallback;
+  const date = new Date(d);
+  if (Number.isNaN(date.getTime())) return fallback;
+  return format(
+    new Date(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), date.getUTCHours(), date.getUTCMinutes()),
+    "EEE dd MMM yyyy, HH:mm",
+  );
+}
+
+export function wallTimeInput(d: Date | null | undefined) {
+  return d ? new Date(d).toISOString().slice(0, 16) : "";
+}
+
+/** "Now" in the same stored-as-typed convention, for defaults and comparisons. */
+export function wallNow() {
+  const now = new Date();
+  return new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours(), now.getMinutes()));
+}
+
+/** Next.js signals redirect()/notFound() from server actions with special
+ * errors; client catch blocks must let them through instead of toasting. */
+export function isNavigationSignal(error: unknown) {
+  const digest =
+    error && typeof error === "object" && "digest" in error ? String(error.digest) : "";
+  return digest.startsWith("NEXT_REDIRECT") || digest.startsWith("NEXT_HTTP_ERROR_FALLBACK") || digest === "NEXT_NOT_FOUND";
+}
+
+/** JSON.parse that returns null instead of throwing on bad input. */
+export function parseJSON<T = unknown>(value: unknown): T | null {
+  if (typeof value !== "string" || !value.trim()) return null;
+  try {
+    return JSON.parse(value) as T;
+  } catch {
+    return null;
+  }
+}
+
+/** User-facing text for a caught error; hides Next.js production placeholders. */
+export function friendlyError(error: unknown, fallback = "Could not save. Please try again.") {
+  if (!(error instanceof Error) || !error.message) return fallback;
+  if (error.message.includes("omitted in production") || error.message.includes("Server Components render"))
+    return fallback;
+  return error.message;
+}

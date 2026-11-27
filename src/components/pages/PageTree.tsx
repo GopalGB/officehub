@@ -1,10 +1,12 @@
 "use client";
+import { settle } from "@/lib/action-result";
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { ChevronRight, ChevronDown, Plus, FileText } from "lucide-react";
 import { createPage } from "@/app/dashboard/actions";
-import { cn } from "@/lib/utils";
+import { cn, isNavigationSignal } from "@/lib/utils";
+import { useToast } from "@/components/ui/toast";
 
 export interface PageNode {
   id: string;
@@ -97,12 +99,20 @@ function containsCurrent(node: PageNode, currentId?: string): boolean {
 
 function NewPageInline({ parentId, active }: { parentId: string; active: boolean }) {
   const [pending, start] = useTransition();
+  const { toast } = useToast();
   return (
     <form
       action={(fd) => {
         fd.set("parentId", parentId);
         fd.set("title", "Untitled");
-        start(() => createPage(fd));
+        start(async () => {
+          try {
+            await settle(createPage)(fd);
+          } catch (error) {
+            if (isNavigationSignal(error)) throw error;
+            toast(error instanceof Error ? error.message : "Could not create the page", "error");
+          }
+        });
       }}
       onClick={(e) => e.stopPropagation()}
     >
@@ -123,12 +133,20 @@ function NewPageInline({ parentId, active }: { parentId: string; active: boolean
 
 function NewPageButton({ parentId, label }: { parentId: string | null; label: string }) {
   const [pending, start] = useTransition();
+  const { toast } = useToast();
   return (
     <form
       action={(fd) => {
         if (parentId) fd.set("parentId", parentId);
         fd.set("title", "Untitled");
-        start(() => createPage(fd));
+        start(async () => {
+          try {
+            await settle(createPage)(fd);
+          } catch (error) {
+            if (isNavigationSignal(error)) throw error;
+            toast(error instanceof Error ? error.message : "Could not create the page", "error");
+          }
+        });
       }}
     >
       <button

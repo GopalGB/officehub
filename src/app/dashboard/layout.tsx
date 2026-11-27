@@ -6,10 +6,12 @@ import { Header } from "@/components/layout/Header";
 import { ToastProvider } from "@/components/ui/toast";
 import { MobileNav } from "@/components/layout/MobileNav";
 import { CommandPalette } from "@/components/layout/CommandPalette";
+import { reminderFeed } from "@/lib/reminder-feed";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const session = await auth();
   if (!session?.user) redirect("/login");
+  const dueCount = (await reminderFeed(session.user.id, 0)).length;
 
   return (
     <ToastProvider>
@@ -21,6 +23,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
             name={session.user.name}
             email={session.user.email}
             role={session.user.role}
+            dueCount={dueCount}
             mobileNav={<MobileNav role={session.user.role} />}
           />
           <main className="min-w-0 max-w-full flex-1 overflow-y-auto p-4 md:p-6">
